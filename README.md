@@ -1,0 +1,1 @@
+git config --global alias.logs "log --oneline --graph --decorate"

@@ -1,0 +1,13 @@
+{
+    "rules": [
+      {
+        "pattern": "models/**/*.py",
+        "run": "openspec sync openspec/specs/data_models.yaml --overwrite"
+      },
+      {
+        "pattern": "santa_agent/**/*.py",
+        "run": "openspec sync openspec/specs/tools_santa.yaml --overwrite"
+      }
+    ]
+  }
+  

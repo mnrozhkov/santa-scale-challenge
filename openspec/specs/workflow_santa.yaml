@@ -1,0 +1,31 @@
+version: 0.1.0
+workflow:
+  name: santa_agent
+
+steps:
+  - name: analyze
+    tool: analyze_profile
+
+  - name: recommend
+    tool: gift_recommender
+    input:
+      kid_profile: from(analyze)
+
+  - name: wish
+    tool: wish_generator
+    input:
+      kid_profile: from(analyze)
+      gift_recommendation: from(recommend)
+
+  - name: image
+    tool: image_generator
+    input:
+      gift_recommendation: from(recommend)
+
+  - name: card
+    tool: card_formatter
+    input:
+      kid_profile: from(analyze)
+      gift: from(recommend)
+      wish: from(wish)
+      image: from(image)
