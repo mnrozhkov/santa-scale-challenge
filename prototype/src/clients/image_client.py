@@ -200,9 +200,13 @@ class ImageClient:
             elif hasattr(image_obj, "b64_json") and image_obj.b64_json:
                 # Return base64 - will be converted to data URL in _ensure_url_format
                 return image_obj.b64_json
-            elif hasattr(image_obj, "revised_prompt"):
-                # Some services return revised_prompt, try to get URL from response
-                return str(image_obj)
+            else:
+                # No valid image data found in response
+                raise ValueError(
+                    f"Could not extract image from response. "
+                    f"Response object has attributes: {dir(image_obj)}. "
+                    f"Expected 'url' or 'b64_json' field."
+                )
         else:
             raise ValueError(f"Unexpected response format: {response}")
 

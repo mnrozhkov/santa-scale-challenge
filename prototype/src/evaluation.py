@@ -235,5 +235,5 @@ def evaluate_quality_with_judge(
             score = float(judge_response.strip().split()[0])
             rationale = judge_response.strip()
             return max(0.0, min(1.0, score)), rationale
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, IndexError):
             return 0.5, "Failed to parse judge response"
