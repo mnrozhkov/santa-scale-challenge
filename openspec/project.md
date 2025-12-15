@@ -61,13 +61,7 @@ The Santa Scale Challenge is a reference implementation demonstrating how to orc
 - Branch strategy: TBD (document when established)
 
 ## Domain Context
-- **KidProfile** - Contains `id`, `name`, `age`, `wishlist` (List[str])
-- **GiftRecommendation** - Contains `id`, `kid_id`, `gifts` (List[str]), `rationale`, `model_version`
-- **Wish** - Contains `id`, `kid_id`, `text`, `model_version`
-- **CardImage** - Contains `id`, `kid_id`, `image_url`, `model_version`
-- **GiftCard** - Final output containing `id`, `kid_id`, `recommendation_id`, `wish_id`, `image_id`, `rendered_url`, `status`
 - **Workflow stages**: Analyze Kid Profile → Gift Recommender → Wish Generator → Image Generation → Card Formatter → Delivery Protocol
-- **Performance target**: ~5 seconds per workflow, 2 billion cards in 30 days requires distributed processing
 
 ## Important Constraints
 - **Scale requirement** - Must handle billions of cards, requiring distributed execution
@@ -88,7 +82,7 @@ The Santa Scale Challenge is a reference implementation demonstrating how to orc
 ## Development Workflow
 - **OpenSpec integration** - Use OpenSpec for creating change proposals and managing specifications
 - **Auto-sync** - `.cursor/rules.json` automatically syncs YAML specs when Python files change:
-  - `models/**/*.py` → syncs `openspec/data_models.yaml`
-  - `santa_agent/**/*.py` → syncs `openspec/tools_santa.yaml`
+  - `models/**/*.py` → syncs `openspec/specs/data_models.yaml`
+  - `santa_agent/**/*.py` → syncs `openspec/specs/tools_santa.yaml`
 - **Change proposals** - Create proposals in `openspec/changes/` before implementing new features or breaking changes
 - **Specification files** - Maintain YAML specs in `openspec/` for data models, tools, workflows, and services
