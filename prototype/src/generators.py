@@ -2,9 +2,10 @@
 
 from typing import Any
 
+from src.clients.image_client import ImageClient
 from src.clients.llm_client import LLMClient
+from src.data_scheme import CardImage, GiftRecommendation, KidProfile, Wish
 from src.prompts import generate_gift_recommendation_prompt, generate_wish_prompt
-from src.test_samples import GiftRecommendation, KidProfile, Wish
 
 
 def generate_gift_recommendation(
@@ -210,3 +211,62 @@ def generate_wish(
         )
 
         return wish, metrics
+
+
+def generate_card_image(
+    image_client: ImageClient, kid_profile: KidProfile, gift_recommendation: GiftRecommendation
+) -> tuple[CardImage, dict[str, Any]]:
+    """
+    Generate a card image based on kid profile and gift recommendations.
+
+    Args:
+        image_client: Initialized image generation client
+        kid_profile: Profile of the kid
+        gift_recommendation: Previously generated gift recommendation
+
+    Returns:
+        Tuple of (CardImage, metrics_dict) where metrics includes:
+        - latency_ms: Time taken in milliseconds
+        - model: Model name used
+    """
+    # Create a prompt for image generation
+    main_gift = gift_recommendation.gifts[0] if gift_recommendation.gifts else "birthday gift"
+
+    #     prompt = f"""A magical, festive holiday card illustration featuring:
+    # - A cheerful, age-appropriate scene for a {kid_profile.age}-year-old child
+    # - A {main_gift} in the center of the image
+    # - Holiday decorations: Christmas tree, snow, presents, stars
+    # - Warm, colorful, and joyful atmosphere
+    # - Suitable for a holiday gift card
+    # - Style: whimsical, child-friendly, magical
+    # - No text in the image"""
+
+    prompt = f"""
+    A magical, festive Christmas postcard illustration featuring:
+- A joyful, whimsical holiday scene suitable for a child
+- The central item: a {main_gift} (shown as a magical, beautifully illustrated object)
+- A cheerful, fictional child character (no resemblance to real people) admiring or interacting with the gift
+- Bright Christmas decorations: trees, ornaments, presents, snow, twinkling lights, stars
+- Warm, vibrant, colorful atmosphere with a magical glow
+- Whimsical, storybook-style art appropriate for a children’s holiday card
+- Soft lighting, sparkles, and a sense of wonder
+- No text, signatures, or writing anywhere in the image
+- No copyrighted characters
+
+Style:
+- Child-friendly, illustrated, magical
+- Clean, centered composition suitable for a printed holiday card
+    """
+
+    # Unified API: all services use the same simple call
+    # Defaults are handled automatically by ImageClient (1024x1024, PNG format, service-appropriate settings)
+    image_url, metrics = image_client.generate(prompt=prompt)
+
+    image = CardImage(
+        kid_id=kid_profile.id,
+        image_url=image_url,
+        model_version=image_client.model_version,
+        prompt=prompt,
+    )
+
+    return image, metrics
