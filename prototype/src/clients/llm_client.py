@@ -1,5 +1,6 @@
 """LLM client for OpenAI-compatible and self-hosted vLLM services."""
 
+import json
 import os
 import time
 from datetime import datetime
@@ -35,14 +36,16 @@ class LLMClient:
         prompt: str,
         temperature: float = 0.7,
         max_tokens: int = 500,
+        response_format: dict[str, Any] | None = None,
     ) -> tuple[str, dict[str, Any]]:
         """
         Generate text using the LLM service.
 
         Args:
             prompt: Input prompt
-            temperature: Sampling temperature (0.0 to 2.0)
+            temperature: Sampling temperature (0.0 to 1.0)
             max_tokens: Maximum tokens to generate
+            response_format: Optional response format (e.g., {"type": "json_object"})
 
         Returns:
             Tuple of (generated_text, metrics_dict) where metrics includes:
@@ -77,6 +80,10 @@ class LLMClient:
             else:
                 payload["max_tokens"] = max_tokens
 
+            # Add response_format if provided (for JSON mode)
+            if response_format:
+                payload["response_format"] = response_format
+
             endpoint = f"{self.base_url}/chat/completions"
         else:
             payload = {
@@ -84,6 +91,7 @@ class LLMClient:
                 "temperature": temperature,
                 "max_tokens": max_tokens,
             }
+            # Note: vLLM may not support response_format, so we skip it
             endpoint = f"{self.base_url}/generate"
 
         start_time = time.time()
@@ -166,6 +174,40 @@ class LLMClient:
             ) from e
         except requests.exceptions.RequestException as e:
             raise ValueError(f"LLM API call failed: {str(e)}") from e
+
+    def generate_json(
+        self,
+        prompt: str,
+        temperature: float = 0.7,
+        max_tokens: int = 500,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """
+        Generate JSON response using structured output mode.
+
+        Args:
+            prompt: Input prompt (should instruct model to return JSON)
+            temperature: Sampling temperature (0.0 to 2.0)
+            max_tokens: Maximum tokens to generate
+
+        Returns:
+            Tuple of (parsed_json_dict, metrics_dict)
+
+        Raises:
+            ValueError: If the API call fails or response is not valid JSON
+        """
+        response_format = {"type": "json_object"}
+        text, metrics = self.generate(
+            prompt=prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_format=response_format,
+        )
+
+        try:
+            parsed_json = json.loads(text)
+            return parsed_json, metrics
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Failed to parse JSON response: {e} | response={text[:200]}") from e
 
 
 def create_llm_client_from_env(

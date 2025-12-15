@@ -206,20 +206,34 @@ def calculate_image_monthly_cost_estimate(
 def evaluate_quality_with_judge(
     llm_client: Any,
     judge_prompt: str,
-) -> float:
+) -> tuple[float, str]:
     """
-    Use LLM-as-a-judge to evaluate quality.
+    Use LLM-as-a-judge to evaluate quality with structured JSON output.
 
     Args:
         llm_client: LLMClient instance
         judge_prompt: Prompt for the judge LLM
 
     Returns:
-        Quality score from 0.0 to 1.0
+        Tuple of (quality_score: float, rationale: str)
+        Quality score from 0.0 to 1.0 and explanation
     """
     try:
-        judge_response, _ = llm_client.generate(judge_prompt, temperature=0.0, max_tokens=10)
-        score = float(judge_response.strip())
-        return max(0.0, min(1.0, score))
-    except (ValueError, TypeError):
-        return 0.5
+        # Try structured JSON output first
+        response_json, _ = llm_client.generate_json(judge_prompt, temperature=0.0, max_tokens=200)
+
+        score = float(response_json.get("quality_score", 0.5))
+        rationale = response_json.get("rationale", "No rationale provided")
+
+        return max(0.0, min(1.0, score)), rationale
+
+    except (ValueError, KeyError, TypeError):
+        # Fallback to text parsing for models that don't support JSON mode
+        try:
+            judge_response, _ = llm_client.generate(judge_prompt, temperature=0.0, max_tokens=200)
+            # Try to extract just the number
+            score = float(judge_response.strip().split()[0])
+            rationale = judge_response.strip()
+            return max(0.0, min(1.0, score)), rationale
+        except (ValueError, TypeError):
+            return 0.5, "Failed to parse judge response"
