@@ -52,14 +52,16 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ```bash
 # Create virtual environment (uv will use Python 3.10+ if available)
-uv venv
+uv python install 3.12
+uv venv --python 3.12
 source .venv/bin/activate
+uv pip install -e .
 
 # Install project dependencies
 uv pip install -e .
 
 # Install development dependencies (optional, for Jupyter, testing, etc.)
-uv pip install -e ".[dev]"
+uv sync --group dev
 ```
 
 ### 3. Run the Jupyter notebook prototype
