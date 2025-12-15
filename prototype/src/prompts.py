@@ -110,47 +110,6 @@ Style:
 """
 
 
-# def generate_gift_quality_judge_prompt(
-#     kid_profile: "BaseModel",
-#     response: str,
-# ) -> str:
-#     """
-#     Generate LLM-as-a-judge prompt to evaluate gift recommendation quality with JSON output.
-
-#     Args:
-#         kid_profile: KidProfile instance
-#         response: Generated gift recommendation string
-
-#     Returns:
-#         A deterministic judge prompt string requesting JSON output
-#     """
-#     wishlist_str = ", ".join(kid_profile.wishlist) if kid_profile.wishlist else "None"
-
-#     return f"""You are an evaluator. Score the quality of a gift recommendation from 0.0 to 1.0.
-
-# Kid Profile:
-# Name: {kid_profile.name}
-# Age: {kid_profile.age}
-# Wishlist: {wishlist_str}
-
-# Recommendation to evaluate:
-# ---
-# {response}
-# ---
-
-# Scoring criteria (each weight = 0.25):
-# 1. Age-appropriateness
-# 2. Relevance to the child's interests
-# 3. Safety and appropriateness
-# 4. Creativity and thoughtfulness
-
-
-# Respond with a JSON object in this exact format:
-# {{
-#   "quality_score": 0.85,
-#   "rationale": "Brief explanation of the score"
-# }}
-# """
 def generate_gift_quality_judge_prompt(
     kid_profile: "BaseModel",
     response: str,
@@ -174,11 +133,26 @@ CRITICAL FAILURES (result in score of 0.0):
 - If gifts are not actual gift items but instructions, placeholders, or explanations
 - If the rationale contains meta-instructions or formatting instructions instead of explaining why gifts match the child
 - If the output is clearly malformed or contains no valid gift recommendations
+- If gifts are dangerous, unsafe, or inappropriate for the child's age
 
-Examples that should score 0.0:
-- Gifts: ["We need to output JSON", "Gifts: 3-5 items", "Avoid repeating wishlist"]
-- Rationale: "Return JSON exactly."
-- Any output where gifts are instructions rather than actual gift items
+SCORING REFERENCE EXAMPLES:
+
+Score 0.0 - Critical Failures:
+- Meta-instructions: {{"gifts": ["You must provide JSON with a gifts array", "Ensure 3-5 items"], "rationale": "This is how the assistant should respond."}}
+- Wrong structure: Plain text instead of JSON format
+- Unsafe content: {{"gifts": ["High-powered chemical kit", "Real fireworks set"], "rationale": "These are exciting."}}
+
+Score 0.1-0.3 - Low Quality:
+- Generic, uncreative: {{"gifts": ["Gift card", "Chocolate box", "Generic toy"], "rationale": "These are common gifts that most kids like."}}
+- Repeats wishlist with no insight: {{"gifts": ["doll", "art supplies", "books"], "rationale": "She said she likes these things so I repeated them."}}
+
+Score 0.4-0.6 - Mediocre:
+- Reasonable but generic: {{"gifts": ["Painting set", "Puzzle", "Storybook"], "rationale": "These are fun items many kids enjoy."}}
+- Slight personalization but lacks creativity: {{"gifts": ["Basketball poster", "Basic headphones", "Intro science book"], "rationale": "These relate somewhat to his wishlist but are not very imaginative."}}
+
+Score 0.7-1.0 - High Quality:
+- Excellent personalization + creativity: {{"gifts": ["Custom storybook doll that looks like Emma", "Watercolor art studio set with child-safe brushes", "Interactive fairy-tale projector for bedtime stories"], "rationale": "Each gift deepens Emma's love of dolls, art, and storytelling while introducing magical, age-appropriate creativity."}}
+- Excellent STEM + activity alignment: {{"gifts": ["Indoor basketball skills trainer", "Build-your-own wireless headphone kit", "Beginner's chemistry lab set with safe experiments"], "rationale": "These gifts advance Noah's interests in sports, technology, and science with hands-on challenge and age-appropriate depth."}}
 
 Your evaluation must consider ALL the following criteria equally:
 
@@ -213,10 +187,13 @@ Recommendation to evaluate:
 {response}
 ---
 
+First, check for CRITICAL FAILURES. If any are present, score MUST be 0.0.
+If no critical failures, evaluate based on the 5 criteria above, using the reference examples to calibrate your scoring.
+
 Respond with a JSON object in this exact format:
 {{
   "quality_score": 0.85,
-  "rationale": "Brief explanation of the score based on the criteria above"
+  "rationale": "Brief explanation of the score based on the criteria above. If critical failure detected, explain which one."
 }}
 """
 
@@ -226,34 +203,76 @@ def generate_wish_quality_judge_prompt(
     response: str,
 ) -> str:
     """
-    Generate LLM-as-a-judge prompt for evaluating wish quality with JSON output.
-
-    Args:
-        kid_profile: KidProfile instance
-        response: Generated wish response
-
-    Returns:
-        Formatted judge prompt string requesting JSON output
+    Generate a deterministic LLM-as-a-judge prompt for evaluating holiday wish quality.
+    Produces JSON output with a score and rationale.
     """
-    return f"""Evaluate the following holiday wish for quality on a scale of 0.0 to 1.0.
+    return f"""
+You are an evaluator. Score the quality of a holiday wish between 0.0 and 1.0.
+
+CRITICAL FAILURES (result in score of 0.0):
+- If the wish contains meta-instructions, formatting instructions, or system prompts
+- If the output is not a wish text but JSON, instructions, or placeholders
+- If the wish contains dangerous, inappropriate, or harmful content
+- If the wish is clearly malformed or contains no valid wish content
+
+SCORING REFERENCE EXAMPLES:
+
+Score 0.0 - Critical Failures:
+- Meta-instructions: "Write a 2-sentence Christmas wish here that mentions the child's hobbies."
+- Wrong structure: {{"wish": "You should generate a warm holiday message."}}
+- Unsafe content: "Noah, I hope this Christmas you pull dangerous pranks and try daring experiments with real chemicals. It will be so exciting!"
+
+Score 0.1-0.3 - Low Quality:
+- Generic, impersonal: "Hope you have a good holiday season. Best wishes from Santa."
+- Unrelated, bland: "Have a great winter and make sure to stay warm. Bye."
+
+Score 0.4-0.6 - Mediocre:
+- Some warmth but generic: "Wishing you a fun and cheerful holiday! I hope you enjoy your gifts and have a happy Christmas."
+- Mild personalization but low creativity: "Dear Noah, I hope you have a great Christmas filled with sports, music, and learning. Enjoy the season!"
+
+Score 0.7-1.0 - High Quality:
+- Excellent personalization: "Dear Emma, I've seen how brightly your imagination shines! I hope this holiday brings you new colors to paint with, new stories to explore, and magical moments to share. Keep creating your beautiful world—Santa is so proud of you! 🎨✨"
+- Excellent for STEM + adventure kid: "Noah, your curiosity and energy light up the North Pole! May this holiday spark bold experiments, exciting games, and joyful moments with friends. Keep exploring and dreaming big—Santa knows amazing discoveries await you! 🔬🏀🌟"
+- Heartwarming + personalized: "Lucas, I've loved watching you build new worlds piece by piece and race toward every adventure. This Christmas, may your imagination soar higher than ever and your journeys—indoors or outdoors—be filled with joy. Keep creating and exploring! 🎁🚴✨"
+
+Your evaluation must consider all criteria equally:
+
+1. Personalization
+   - The wish must clearly relate to the child's specific name, age, and interests.
+   - Penalize generic or reusable wishes that could apply to any child.
+
+2. Warmth and Tone
+   - Should feel kind, uplifting, and authentically Santa-like.
+   - Penalize overly formal, robotic, or emotionally flat text.
+
+3. Age-appropriateness
+   - Language should match the developmental stage of a {kid_profile.age}-year-old.
+   - Penalize advanced vocabulary, confusing metaphors, or babyish phrasing.
+
+4. Magic and Imagination
+   - Wish should evoke holiday magic or charm.
+   - Penalize dull, literal, or purely informational content.
+
+5. Safety and Content Correctness
+   - Must contain no harmful, scary, or inappropriate content.
+   - Must not mention gifts the kid should NOT get or guarantee outcomes.
+
+Wish to evaluate:
+---
+{response}
+---
 
 Kid Profile:
-- Name: {kid_profile.name}
-- Age: {kid_profile.age}
+Name: {kid_profile.name}
+Age: {kid_profile.age}
 
-Wish:
-{response}
+First, check for CRITICAL FAILURES. If any are present, score MUST be 0.0.
+If no critical failures, evaluate based on the 5 criteria above, using the reference examples to calibrate your scoring.
 
-Consider:
-1. Warmth and personalization (0.3 weight) - Does it feel personal and warm?
-2. Age-appropriateness (0.3 weight) - Is the language and content suitable for this age?
-3. Safety (0.2 weight) - No dangerous, offensive, or inappropriate content
-4. Natural flow and magic (0.2 weight) - Does it read naturally and feel magical?
-
-Respond with a JSON object in this exact format:
+Return ONLY a JSON object in this format:
 {{
-  "quality_score": 0.85,
-  "rationale": "Brief explanation of the score"
+  "quality_score": 0.0,
+  "rationale": "Brief justification for the score. If critical failure detected, explain which one."
 }}
 """
 

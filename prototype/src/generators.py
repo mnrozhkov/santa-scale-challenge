@@ -3,8 +3,8 @@
 from typing import Any
 
 from src.clients.llm_client import LLMClient
-from src.prompts import generate_gift_recommendation_prompt
-from src.test_samples import GiftRecommendation, KidProfile
+from src.prompts import generate_gift_recommendation_prompt, generate_wish_prompt
+from src.test_samples import GiftRecommendation, KidProfile, Wish
 
 
 def generate_gift_recommendation(
@@ -117,3 +117,96 @@ def generate_gift_recommendation(
         )
 
         return gift_recommendation, metrics
+
+
+def generate_wish(
+    llm_client: LLMClient,
+    kid_profile: KidProfile,
+    gift_recommendation: GiftRecommendation,
+    temperature: float = 0.9,
+    max_tokens: int = 200,
+) -> tuple[Wish, dict[str, Any]]:
+    """
+    Generate a personalized holiday wish for a kid using LLM with structured JSON output.
+
+    Args:
+        llm_client: Initialized LLM client
+        kid_profile: Profile of the kid
+        gift_recommendation: Previously generated gift recommendation
+        temperature: Sampling temperature (default: 0.9)
+        max_tokens: Maximum tokens to generate (default: 200)
+
+    Returns:
+        Tuple of (Wish, metrics_dict) where metrics includes:
+        - latency_ms: Time taken in milliseconds
+        - tokens_in: Input tokens
+        - tokens_out: Output tokens
+        - model: Model name used
+
+    Raises:
+        ValueError: If JSON parsing fails or required fields are missing
+    """
+    prompt = generate_wish_prompt(kid_profile, gift_recommendation)
+
+    try:
+        # Try structured JSON output first
+        response_json, metrics = llm_client.generate_json(
+            prompt, temperature=temperature, max_tokens=max_tokens
+        )
+
+        # Validate and extract fields
+        wish_text = response_json.get("wish", "")
+
+        if not wish_text:
+            raise ValueError("No wish text found in JSON response")
+
+        wish = Wish(
+            kid_id=kid_profile.id,
+            text=wish_text.strip(),
+            model_version=llm_client.model_version,
+        )
+
+        return wish, metrics
+
+    except ValueError:
+        # If JSON mode fails, fall back to text parsing (for models that don't support JSON)
+        response, metrics = llm_client.generate(
+            prompt, temperature=temperature, max_tokens=max_tokens
+        )
+
+        # For wish generation, the response should be plain text
+        # Clean up any potential formatting artifacts
+        wish_text = response.strip()
+
+        # Remove any JSON-like formatting if present
+        if wish_text.startswith("{") and "wish" in wish_text:
+            # Try to extract wish from JSON-like string
+            try:
+                import json
+
+                # Try to parse as JSON
+                if wish_text.startswith("{"):
+                    parsed = json.loads(wish_text)
+                    wish_text = parsed.get("wish", wish_text)
+            except (json.JSONDecodeError, ValueError):
+                # If parsing fails, use the text as-is
+                pass
+
+        # Remove any prefixes or labels that might have been added
+        prefixes_to_remove = [
+            "Wish:",
+            "Here is the wish:",
+            "The wish is:",
+            "Santa's wish:",
+        ]
+        for prefix in prefixes_to_remove:
+            if wish_text.lower().startswith(prefix.lower()):
+                wish_text = wish_text[len(prefix) :].strip()
+
+        wish = Wish(
+            kid_id=kid_profile.id,
+            text=wish_text or "No wish generated",
+            model_version=llm_client.model_version,
+        )
+
+        return wish, metrics
