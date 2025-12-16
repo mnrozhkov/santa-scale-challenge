@@ -238,7 +238,11 @@ def main() -> int:
 
     # Initialize LLM client
     logger.info("Initializing LLM client...")
-    llm_models = get_available_models()
+    llm_models = get_available_models(
+        include_openai=True,
+        include_token_factory=True,
+        include_self_hosted=True,
+    )
     if not llm_models:
         logger.error(
             "No LLM models available. Set OPENAI_API_KEY or other required environment variables."

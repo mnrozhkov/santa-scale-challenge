@@ -1,6 +1,5 @@
 """Test samples for evaluation notebooks."""
 
-
 from src.data_scheme import GiftRecommendation, KidProfile
 
 # class KidProfile(BaseModel):

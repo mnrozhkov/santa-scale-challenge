@@ -59,7 +59,7 @@ def load_env_from_repo_root(env_file: str = ".env", override: bool = False) -> N
 
     if not env_path.exists():
         raise FileNotFoundError(
-            f"Environment file not found: {env_path}. " f"Expected location: {repo_root / env_file}"
+            f"Environment file not found: {env_path}. Expected location: {repo_root / env_file}"
         )
 
     load_dotenv(env_path, override)

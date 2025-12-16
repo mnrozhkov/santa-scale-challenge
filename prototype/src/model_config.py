@@ -15,11 +15,14 @@ class ModelConfig:
         client: LLMClient,
         cost_per_1m_tokens_in: float,
         cost_per_1m_tokens_out: float,
+        cost_infra_per_hour: float | None = None,
     ) -> None:
         self.name = name
         self.client = client
         self.cost_per_1m_tokens_in = cost_per_1m_tokens_in
         self.cost_per_1m_tokens_out = cost_per_1m_tokens_out
+        self.cost_infra_per_hour = cost_infra_per_hour
+        self.is_self_hosted = cost_infra_per_hour is not None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary format for backward compatibility."""
@@ -28,14 +31,51 @@ class ModelConfig:
             "client": self.client,
             "cost_per_1m_tokens_in": self.cost_per_1m_tokens_in,
             "cost_per_1m_tokens_out": self.cost_per_1m_tokens_out,
+            "cost_infra_per_hour": self.cost_infra_per_hour,
+            "is_self_hosted": self.is_self_hosted,
         }
+
+
+def calculate_self_hosted_cost(
+    latency_ms: float,
+    tokens_in: int,
+    tokens_out: int,
+    cost_infra_per_hour: float,
+) -> tuple[float, float]:
+    """
+    Calculate cost per 1M tokens for self-hosted models based on infrastructure cost.
+
+    Args:
+        latency_ms: Request latency in milliseconds
+        tokens_in: Number of input tokens
+        tokens_out: Number of output tokens
+        cost_infra_per_hour: Infrastructure cost per hour in USD
+
+    Returns:
+        Tuple of (cost_per_1m_tokens_in, cost_per_1m_tokens_out) in USD
+    """
+    latency_hours = latency_ms / 1000 / 3600
+    cost_for_request = latency_hours * cost_infra_per_hour
+
+    # Avoid division by zero
+    if tokens_out == 0:
+        cost_per_1m_out = 0.0
+    else:
+        cost_per_1m_out = (cost_for_request / tokens_out) * 1_000_000
+
+    if tokens_in == 0:
+        cost_per_1m_in = 0.0
+    else:
+        cost_per_1m_in = (cost_for_request / tokens_in) * 1_000_000
+
+    return cost_per_1m_in, cost_per_1m_out
 
 
 def get_available_models(
     model_names: list[str] | None = None,
-    include_openai: bool = True,
-    include_token_factory: bool = True,
-    include_vllm: bool = True,
+    include_openai: bool = False,
+    include_token_factory: bool = False,
+    include_self_hosted: bool = False,
 ) -> list[ModelConfig]:
     """
     Get list of available model configurations based on environment variables.
@@ -74,16 +114,16 @@ def get_available_models(
                 cost_per_1m_tokens_in=1.5,
                 cost_per_1m_tokens_out=2.0,
             ),
-            ModelConfig(
-                name="openai-gpt-4-turbo",
-                client=LLMClient(
-                    base_url="https://api.openai.com/v1",
-                    api_key=os.getenv("OPENAI_API_KEY"),
-                    model="gpt-4-turbo-preview",
-                ),
-                cost_per_1m_tokens_in=10.0,
-                cost_per_1m_tokens_out=30.0,
-            ),
+            # ModelConfig(
+            #     name="openai-gpt-4-turbo",
+            #     client=LLMClient(
+            #         base_url="https://api.openai.com/v1",
+            #         api_key=os.getenv("OPENAI_API_KEY"),
+            #         model="gpt-4-turbo-preview",
+            #     ),
+            #     cost_per_1m_tokens_in=10.0,
+            #     cost_per_1m_tokens_out=30.0,
+            # ),
         ]
         models.extend(openai_models)
 
@@ -113,68 +153,32 @@ def get_available_models(
                 cost_per_1m_tokens_in=0.8,
                 cost_per_1m_tokens_out=2.4,
             ),
-            ModelConfig(
-                name="tokenfactory-llama-3-8b",
-                client=LLMClient(
-                    base_url=tf_base_url,
-                    api_key=tf_api_key,
-                    model="meta-llama/Meta-Llama-3-8B-Instruct",
-                ),
-                cost_per_1m_tokens_in=0.1,
-                cost_per_1m_tokens_out=0.1,
-            ),
         ]
         models.extend(tf_models)
 
-    # vLLM models
-    if include_vllm:
-        vllm_base_url = os.getenv("VLLM_BASE_URL")
-        if vllm_base_url:
-            vllm_models = [
-                ModelConfig(
-                    name="vllm-llama-2-7b",
-                    client=LLMClient(
-                        base_url=vllm_base_url,
-                        api_key=None,
-                        model=os.getenv("VLLM_MODEL_7B", "meta-llama/Llama-2-7b-chat-hf"),
-                    ),
-                    cost_per_1m_tokens_in=0.0,
-                    cost_per_1m_tokens_out=0.0,
+    # Self-hosted models (any inference engine with OpenAI-compatible API)
+    if include_self_hosted:
+        # Get infrastructure cost from environment variable (default: 2.50 USD/hour)
+        self_hosted_models = [
+            ModelConfig(
+                name="santa-deepseek-r1",
+                client=LLMClient(
+                    base_url=os.getenv("SANTA_DEEPSEEK_R1_URL"),
+                    api_key=os.getenv("SANTA_DEEPSEEK_R1_API_KEY"),
+                    model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
                 ),
-                ModelConfig(
-                    name="vllm-llama-2-13b",
-                    client=LLMClient(
-                        base_url=vllm_base_url,
-                        api_key=None,
-                        model=os.getenv("VLLM_MODEL_13B", "meta-llama/Llama-2-13b-chat-hf"),
-                    ),
-                    cost_per_1m_tokens_in=0.0,
-                    cost_per_1m_tokens_out=0.0,
-                ),
-            ]
-            models.extend(vllm_models)
+                cost_per_1m_tokens_in=0.0,  # Will be calculated dynamically
+                cost_per_1m_tokens_out=0.0,  # Will be calculated dynamically
+                cost_infra_per_hour=2.98,
+            ),
+        ]
+        models.extend(self_hosted_models)
 
     # Filter by model names if specified
     if model_names:
         models = [m for m in models if m.name in model_names]
 
     return models
-
-
-def get_models_for_evaluation(
-    model_names: list[str] | None = None,
-) -> list[dict[str, Any]]:
-    """
-    Get models in dictionary format for evaluation notebooks (backward compatibility).
-
-    Args:
-        model_names: Optional list of specific model names to include
-
-    Returns:
-        List of model dictionaries compatible with existing evaluation code
-    """
-    models = get_available_models(model_names=model_names)
-    return [m.to_dict() for m in models]
 
 
 def get_judge_client(model_name: str | None = None) -> LLMClient | None:
@@ -190,20 +194,24 @@ def get_judge_client(model_name: str | None = None) -> LLMClient | None:
     Returns:
         LLMClient instance or None if no judge model available
     """
-    if model_name:
-        # Find specific model
-        models = get_available_models()
-        for model in models:
-            if model.name == model_name:
-                return model.client
-        # If not found in available models, try to create it directly
-        if model_name == "gpt-5.2" and os.getenv("OPENAI_API_KEY"):
-            return LLMClient(
-                base_url="https://api.openai.com/v1",
-                api_key=os.getenv("OPENAI_API_KEY"),
-                model="gpt-5.2",
-            )
-        return None
+    # if model_name:
+    #     # Find specific model
+    #     models = get_available_models(
+    #         include_openai=True,
+    #         include_token_factory=True,
+    #         include_self_hosted=True,
+    #     )
+    #     for model in models:
+    #         if model.name == model_name:
+    #             return model.client
+    #     # If not found in available models, try to create it directly
+    #     if model_name == "gpt-5.2" and os.getenv("OPENAI_API_KEY"):
+    #         return LLMClient(
+    #             base_url="https://api.openai.com/v1",
+    #             api_key=os.getenv("OPENAI_API_KEY"),
+    #             model="gpt-5.2",
+    #         )
+    #     return None
 
     # Default priority order
     if os.getenv("OPENAI_API_KEY"):

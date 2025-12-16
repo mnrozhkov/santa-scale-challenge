@@ -239,7 +239,7 @@ def create_complete_gift_card(
 
         except ImportError as e:
             raise ValueError(
-                "html2image is required for PNG export. " "Install with: pip install html2image"
+                "html2image is required for PNG export. Install with: pip install html2image"
             ) from e
         except Exception as e:
             raise ValueError(f"Failed to create PNG: {str(e)}") from e
