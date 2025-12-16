@@ -28,7 +28,8 @@ Kid Profile:
 - Wishlist: {wishlist_str}
 
 Your task:
-1. Recommend 1-5 gifts (one short phrase each).
+1. Recommend 1-5 gifts (one short phrase each) that are:
+- Highly relevant to the child's wishlist
 2. Each gift must be age-appropriate, safe, and appealing for a child of this age.
 3. Take inspiration from the child's wishlist, but avoid repeating it unless it is genuinely relevant.
 4. Ensure the gifts are fun, creative, and suitable for Santa to give.
@@ -151,8 +152,11 @@ Score 0.4-0.6 - Mediocre:
 - Slight personalization but lacks creativity: {{"gifts": ["Basketball poster", "Basic headphones", "Intro science book"], "rationale": "These relate somewhat to his wishlist but are not very imaginative."}}
 
 Score 0.7-1.0 - High Quality:
-- Excellent personalization + creativity: {{"gifts": ["Custom storybook doll that looks like Emma", "Watercolor art studio set with child-safe brushes", "Interactive fairy-tale projector for bedtime stories"], "rationale": "Each gift deepens Emma's love of dolls, art, and storytelling while introducing magical, age-appropriate creativity."}}
-- Excellent STEM + activity alignment: {{"gifts": ["Indoor basketball skills trainer", "Build-your-own wireless headphone kit", "Beginner's chemistry lab set with safe experiments"], "rationale": "These gifts advance Noah's interests in sports, technology, and science with hands-on challenge and age-appropriate depth."}}
+- Highly relevant to the child's wishlist (highest weight)
+- Excellent personalization + creativity (second highest weight)
+- Excellent STEM + activity alignment (third highest weight)
+- Excellent quality and correctness of the output (fourth highest weight)
+- Excellent personalization (fifth highest weight)
 
 Your evaluation must consider ALL the following criteria equally:
 
