@@ -287,36 +287,71 @@ def generate_image_quality_judge_prompt(
     kid_profile: "BaseModel",
 ) -> str:
     """
-    Generate LLM-as-a-judge prompt for evaluating image quality with JSON output.
-
-    Args:
-        prompt: Original image generation prompt
-        image_url: URL or path to generated image
-        kid_profile: KidProfile instance
-
-    Returns:
-        Formatted judge prompt string requesting JSON output
+    Improved LLM-as-a-judge prompt for evaluating image quality with weighted criteria.
     """
-    return f"""Evaluate the following image generation for quality on a scale of 0.0 to 1.0.
+    return f"""
+You are an expert evaluator for children's holiday illustrations. Evaluate the quality of the generated image using the criteria below.
 
-Image Prompt:
+YOUR TASK:
+Review the following:
+- The *intended image prompt*
+- The *actual generated image* at the provided URL
+- The *kid profile* (age-appropriateness matters)
+
+Then provide a JSON response containing:
+1. "quality_score": A float between 0.0 and 1.0
+2. "rationale": A short explanation referencing the scoring criteria
+
+-------------------------
+IMAGE GENERATION PROMPT
+-------------------------
 {prompt}
 
+-------------------------
+GENERATED IMAGE
+-------------------------
 Image URL: {image_url}
 
-Kid Profile:
-- Name: {kid_profile.name}
-- Age: {kid_profile.age}
+-------------------------
+KID PROFILE
+-------------------------
+Name: {kid_profile.name}
+Age: {kid_profile.age}
 
-Consider:
-1. Visual quality and aesthetic appeal (0.3 weight)
-2. Relevance to prompt (0.3 weight)
-3. Age-appropriateness and child-friendliness (0.2 weight)
-4. Holiday theme and magic (0.2 weight)
+-------------------------
+EVALUATION CRITERIA
+(Weighted Scoring)
+-------------------------
 
-Respond with a JSON object in this exact format:
+1. **Visual Quality & Aesthetic Appeal** (0.3)
+   - Is the illustration visually appealing?
+   - Is the composition clear?
+   - Are artifacts, distortions, or strange body features avoided?
+
+2. **Faithfulness to the Prompt** (0.3)
+   - Image does not contain any text, signatures, or writing anywhere in the image
+   - Does the image depict the intended main gift?
+   - Does it match the holiday / magical / festive style?
+   - Does it reflect key elements listed in the prompt (e.g., sparkles, warm lighting, decorations)?
+
+3. **Age-Appropriateness & Child-Friendliness** (0.2)
+   - Is the content suitable for a child of this age?
+   - Avoids scary, dark, violent, or unsafe elements.
+
+4. **Holiday Theme, Magic, Warmth** (0.2)
+   - Does the image convey a joyful Christmas atmosphere?
+   - Does it feel magical, whimsical, or storybook-like?
+   - Contains cheerful, positive, friendly visual themes.
+
+-------------------------
+OUTPUT FORMAT (STRICT)
+-------------------------
+Respond **only** with a valid JSON object in this exact structure:
+
 {{
-  "quality_score": 0.85,
-  "rationale": "Brief explanation of the score"
+  "quality_score": 0.0,
+  "rationale": "Explain why you assigned this score based on the criteria."
 }}
-"""
+
+Your score must reflect the weighted criteria above.
+    """

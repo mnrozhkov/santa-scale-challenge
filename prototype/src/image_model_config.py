@@ -111,35 +111,7 @@ def get_available_image_models(
 
     # Self-hosted models
     if include_self_hosted:
-        # Flux self-hosted
-        flux_url = os.getenv("FLUX_SELF_HOSTED_URL")
-        if flux_url:
-            models.append(
-                ImageModelConfig(
-                    name="flux-dev",
-                    client=ImageClient(
-                        base_url=flux_url,
-                        api_key=None,
-                        model="flux-dev",
-                    ),
-                    cost_per_image=0.0,
-                )
-            )
-
-        # SDXL Lightning self-hosted
-        sdxl_url = os.getenv("SDXL_LIGHTNING_URL")
-        if sdxl_url:
-            models.append(
-                ImageModelConfig(
-                    name="sdxl-lightning",
-                    client=ImageClient(
-                        base_url=sdxl_url,
-                        api_key=None,
-                        model="sdxl-lightning",
-                    ),
-                    cost_per_image=0.0,
-                )
-            )
+        pass
 
     # Filter by model names if specified
     if model_names:

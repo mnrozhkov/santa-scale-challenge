@@ -15,11 +15,46 @@ from typing import TYPE_CHECKING
 
 from src.data_scheme import KidProfile
 from src.generators import generate_gift_recommendation
-from src.model_config import ModelConfig, calculate_self_hosted_cost, get_available_models
+from src.model_config import ModelConfig, get_available_models
 from src.test_samples import get_test_profiles
 
 if TYPE_CHECKING:
     import pandas as pd
+
+
+def calculate_self_hosted_cost(
+    latency_ms: float,
+    tokens_in: int,
+    tokens_out: int,
+    cost_infra_per_hour: float,
+) -> tuple[float, float]:
+    """
+    Calculate cost per 1M tokens for self-hosted models based on infrastructure cost.
+
+    Args:
+        latency_ms: Request latency in milliseconds
+        tokens_in: Number of input tokens
+        tokens_out: Number of output tokens
+        cost_infra_per_hour: Infrastructure cost per hour in USD
+
+    Returns:
+        Tuple of (cost_per_1m_tokens_in, cost_per_1m_tokens_out) in USD
+    """
+    latency_hours = latency_ms / 1000 / 3600
+    cost_for_request = latency_hours * cost_infra_per_hour
+
+    # Avoid division by zero
+    if tokens_out == 0:
+        cost_per_1m_out = 0.0
+    else:
+        cost_per_1m_out = (cost_for_request / tokens_out) * 1_000_000
+
+    if tokens_in == 0:
+        cost_per_1m_in = 0.0
+    else:
+        cost_per_1m_in = (cost_for_request / tokens_in) * 1_000_000
+
+    return cost_per_1m_in, cost_per_1m_out
 
 
 @dataclass
