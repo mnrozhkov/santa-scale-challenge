@@ -77,6 +77,19 @@ Or run a local prototype script (when available):
 python prototype/scripts/generate_card_openai.py
 ```
 
+### 3b. Run the Santa workflow prototype (CSV → gift cards)
+
+`prototype/santa_workflow.py` requires a positional `csv_path`.
+
+```bash
+python prototype/santa_workflow.py "prototype/data/Childhood Christmas Gift Wish Poll.csv" \
+  --llm-model "gpt-4o-mini" \
+  --image-model "recraftv3" \
+  --output-dir "prototype/data/santa_workflow/cards" \
+  --intermediate-dir "prototype/data/santa_workflow/intermediate" \
+  --no-drive-upload
+```
+
 ### 4. Configure LLM service (optional)
 
 Before running the prototype, you may need to configure your LLM service endpoint. The notebook uses an OpenAI-compatible API.

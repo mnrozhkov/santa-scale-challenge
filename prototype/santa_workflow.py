@@ -201,13 +201,13 @@ def main() -> int:
     parser.add_argument(
         "--llm-model",
         type=str,
-        default=None,
+        default="gpt-4o-mini",
         help="LLM model name to use (default: first available from config)",
     )
     parser.add_argument(
         "--image-model",
         type=str,
-        default=None,
+        default="recraftv3",
         help="Image model name to use (default: first available from config)",
     )
     parser.add_argument(
@@ -245,7 +245,7 @@ def main() -> int:
     )
     if not llm_models:
         logger.error(
-            "No LLM models available. Set OPENAI_API_KEY or other required environment variables."
+            "No LLM models available. Set OPENAI_API_KEY / TOKEN_FACTORY_API_KEY / self-hosted env vars."
         )
         return 1
 
