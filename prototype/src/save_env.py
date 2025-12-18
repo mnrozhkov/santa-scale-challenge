@@ -8,9 +8,9 @@ from pathlib import Path
 def escape_env_value(value: str) -> str:
     """Escape special characters in environment variable values for .env format."""
     # If value contains spaces, quotes, or special chars, wrap in quotes
-    if any(char in value for char in [' ', '"', "'", '$', '\\', '\n', '\r']):
+    if any(char in value for char in [" ", '"', "'", "$", "\\", "\n", "\r"]):
         # Escape backslashes and quotes
-        escaped = value.replace('\\', '\\\\').replace('"', '\\"')
+        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
         return f'"{escaped}"'
     return value
 
@@ -18,7 +18,7 @@ def escape_env_value(value: str) -> str:
 def export_env_to_file(output_path: Path, filter_prefix: str | None = None) -> None:
     """
     Export all environment variables to a .env file.
-    
+
     Args:
         output_path: Path to the output .env file
         filter_prefix: Optional prefix to filter environment variables (e.g., 'SANTA_')
@@ -33,11 +33,13 @@ def export_env_to_file(output_path: Path, filter_prefix: str | None = None) -> N
     sorted_vars = sorted(env_vars.items())
 
     if not sorted_vars:
-        print(f"No environment variables found{f' with prefix {filter_prefix}' if filter_prefix else ''}")
+        print(
+            f"No environment variables found{f' with prefix {filter_prefix}' if filter_prefix else ''}"
+        )
         return
 
     # Write to file
-    with open(output_path, 'w', encoding='utf-8') as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         for key, value in sorted_vars:
             escaped_value = escape_env_value(value)
             f.write(f"{key}={escaped_value}\n")
@@ -74,4 +76,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
