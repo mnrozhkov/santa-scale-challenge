@@ -13,7 +13,7 @@ setup: |
   fi
   
   git clone https://github.com/mnrozhkov/santa-scale-challenge.git
-  cd santa-scale-challenge && git checkout santa_agent
+  cd santa-scale-challenge
 
   curl -LsSf https://astral.sh/uv/install.sh | sh
   uv python install 3.12
