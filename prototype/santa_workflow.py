@@ -14,7 +14,6 @@ from pathlib import Path
 from src.card_formatter import create_complete_gift_card
 from src.csv_reader import read_kid_profiles_from_csv
 from src.data_scheme import GiftCard, KidProfile
-from src.drive_uploader import upload_to_google_drive
 from src.generators import generate_card_image, generate_gift_recommendation, generate_wish
 from src.image_model_config import get_available_image_models
 from src.model_config import get_available_models
@@ -61,7 +60,6 @@ def process_kid(
     image_client,
     output_dir: Path,
     intermediate_dir: Path,
-    upload_to_drive: bool = True,
 ) -> GiftCard | None:
     """
     Process a single kid through the entire pipeline.
@@ -72,7 +70,6 @@ def process_kid(
         image_client: Initialized image client
         output_dir: Directory to save final PNG cards
         intermediate_dir: Directory to save intermediate results
-        upload_to_drive: Whether to upload final card to Google Drive
 
     Returns:
         GiftCard object if successful, None if failed
@@ -158,20 +155,6 @@ def process_kid(
     )
     logger.info(f"  ✅ Created PNG card: {gift_card.rendered_url}")
 
-    # Step 5: Upload to Google Drive (if enabled)
-    if upload_to_drive and gift_card.rendered_url:
-        logger.info(f"  Uploading card to Google Drive for {kid_profile.name}...")
-        try:
-            drive_result = upload_to_google_drive(
-                file_path=gift_card.rendered_url,
-            )
-            logger.info(
-                f"  ✅ Uploaded to Google Drive: {drive_result.get('web_view_link', 'N/A')}"
-            )
-        except Exception as e:
-            logger.warning(f"  ⚠️  Failed to upload to Google Drive: {e}")
-            # Don't fail the entire pipeline if upload fails
-
     logger.info(f"✅ Completed processing {kid_profile.name}")
     return gift_card
 
@@ -209,11 +192,6 @@ def main() -> int:
         type=str,
         default="recraftv3",
         help="Image model name to use (default: first available from config)",
-    )
-    parser.add_argument(
-        "--no-drive-upload",
-        action="store_true",
-        help="Skip Google Drive upload",
     )
     parser.add_argument(
         "--default-age",
@@ -306,7 +284,6 @@ def main() -> int:
                 image_client=image_client,
                 output_dir=output_dir,
                 intermediate_dir=intermediate_dir,
-                upload_to_drive=not args.no_drive_upload,
             )
             if gift_card:
                 successful += 1

@@ -1,0 +1,43 @@
+resources:
+  infra: nebius
+  accelerators: H100:1
+
+setup: |
+  echo 'Setup will be executed on every `sky launch` command on all nodes'
+
+
+envs:
+  MYVAR: val
+
+secrets:
+  HF_TOKEN: null
+  WANDB_API_KEY: nul
+
+# envs:
+#   # OPENAI_API_KEY: null
+#   # TOKEN_FACTORY_API_KEY: null
+#   # RECRAFT_API_KEY: null
+#   # AWS_ACCESS_KEY_ID: null
+#   # AWS_SECRET_ACCESS_KEY: null
+#   # AWS_ENDPOINT_URL: null
+#   # NEBIUS_S3_BUCKET: null
+#   # LLM_MODEL: null
+#   IMAGE_MODEL: 'image_model.png'
+
+#   MLFLOW_TRACKING_URI: null
+#   MLFLOW_TRACKING_USERNAME: null
+
+# secrets:
+#   MLFLOW_TRACKING_PASSWORD: null
+#   SECRET_IMAGE_MODEL: 'image_model.secret'
+
+run: |
+  echo 'Run will be executed on every `sky exec` command on all nodes'
+  echo 'Do we have GPUs?'
+  nvidia-smi 
+
+  # echo 'MLFLOW_TRACKING_PASSWORD: ${MLFLOW_TRACKING_PASSWORD}'
+  echo 'MYVAR: ${MYVAR}'
+  echo 'HF_TOKEN: ${HF_TOKEN}'
+  echo 'WANDB_API_KEY: ${WANDB_API_KEY}'
+  env

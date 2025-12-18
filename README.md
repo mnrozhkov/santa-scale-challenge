@@ -1,259 +1,227 @@
 # 🎄 Santa Scale Challenge
 
-### **AI Orchestration & Agentic Deployment on Nebius Infrastructure**
+## AI Orchestration & Agentic Deployment on Nebius Infrastructure
 
-Welcome to the **Santa Scale Challenge** — a reference implementation showing how to orchestrate LLMs, agentic workflows, and distributed batch jobs using **Nebius GPU infrastructure**, **SkyPilot**, and **MLflow**.
-
-This monorepo contains:
-
-* A **local prototype** for experimenting with LLMs & image models
-* A production-style **Santa Agent** for generating personalized gift cards
-* Self-hosted **LLM and image generation services**
-* Infrastructure files for **SkyPilot**, **MLflow**, and deployment
-
-It is the companion repo for the *Santa Scale Challenge Webinar*.
+A reference implementation for orchestrating LLMs and image generation models to create personalized gift cards at scale using **Nebius GPU infrastructure**, **SkyPilot**, and **MLflow**.
 
 ---
 
-# 🗂️ Repository Structure
+## 🗂️ Repository Structure
 
-```
+```text
 santa-scale-challenge/
-├── prototype/           # Jupyter-first prototype & experiments
-├── santa_agent/         # Production batch pipeline (agentic workflow)
-├── models/              # Self-hosted LLM & image generation servers
-├── infra/               # SkyPilot, MLflow, Terraform
-└── demos/               # CLI demos and slide code snippets
+├── prototype/           # Prototype workflows and experiments
+│   ├── santa_workflow.py          # Main workflow: CSV → gift cards
+│   ├── src/                       # Core modules
+│   │   ├── benchmark_llm.py       # LLM benchmarking tool
+│   │   ├── generate_kids.py      # Generate kid profiles CSV
+│   │   ├── data_upload.py         # S3 upload utility
+│   │   └── ...
+│   └── data/                      # Data and outputs
+└── infra/               # SkyPilot configuration
+    └── sky/
+        └── santa_workflow.yaml     # SkyPilot job config
 ```
 
 ---
 
-# 🚀 Quickstart
+## 🚀 Installation
 
-### 1. Clone
+### Prerequisites
+
+- Python 3.10+
+- [uv](https://github.com/astral-sh/uv) package manager
+
+### Setup
 
 ```bash
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Clone repository
 git clone https://github.com/<your-org>/santa-scale-challenge
 cd santa-scale-challenge
-```
 
-### 2. Set up environment with uv
-
-This project uses **[uv](https://github.com/astral-sh/uv)** as the preferred Python package manager for fast, reliable dependency management.
-
-#### Install uv
-
-**macOS/Linux:**
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-#### Create virtual environment and install dependencies
-
-```bash
-# Create virtual environment (uv will use Python 3.10+ if available)
+# Create virtual environment
 uv python install 3.12
 uv venv --python 3.12
 source .venv/bin/activate
+
+# Install dependencies
 uv pip install -e .
 
-# Install project dependencies
-uv pip install -e .
-
-# Install development dependencies (optional, for Jupyter, testing, etc.)
+# Install development dependencies (optional, for Jupyter)
 uv sync --group dev
 ```
 
-### 3. Run the Jupyter notebook prototype
+---
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+Create a `.env` file in the repository root:
 
 ```bash
-# Start Jupyter notebook
-jupyter notebook prototype/gift_generation.ipynb
+# LLM API Keys (at least one required)
+OPENAI_API_KEY=your_openai_key
+TOKEN_FACTORY_API_KEY=your_token_factory_key
+
+# Image Generation API Key
+RECRAFT_API_KEY=your_recraft_key
+
+# MLflow Tracking (for remote tracking)
+MLFLOW_TRACKING_URI=https://your-mlflow-server
+MLFLOW_TRACKING_USERNAME=your_username
+MLFLOW_TRACKING_PASSWORD=your_password
+
+# S3 Storage (for SkyPilot)
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_ENDPOINT_URL=https://storage.eu-north1.nebius.cloud:443
+NEBIUS_S3_BUCKET=nebius://santa-storage-s3
 ```
 
-Or run a local prototype script (when available):
+The script automatically loads `.env` from the repository root.
+
+---
+
+## 🧪 Running Locally
+
+### 1. Generate Kid Profiles
 
 ```bash
-python prototype/scripts/generate_card_openai.py
+python prototype/src/generate_kids.py 20 --output prototype/data/santa_workflow/kids.csv
 ```
 
-### 3b. Run the Santa workflow prototype (CSV → gift cards)
+### 2. Run LLM Benchmarking
 
-`prototype/santa_workflow.py` requires a positional `csv_path`.
+Benchmark different LLM models with remote MLflow tracking:
 
 ```bash
-python prototype/santa_workflow.py "prototype/data/Childhood Christmas Gift Wish Poll.csv" \
-  --llm-model "gpt-4o-mini" \
-  --image-model "recraftv3" \
-  --output-dir "prototype/data/santa_workflow/cards" \
-  --intermediate-dir "prototype/data/santa_workflow/intermediate" \
+python prototype/src/benchmark_llm.py \
+  --models gpt-4o-mini gpt-4-turbo \
+  --mlflow-tracking-uri $MLFLOW_TRACKING_URI \
+  --mlflow-username $MLFLOW_TRACKING_USERNAME \
+  --mlflow-password $MLFLOW_TRACKING_PASSWORD
+```
+
+Options:
+- `--models`: Space-separated list of model names
+- `--concurrency`: Number of concurrent requests (default: 1)
+- `--num-requests`: Number of requests per model (default: 10)
+- `--output-csv`: Path to save results CSV
+
+### 3. Run Santa Workflow
+
+Generate personalized gift cards from CSV:
+
+```bash
+python prototype/santa_workflow.py prototype/data/santa_workflow/kids.csv \
+  --llm-model gpt-4o-mini \
+  --image-model recraftv3 \
+  --output-dir prototype/data/santa_workflow/cards \
+  --intermediate-dir prototype/data/santa_workflow/intermediate \
   --no-drive-upload
 ```
 
-### 4. Configure LLM service (optional)
+Options:
+- `--llm-model`: LLM model name (default: gpt-4o-mini)
+- `--image-model`: Image model name (default: recraftv3)
+- `--output-dir`: Directory for PNG cards
+- `--intermediate-dir`: Directory for intermediate JSON files
+- `--no-drive-upload`: Skip Google Drive upload
+- `--default-age`: Default age for kids (default: 10)
 
-Before running the prototype, you may need to configure your LLM service endpoint. The notebook uses an OpenAI-compatible API.
+The workflow:
 
-**Option A: Use local vLLM server**
-
-```bash
-cd models/llm
-bash start_vllm.sh
-```
-
-Then update the `LLMClient` in the notebook to point to `localhost:8000`.
-
-**Option B: Use OpenAI API**
-
-Update the `LLMClient` initialization in the notebook to use OpenAI's API endpoint.
-
-### 5. Launch self-hosted LLM (vLLM) locally
-
-```bash
-cd models/llm
-bash start_vllm.sh
-```
-
-### 6. Run the Santa Agent on one kid
-
-```bash
-python santa_agent/orchestrator.py --kid sample_kid.json
-```
-
-### 7. Run distributed batch job with SkyPilot
-
-```bash
-sky launch -c santa-batch infra/sky/santa_batch.yaml
-```
+1. Reads kid profiles from CSV
+2. Generates gift recommendations (LLM)
+3. Generates personalized wishes (LLM)
+4. Generates card images (Image API)
+5. Creates final PNG cards
+6. Saves intermediate results as JSON
 
 ---
 
-# 🎁 Project Overview
+## ☁️ Running with SkyPilot
 
-## ❄️ 1. Santa’s Challenge
+### Prerequisites
 
-Generate **2 billion personalized gift cards in 30 days**:
-
-* Gift recommendation
-* Personalized wish
-* Unique illustration
-* Final HTML/PDF card
-
-A single workflow takes **~5 seconds**.
-Sequential processing would take **317+ years**.
-
-Santa needs:
-
-* an **agentic workflow**,
-* a **self-hosted LLM**,
-* **distributed execution**, and
-* **strong observability**.
-
-This repo implements all of the above.
-
----
-
-# 🤖 2. Agentic Workflow
-
-The Santa Agent pipeline:
-
-```mermaid
-flowchart TD
-    A[🎁 Analyze Kid Profile] --> B[🎄 Gift Recommender Tool]
-    A --> C[✨ Wish Generator Tool]
-    B --> C
-    C --> D[🖼️ Image Tool]
-    D --> E[📜 Card Formatter]
-    E --> F[🛷 Elf’s Delivery Protocol]
+1. Install SkyPilot:
+```bash
+uv pip install -e ".[skypilot]"
 ```
 
-Each stage is implemented under `santa_agent/tools/` and orchestrated by `santa_agent/orchestrator.py`.
+2. Configure SkyPilot for Nebius:
+```bash
+sky check
+```
 
----
+3. Set environment variables (see Configuration section)
 
-# 📦 3. Self-Hosted LLM and Image Models
-
-Under `models/`:
-
-* **vLLM** server for gift reasoning & wish generation
-* **Stable Diffusion / Flux / Recraft proxy** for image generation
-
-Clients live under `models/clients/`.
-
-We use HTTP endpoints to keep batch workers lightweight.
-
----
-
-# 🔧 4. Santa Agent (Batch Pipeline)
-
-The **Santa Agent** runs in distributed mode via SkyPilot.
-
-### Worker responsibilities:
-
-1. Load KidProfile from DB
-2. Call self-hosted LLM
-3. Generate image
-4. Format final gift card
-5. Upload everything to S3
-6. Log metrics to MLflow
-
-Run locally:
+### Launch Workflow on Nebius
 
 ```bash
-python santa_agent/worker.py --batch data/kids.json
+sky launch infra/sky/santa_workflow.yaml
 ```
+
+The workflow will:
+
+- Provision H100 GPU instance on Nebius
+- Clone repository and install dependencies
+- Generate kid profiles
+- Run santa_workflow.py
+- Upload results to S3
+
+### Monitor and Manage
+
+```bash
+# View logs
+sky logs santa_workflow -t
+
+# SSH into the instance
+sky ssh santa_workflow
+
+# Stop the cluster
+sky down santa_workflow
+```
+
+### SkyPilot Configuration
+
+Edit `infra/sky/santa_workflow.yaml` to customize:
+
+- Number of GPUs (`accelerators: H100:1`)
+- Instance type
+- Environment variables
+- Secrets (API keys)
+- Run commands
 
 ---
 
-# ☁️ 5. Distributed Processing with SkyPilot
+## 📊 MLflow Integration
 
-SkyPilot automatically:
+The project integrates with MLflow for tracking:
 
-* provisions Nebius compute
-* executes the batch worker
-* handles retries
-* autoscaling
-* provides logs for each node
+- Model performance metrics
+- Latency and throughput
+- Cost estimates
+- Generated artifacts (images, cards)
 
-Config:
+When `MLFLOW_TRACKING_URI` is set, all runs are automatically logged to the remote MLflow server.
 
-```
-infra/sky/santa_batch.yaml
-```
-
-Run:
-
+View results:
 ```bash
-sky launch -c santa infra/sky/santa_batch.yaml
-```
-
----
-
-# 📊 6. Observability & MLflow
-
-Under `infra/mlflow/`:
-
-* MLflow tracks
-
-  * model version
-  * latency
-  * image artifacts
-  * cost estimates
-  * final card output
-
-* Perfect for model comparison and evaluation
-
-* Used in the *Elf Evaluation Challenge* during the webinar
-
-Start MLflow locally:
-
-```bash
+# If running MLflow locally
 mlflow ui
+
+# Or access your remote MLflow UI
+open $MLFLOW_TRACKING_URI
 ```
 
 ---
 
-# 🧱 7. Data Models (Simplified)
+## 🧱 Data Models
 
 ### KidProfile
 
@@ -264,136 +232,44 @@ age: int
 wishlist: List[str]
 ```
 
-### GiftRecommendation
+### GiftCard Pipeline
 
-```python
-id: str
-kid_id: str
-gifts: List[str]
-rationale: str
-model_version: str
-```
-
-### Wish
-
-```python
-id: str
-kid_id: str
-text: str
-model_version: str
-```
-
-### CardImage
-
-```python
-id: str
-kid_id: str
-image_url: str
-model_version: str
-```
-
-### GiftCard
-
-```python
-id: str
-kid_id: str
-recommendation_id: str
-wish_id: str
-image_id: str
-rendered_url: str
-status: str
-```
+1. **GiftRecommendation** - LLM-generated gift suggestions
+2. **Wish** - Personalized holiday wish text
+3. **CardImage** - Generated card illustration
+4. **GiftCard** - Final rendered PNG card
 
 ---
 
-# 🧪 8. Local Prototyping
+## 🔧 Utilities
 
-Use `prototype/` to:
-
-* experiment with multiple LLMs
-* compare image generation tools
-* log runs in MLflow
-* estimate cost & latency
-
-This folder is intentionally messy — a sandbox for exploration.
-
-## Working with the Jupyter Notebook
-
-The main prototyping notebook is `prototype/gift_generation.ipynb`. It demonstrates:
-
-1. **Gift Recommendation Generation** - Using LLM to recommend gifts based on kid profiles
-2. **Wish Generation** - Creating personalized holiday wishes
-3. **Image Generation** - Placeholder for card images (ready for integration with image services)
-
-To get started:
+### Upload to S3
 
 ```bash
-# Make sure you have Jupyter installed (included in [dev] dependencies)
-uv pip install -e ".[dev]"
+# Upload a file
+python prototype/src/data_upload.py \
+  --source-file prototype/data/santa_workflow/kids.csv \
+  --destination-bucket nebius://santa-storage-s3 \
+  --s3-prefix santa_workflow
 
-# Launch Jupyter
-jupyter notebook prototype/gift_generation.ipynb
+# Upload a directory
+python prototype/src/data_upload.py \
+  --source-dir prototype/data/santa_workflow/cards \
+  --destination-bucket nebius://santa-storage-s3 \
+  --s3-prefix santa_workflow
 ```
-
-The notebook includes sample kid profiles and can be easily extended to test different LLM models, prompts, and image generation services.
 
 ---
 
-# 🌐 9. Self-Hosted LLM Deployment
+## 🧯 Troubleshooting
 
-Examples under:
-
-```
-models/llm/
-models/image/
-```
-
-Deploy on Nebius GPU instances:
-
-```bash
-bash start_vllm.sh
-```
-
-Configure your SkyPilot jobs to query this endpoint.
+- **Import errors?** Ensure virtual environment is activated: `source .venv/bin/activate`
+- **API key errors?** Check `.env` file exists and contains required keys
+- **MLflow connection errors?** Verify `MLFLOW_TRACKING_URI` and credentials are correct
+- **SkyPilot errors?** Run `sky check` to verify Nebius configuration
 
 ---
 
-# 🧯 10. Troubleshooting
-
-## Environment Setup Issues
-
-* **uv not found?** Make sure uv is installed and in your PATH. Try `uv --version` to verify.
-* **Python version issues?** uv will automatically use Python 3.10+ if available. Install it via `pyenv` or your system package manager.
-* **Import errors?** Make sure you've activated the virtual environment: `source .venv/bin/activate` (or `.venv\Scripts\activate` on Windows)
-
-## Runtime Issues
-
-* **vLLM too slow?** Increase `tensor-parallel-size` or GPU type
-* **Workers crash?** Check SkyPilot logs + MLflow traces
-* **Image generation throttled?** Switch from API to local SD
-* **High cost?** Enable request batching in vLLM
-* **LLM connection errors?** Verify your LLM service is running and the host/port in the notebook matches your service configuration
-
----
-
-# ❤️ Contributing
-
-PRs are welcome — after all, Santa needs all the help he can get.
-
----
-
-# 🎅 License
+## 📄 License
 
 MIT — use freely for workshops, training, and holiday-themed AI adventures.
-
----
-
-If you'd like, I can also generate:
-
-📄 A CONTRIBUTING.md
-📦 A `docker-compose.yaml` for local full-stack simulation
-🧠 A “North Pole Architecture Diagram”
-🧪 End-to-end test scripts
-🔥 A template `.env` file with all configuration keys
-
-Just tell me!

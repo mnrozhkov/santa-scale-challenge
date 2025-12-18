@@ -1,0 +1,66 @@
+resources:
+  infra: nebius
+  accelerators: H100:1
+
+setup: |
+  echo 'Setup will be executed on every `sky launch` command on all nodes'
+  git clone https://github.com/mnrozhkov/santa-scale-challenge.git 
+  cd santa-scale-challenge && git checkout santa_agent 
+  
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  uv python install 3.12
+  uv venv --python 3.12
+  source .venv/bin/activate
+  uv pip install -e .
+  
+
+envs:
+  MLFLOW_TRACKING_URI: https://public-tracking-e00-fjah9x03h2g10wy-rf1sp096j56n6hr-mlflow.gw.msp.eu-north1.nebius.cloud
+  MLFLOW_TRACKING_USERNAME: santa
+  TOKEN_FACTORY_BASE_URL: https://api.tokenfactory.nebius.com/v1/
+  NEBIUS_S3_BUCKET: nebius://santa-storage-s3
+  AWS_REGION: eu-north1
+  AWS_ENDPOINT_URL: https://storage.eu-north1.nebius.cloud:443
+  
+
+secrets:
+  OPENAI_API_KEY: null
+  RECRAFT_API_KEY: null
+  AWS_ACCESS_KEY_ID: null
+  AWS_SECRET_ACCESS_KEY: null
+
+
+run: |
+  echo 'Run will be executed on every `sky exec` command on all nodes'
+  echo 'Do we have GPUs?'
+  nvidia-smi 
+
+  # Test env vars
+  env | grep MLFLOW
+
+  # Run the santa workflow
+  cd santa-scale-challenge
+  source .venv/bin/activate
+  which python
+
+  python prototype/src/save_env.py .env
+  cat .env
+  
+  python prototype/src/generate_kids.py 10 --output prototype/data/santa_workflow/kids.csv
+  
+  python prototype/santa_workflow.py prototype/data/santa_workflow/kids.csv \
+  --output-dir prototype/data/santa_workflow/cards \
+  --intermediate-dir prototype/data/santa_workflow/intermediate \
+  --llm-model gpt-4o-mini \
+  --image-model recraftv3
+  
+  # Upload generated files to S3
+  python prototype/src/data_upload.py \
+  --source-file prototype/data/santa_workflow/kids.csv \
+  --destination-bucket nebius://santa-storage-s3 \
+  --s3-prefix santa_workflow
+
+  python prototype/src/data_upload.py \
+  --source-dir prototype/data/santa_workflow/kids.csv \
+  --destination-bucket nebius://santa-storage-s3 \
+  --s3-prefix santa_workflow
