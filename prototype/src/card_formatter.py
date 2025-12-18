@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import tempfile
+from pathlib import Path
 
 from src.data_scheme import CardImage, GiftCard, GiftRecommendation, KidProfile, Wish
 
@@ -155,6 +156,33 @@ def format_gift_card(
     return html_template
 
 
+def find_chrome_executable() -> str | None:
+    """
+    Find Chrome/Chromium executable on the system.
+    
+    Returns:
+        Path to Chrome/Chromium executable, or None if not found
+    """
+    # Common Chrome/Chromium executable paths
+    possible_paths = [
+        "/usr/bin/google-chrome",
+        "/usr/bin/google-chrome-stable",
+        "/usr/bin/chromium-browser",
+        "/usr/bin/chromium",
+        "/snap/bin/chromium",
+        shutil.which("google-chrome"),
+        shutil.which("google-chrome-stable"),
+        shutil.which("chromium-browser"),
+        shutil.which("chromium"),
+    ]
+    
+    for path in possible_paths:
+        if path and Path(path).exists() and os.access(path, os.X_OK):
+            return path
+    
+    return None
+
+
 def create_complete_gift_card(
     kid_profile: KidProfile,
     gift_recommendation: GiftRecommendation,
@@ -212,8 +240,17 @@ def create_complete_gift_card(
             screenshot_width = width
             screenshot_height = height
 
-            # Create Html2Image instance
-            hti = Html2Image(size=(screenshot_width, screenshot_height))
+            # Find Chrome/Chromium executable
+            chrome_path = find_chrome_executable()
+            if chrome_path:
+                # Create Html2Image instance with explicit Chrome path
+                hti = Html2Image(
+                    size=(screenshot_width, screenshot_height),
+                    browser_executable=chrome_path,
+                )
+            else:
+                # Try without explicit path (html2image will try to find it)
+                hti = Html2Image(size=(screenshot_width, screenshot_height))
 
             # Save HTML to temp file
             with tempfile.NamedTemporaryFile(

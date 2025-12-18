@@ -17,6 +17,13 @@ setup: |
   echo 'Setup will be executed on every `sky launch` command on all nodes'
   # Note: workdir syncs files, so we don't need git clone
   
+  # Install Chrome/Chromium for html2image
+  sudo apt-get update
+  # Try chromium-browser first (Ubuntu 18.04+), fallback to chromium (Ubuntu 20.04+)
+  if ! sudo apt-get install -y chromium-browser chromium-chromedriver 2>/dev/null; then
+    sudo apt-get install -y chromium chromium-driver
+  fi
+
   curl -LsSf https://astral.sh/uv/install.sh | sh
   uv python install 3.12
   uv venv --python 3.12
@@ -77,4 +84,3 @@ run: |
   --source-dir prototype/data/santa_workflow/cards \
   --destination-bucket nebius://santa-storage-s3 \
   --s3-prefix santa_workflow
-

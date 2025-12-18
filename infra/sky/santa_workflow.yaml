@@ -4,6 +4,14 @@ resources:
 
 setup: |
   echo 'Setup will be executed on every `sky launch` command on all nodes'
+  
+  # Install Chrome/Chromium for html2image
+  sudo apt-get update
+  # Try chromium-browser first (Ubuntu 18.04+), fallback to chromium (Ubuntu 20.04+)
+  if ! sudo apt-get install -y chromium-browser chromium-chromedriver 2>/dev/null; then
+    sudo apt-get install -y chromium chromium-driver
+  fi
+  
   git clone https://github.com/mnrozhkov/santa-scale-challenge.git
   cd santa-scale-challenge && git checkout santa_agent
 
