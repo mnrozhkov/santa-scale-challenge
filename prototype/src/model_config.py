@@ -126,17 +126,17 @@ def get_available_models(
             #     cost_per_1m_tokens_out=0.0,  # Will be calculated dynamically
             #     cost_infra_per_hour=2.98,
             # ),
-            ModelConfig(
-                name="santa-deepseek-r1-llama-8b",
-                client=LLMClient(
-                    base_url=os.getenv("SANTA_DEEPSEEK_R1_L8B_URL"),
-                    api_key=os.getenv("SANTA_DEEPSEEK_R1_L8B_API_KEY"),
-                    model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-                ),
-                cost_per_1m_tokens_in=0.0,  # Will be calculated dynamically
-                cost_per_1m_tokens_out=0.0,  # Will be calculated dynamically
-                cost_infra_per_hour=2.96,
-            ),
+            # ModelConfig(
+            #     name="santa-deepseek-r1-llama-8b",
+            #     client=LLMClient(
+            #         base_url=os.getenv("SANTA_DEEPSEEK_R1_L8B_URL"),
+            #         api_key=os.getenv("SANTA_DEEPSEEK_R1_L8B_API_KEY"),
+            #         model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+            #     ),
+            #     cost_per_1m_tokens_in=0.0,  # Will be calculated dynamically
+            #     cost_per_1m_tokens_out=0.0,  # Will be calculated dynamically
+            #     cost_infra_per_hour=2.96,
+            # ),
             ModelConfig(
                 name="santa-deepseek-r1-qwen-1d5b",
                 client=LLMClient(
