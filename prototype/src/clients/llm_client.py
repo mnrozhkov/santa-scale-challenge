@@ -25,7 +25,12 @@ class LLMClient:
             base_url: Base URL for the LLM service
             api_key: API key (required for OpenAI, optional for local vLLM)
             model: Model name to use
+
+        Raises:
+            ValueError: If base_url is None or empty
         """
+        if not base_url:
+            raise ValueError("base_url cannot be None or empty")
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.model = model

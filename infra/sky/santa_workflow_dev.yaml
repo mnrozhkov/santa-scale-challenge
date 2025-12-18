@@ -1,12 +1,22 @@
+# Development version with workdir sync for local development
+# Use this for rapid iteration without git commits
+#
+# Usage:
+#   cd /Users/mnrozhkov/dev/santa-scaline-challenge
+#   sky launch --workdir . infra/sky/santa_workflow_dev.yaml
+
 resources:
   infra: nebius
   accelerators: H100:1
 
+# workdir syncs your local directory to the cluster
+# This allows you to test local changes without git commits
+workdir: .
+
 setup: |
   echo 'Setup will be executed on every `sky launch` command on all nodes'
-  git clone https://github.com/mnrozhkov/santa-scale-challenge.git
-  cd santa-scale-challenge && git checkout santa_agent
-
+  # Note: workdir syncs files, so we don't need git clone
+  
   curl -LsSf https://astral.sh/uv/install.sh | sh
   uv python install 3.12
   uv venv --python 3.12
@@ -39,7 +49,7 @@ run: |
   env | grep MLFLOW
 
   # Run the santa workflow
-  cd santa-scale-challenge
+  # Note: workdir syncs to ~/sky_workdir by default, or use current directory
   source .venv/bin/activate
   which python
 
@@ -67,3 +77,4 @@ run: |
   --source-dir prototype/data/santa_workflow/cards \
   --destination-bucket nebius://santa-storage-s3 \
   --s3-prefix santa_workflow
+

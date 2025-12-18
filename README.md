@@ -160,10 +160,17 @@ sky check
 
 3. Set environment variables (see Configuration section)
 
-### Launch Workflow on Nebius
+### Launch New Cluster and Run Workflow
+
+Launch a new SkyPilot cluster and automatically run the santa_workflow:
 
 ```bash
-sky launch infra/sky/santa_workflow.yaml
+sky launch \
+  --secret RECRAFT_API_KEY \
+  --secret OPENAI_API_KEY \
+  --secret AWS_ACCESS_KEY_ID \
+  --secret AWS_SECRET_ACCESS_KEY \
+  infra/sky/santa_workflow.yaml
 ```
 
 The workflow will:
@@ -173,6 +180,21 @@ The workflow will:
 - Generate kid profiles
 - Run santa_workflow.py
 - Upload results to S3
+
+### Run Job on Existing Cluster
+
+Execute the workflow on an existing SkyPilot cluster:
+
+```bash
+sky exec <SKYPILOT_CLUSTER_NAME> \
+  --secret RECRAFT_API_KEY \
+  --secret OPENAI_API_KEY \
+  --secret AWS_ACCESS_KEY_ID \
+  --secret AWS_SECRET_ACCESS_KEY \
+  infra/sky/santa_workflow.yaml
+```
+
+Replace `<SKYPILOT_CLUSTER_NAME>` with your cluster name (e.g., `santa_workflow`).
 
 ### Monitor and Manage
 

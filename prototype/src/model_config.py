@@ -114,41 +114,45 @@ def get_available_models(
     if include_self_hosted:
         # Get infrastructure cost from environment variable (default: 2.50 USD/hour)
 
-        self_hosted_models = [
-            # ModelConfig(
-            #     name="santa-deepseek-r1",
-            #     client=LLMClient(
-            #         base_url=os.getenv("SANTA_DEEPSEEK_R1_URL"),
-            #         api_key=os.getenv("SANTA_DEEPSEEK_R1_API_KEY"),
-            #         model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-            #     ),
-            #     cost_per_1m_tokens_in=0.0,  # Will be calculated dynamically
-            #     cost_per_1m_tokens_out=0.0,  # Will be calculated dynamically
-            #     cost_infra_per_hour=2.98,
-            # ),
-            # ModelConfig(
-            #     name="santa-deepseek-r1-llama-8b",
-            #     client=LLMClient(
-            #         base_url=os.getenv("SANTA_DEEPSEEK_R1_L8B_URL"),
-            #         api_key=os.getenv("SANTA_DEEPSEEK_R1_L8B_API_KEY"),
-            #         model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-            #     ),
-            #     cost_per_1m_tokens_in=0.0,  # Will be calculated dynamically
-            #     cost_per_1m_tokens_out=0.0,  # Will be calculated dynamically
-            #     cost_infra_per_hour=2.96,
-            # ),
-            ModelConfig(
-                name="santa-deepseek-r1-qwen-1d5b",
-                client=LLMClient(
-                    base_url=os.getenv("SANTA_DEEPSEEK_R1_Q1d5B_URL"),
-                    api_key=os.getenv("SANTA_DEEPSEEK_R1_Q1d5B_API_KEY"),
-                    model="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
-                ),
-                cost_per_1m_tokens_in=0.0,  # Will be calculated dynamically
-                cost_per_1m_tokens_out=0.0,  # Will be calculated dynamically
-                cost_infra_per_hour=2.96,
-            ),
-        ]
+        self_hosted_models = []
+        # ModelConfig(
+        #     name="santa-deepseek-r1",
+        #     client=LLMClient(
+        #         base_url=os.getenv("SANTA_DEEPSEEK_R1_URL"),
+        #         api_key=os.getenv("SANTA_DEEPSEEK_R1_API_KEY"),
+        #         model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+        #     ),
+        #     cost_per_1m_tokens_in=0.0,  # Will be calculated dynamically
+        #     cost_per_1m_tokens_out=0.0,  # Will be calculated dynamically
+        #     cost_infra_per_hour=2.98,
+        # ),
+        # ModelConfig(
+        #     name="santa-deepseek-r1-llama-8b",
+        #     client=LLMClient(
+        #         base_url=os.getenv("SANTA_DEEPSEEK_R1_L8B_URL"),
+        #         api_key=os.getenv("SANTA_DEEPSEEK_R1_L8B_API_KEY"),
+        #         model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+        #     ),
+        #     cost_per_1m_tokens_in=0.0,  # Will be calculated dynamically
+        #     cost_per_1m_tokens_out=0.0,  # Will be calculated dynamically
+        #     cost_infra_per_hour=2.96,
+        # ),
+        # Only add self-hosted model if environment variables are set
+        santa_q1d5b_url = os.getenv("SANTA_DEEPSEEK_R1_Q1d5B_URL")
+        if santa_q1d5b_url:
+            self_hosted_models.append(
+                ModelConfig(
+                    name="santa-deepseek-r1-qwen-1d5b",
+                    client=LLMClient(
+                        base_url=santa_q1d5b_url,
+                        api_key=os.getenv("SANTA_DEEPSEEK_R1_Q1d5B_API_KEY"),
+                        model="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+                    ),
+                    cost_per_1m_tokens_in=0.0,  # Will be calculated dynamically
+                    cost_per_1m_tokens_out=0.0,  # Will be calculated dynamically
+                    cost_infra_per_hour=2.96,
+                )
+            )
         models.extend(self_hosted_models)
 
     # Filter by model names if specified

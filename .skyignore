@@ -1,0 +1,68 @@
+# SkyPilot ignore file - excludes files from workdir sync
+# Similar to .gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment files (use secrets instead)
+.env
+.env.local
+.env.*.local
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Data directories (can be large)
+prototype/data/santa_workflow/cards/
+prototype/data/santa_workflow/intermediate/
+prototype/data/benchmark_results.csv
+
+# Git
+.git/
+.gitignore
+
+# Documentation builds
+docs/_build/
+site/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
