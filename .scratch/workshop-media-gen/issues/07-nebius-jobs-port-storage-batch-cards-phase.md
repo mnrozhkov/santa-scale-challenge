@@ -17,4 +17,4 @@
 - Cost rows checked 2026-09-07 against https://docs.nebius.com/compute/resources/pricing: H100 NVLink $3.85/GPU-h on-demand, $2.15 preemptible (from 1 June 2026); cpu-e2 Intel Ice Lake $0.012/vCPU-h + $0.0032/GiB-h (e.g. `2vcpu-8gb` = $0.0496/h).
 - `data/kids.csv` is 24 rows so `--kids 20` works; issue 11 replaces this with 200 generated profiles.
 - GPU job *submission* is not in this ticket (issue 09). `create_and_wait` is tested with a fake JobService.
-- Without `NEBIUS_BUCKET_NAME`, the CLI uses in-memory storage so a laptop can still write local chunk files.
+- Bucket upload is required: without `NEBIUS_BUCKET_NAME` the CLI exits 1 (no MemoryStorage fallback). `--kids-csv` and `--out` are extra flags for tests and local runs.

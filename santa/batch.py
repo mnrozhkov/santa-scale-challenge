@@ -28,6 +28,9 @@ class StorageLike(Protocol):
     def upload(self, key: str, data: bytes, *, content_type: str | None = None) -> None:
         ...
 
+    def download(self, key: str) -> bytes:
+        ...
+
 
 def chunk_ids(ids: list[str], k: int) -> list[list[str]]:
     """Split ``ids`` into ``k`` consecutive chunks. Empty trailing chunks are dropped."""
@@ -56,13 +59,11 @@ def load_kids(path: Path | str, n: int) -> list[KidProfile]:
         for row in reader:
             if len(kids) >= n:
                 break
-            name = (row.get("name") or row.get("Your Name (Optional)") or "").strip()
+            name = (row.get("name") or "").strip()
             if not name:
                 continue
             age_raw = (row.get("age") or "8").strip() or "8"
-            wish = (
-                row.get("wishlist") or row.get("What did you want for Christmas as a child?") or ""
-            ).strip()
+            wish = (row.get("wishlist") or "").strip()
             kid_id = (row.get("id") or "").strip() or str(uuid.uuid4())
             kids.append(
                 KidProfile(
@@ -88,6 +89,24 @@ def skip_existing(
         else:
             todo.append(kid)
     return todo, skipped
+
+
+def mood_from_storage(storage: StorageLike, kid_id: str) -> str:
+    """Read ``wish.mood`` from ``cards/{id}.json`` in the bucket; default ``warm``."""
+    try:
+        raw = storage.download(f"cards/{kid_id}.json")
+    except Exception:
+        return "warm"
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return "warm"
+    if not isinstance(data, dict):
+        return "warm"
+    wish = data.get("wish")
+    if isinstance(wish, dict) and wish.get("mood"):
+        return str(wish["mood"])
+    return str(data.get("mood") or "warm")
 
 
 def write_chunks(run_dir: Path, chunks: list[list[dict[str, str]]]) -> list[Path]:
@@ -121,7 +140,7 @@ def run_cards_phase(
     run_dir: Path,
     storage: StorageLike,
     settings: Settings,
-    local: bool = True,
+    local: bool = False,
     service_url: str = "",
     make_card: Callable[..., Any] | None = None,
     post_batch: Callable[[str, list[KidProfile]], list[str]] | None = None,
@@ -137,7 +156,7 @@ def run_cards_phase(
         ids = post(service_url, todo)
         made = list(ids)
         for kid in todo:
-            moods[kid.id] = "warm"
+            moods[kid.id] = mood_from_storage(storage, kid.id)
     else:
         from santa.card import make_card as _make
 
@@ -150,6 +169,8 @@ def run_cards_phase(
                 kid_id, mood = fut.result()
                 made.append(kid_id)
                 moods[kid_id] = mood
+    for kid_id in skipped:
+        moods[kid_id] = mood_from_storage(storage, kid_id)
     ordered = [k.id for k in kids]
     chunk_lists = chunk_ids(ordered, n_jobs)
     packed = [[{"id": i, "mood": moods.get(i, "warm")} for i in ch] for ch in chunk_lists]

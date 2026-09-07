@@ -209,7 +209,7 @@ def batch(
     import uuid
 
     from santa.batch import DEFAULT_KIDS_CSV, load_kids, run_cards_phase
-    from santa.storage import MemoryStorage, Storage, local_run_dir
+    from santa.storage import Storage, local_run_dir
 
     rid = run_id or uuid.uuid4().hex[:10]
     csv_path = kids_csv or DEFAULT_KIDS_CSV
@@ -222,10 +222,11 @@ def batch(
     run_dir.mkdir(parents=True, exist_ok=True)
     service_url = "" if local else (os.environ.get("SANTA_SERVICE_URL") or "").strip()
     try:
-        store: MemoryStorage | Storage = Storage.from_env()
-    except Exception:
-        store = MemoryStorage()
-        console.print("[yellow]No bucket creds — cards stay local (MemoryStorage).[/yellow]")
+        store = Storage.from_env()
+    except Exception as exc:
+        console.print(f"[red]Bucket is required for santa batch: {exc}[/red]")
+        console.print("Set NEBIUS_BUCKET_NAME (and AWS_* keys) in .env.")
+        raise typer.Exit(code=1) from exc
     settings = Settings.load()
     phase = run_cards_phase(
         kids=selected,

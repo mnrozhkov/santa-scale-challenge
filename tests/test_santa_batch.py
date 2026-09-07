@@ -39,7 +39,7 @@ def test_skip_existing_cards_png(tmp_path) -> None:
 def test_load_kids_from_csv(tmp_path) -> None:
     csv_path = tmp_path / "kids.csv"
     csv_path.write_text(
-        "id,name,age,wishlist\n" "a,Emma,7,telescope\n" "b,Lucas,5,train\n",
+        "id,name,age,wishlist\na,Emma,7,telescope\nb,Lucas,5,train\n",
         encoding="utf-8",
     )
     kids = load_kids(csv_path, 2)
@@ -139,6 +139,7 @@ def test_cards_phase_skips_existing_and_writes_four_chunks(tmp_path, monkeypatch
     ]
     store = MemoryStorage()
     store.upload("cards/k00.png", b"already")
+    store.upload("cards/k00.json", json.dumps({"wish": {"mood": "cozy"}}).encode())
 
     @dataclass
     class FakeWish:
@@ -176,7 +177,7 @@ def test_cards_phase_skips_existing_and_writes_four_chunks(tmp_path, monkeypatch
     assert len(phase.made) == 19
     assert len(phase.chunks) == 4
     first = json.loads(phase.chunks[0].read_text(encoding="utf-8"))
-    assert first[0] == {"id": "k00", "mood": "warm"}  # skipped, default mood
+    assert first[0] == {"id": "k00", "mood": "cozy"}  # skipped, mood from cards/k00.json
     assert store.exists("cards/k01.png")
     assert store.exists("runs/r1/chunks/0.json")
 
@@ -252,6 +253,7 @@ def test_cards_phase_uses_service_when_url_set(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("IMAGE_ENDPOINT_TOKEN", "t")
     kids = [KidProfile(id="k1", name="Emma", age=7)]
     store = MemoryStorage()
+    store.upload("cards/k1.json", json.dumps({"wish": {"mood": "playful"}}).encode())
     posted: list = []
 
     def post(url, batch_kids):
@@ -271,7 +273,8 @@ def test_cards_phase_uses_service_when_url_set(tmp_path, monkeypatch) -> None:
     )
     assert phase.used_service is True
     assert posted == [("https://santa.example", ["k1"])]
-    assert store.exists("runs/r2/chunks/0.json")
+    chunk = json.loads(phase.chunks[0].read_text(encoding="utf-8"))
+    assert chunk == [{"id": "k1", "mood": "playful"}]
 
 
 def test_batch_cli_writes_chunks(tmp_path, monkeypatch) -> None:
@@ -297,6 +300,7 @@ def test_batch_cli_writes_chunks(tmp_path, monkeypatch) -> None:
 
     monkeypatch.setattr("santa.batch.run_cards_phase", fake_phase)
     monkeypatch.setattr("santa.cli.Settings.load", lambda: object())
+    monkeypatch.setattr("santa.storage.Storage.from_env", lambda: MemoryStorage())
     result = CliRunner().invoke(
         app,
         [
@@ -317,3 +321,61 @@ def test_batch_cli_writes_chunks(tmp_path, monkeypatch) -> None:
     assert result.exit_code == 0, result.output
     assert "cli1" in result.output
     assert "made 2" in result.output
+
+
+def test_sdk_job_service_requires_iam_token(monkeypatch) -> None:
+    from santa.nebius_jobs import SdkJobService
+
+    monkeypatch.delenv("NEBIUS_IAM_TOKEN", raising=False)
+    with pytest.raises(NebiusJobError, match="NEBIUS_IAM_TOKEN"):
+        SdkJobService.from_env()
+
+
+def test_sdk_job_service_create_uses_project_id() -> None:
+    from santa.nebius_jobs import JobPayload, SdkJobService
+
+    captured: dict = {}
+
+    class Wait:
+        def wait(self):
+            class Op:
+                resource_id = "job-live"
+
+                def sync_wait(self):
+                    return None
+
+            return Op()
+
+    class Client:
+        def create(self, request):
+            captured["parent"] = request.metadata.parent_id
+            captured["name"] = request.metadata.name
+            captured["image"] = request.spec.image
+            return Wait()
+
+        def get(self, request):
+            return Wait()
+
+        def cancel(self, request):
+            captured["cancel"] = request.id
+            return Wait()
+
+    svc = SdkJobService(Client(), project_id="proj-fallback")
+    payload = JobPayload(
+        image="cr.example/santa-job:t",
+        platform="gpu-h100-sxm",
+        preset="1gpu-16vcpu-200gb",
+        preemptible=True,
+        disk_gb=1,
+        timeout_min=5,
+        mount_path="/data",
+        bucket_id="b",
+        env={"RUN_ID": "r"},
+        project_id="proj-1",
+        name="santa-r",
+    )
+    assert svc.create(payload) == "job-live"
+    assert captured["parent"] == "proj-1"
+    assert captured["image"] == "cr.example/santa-job:t"
+    svc.cancel("job-live")
+    assert captured["cancel"] == "job-live"

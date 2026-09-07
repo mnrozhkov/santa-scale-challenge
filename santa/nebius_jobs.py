@@ -1,6 +1,7 @@
 """Nebius Serverless Jobs: build a spec from ``config/models.yaml`` ``job:`` and wait.
 
-The SDK ``JobServiceClient`` is wrapped behind a tiny protocol so tests inject a fake.
+``SdkJobService`` wraps ``JobServiceClient`` with ``NEBIUS_IAM_TOKEN``. Tests inject a fake
+``JobService``.
 """
 
 from __future__ import annotations
@@ -187,3 +188,59 @@ def to_sdk_spec(payload: JobPayload) -> Any:
     if disk is not None:
         kw["disk"] = disk
     return SdkJobSpec(**kw)
+
+
+class SdkJobService:
+    """Live JobServiceClient authenticated with ``NEBIUS_IAM_TOKEN``."""
+
+    def __init__(self, client: Any, *, project_id: str = "") -> None:
+        self.client = client
+        self.project_id = project_id
+
+    @classmethod
+    def from_env(cls) -> SdkJobService:
+        token = (os.environ.get("NEBIUS_IAM_TOKEN") or "").strip()
+        if not token:
+            raise NebiusJobError(
+                "NEBIUS_IAM_TOKEN is missing. Run: nebius iam get-access-token, then set it in .env."
+            )
+        from nebius.aio.token.static import Bearer
+        from nebius.api.nebius.ai.v1 import JobServiceClient
+        from nebius.sdk import SDK
+
+        sdk = SDK(credentials=Bearer(token), user_agent_prefix="santa/2")
+        return cls(
+            JobServiceClient(sdk), project_id=(os.environ.get("NEBIUS_PROJECT_ID") or "").strip()
+        )
+
+    def create(self, payload: JobPayload) -> str:
+        from nebius.api.nebius.ai.v1 import CreateJobRequest
+        from nebius.api.nebius.common.v1 import ResourceMetadata
+
+        parent = payload.project_id or self.project_id
+        if not parent:
+            raise NebiusJobError("NEBIUS_PROJECT_ID is missing.")
+        request = CreateJobRequest(
+            metadata=ResourceMetadata(parent_id=parent, name=payload.name or None),
+            spec=to_sdk_spec(payload),
+        )
+        op = self.client.create(request).wait()
+        if hasattr(op, "sync_wait"):
+            op.sync_wait()
+        job_id = getattr(op, "resource_id", None) or getattr(op, "id", None)
+        if not job_id:
+            raise NebiusJobError("Job create returned no id.")
+        return str(job_id)
+
+    def get(self, job_id: str) -> str:
+        from nebius.api.nebius.ai.v1 import GetJobRequest
+
+        job = self.client.get(GetJobRequest(id=job_id)).wait()
+        state = getattr(getattr(job, "status", None), "state", None)
+        name = getattr(state, "name", None)
+        return str(name or state or "")
+
+    def cancel(self, job_id: str) -> None:
+        from nebius.api.nebius.ai.v1 import CancelJobRequest
+
+        self.client.cancel(CancelJobRequest(id=job_id)).wait()
