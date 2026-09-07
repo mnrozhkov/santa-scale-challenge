@@ -1,49 +1,64 @@
 [project]
 name = "santa-scale-challenge"
 version = "0.1.0"
-description = "AI Orchestration & Agentic Deployment for generating personalized gift cards at scale"
+description = "Workshop media-gen on Nebius Serverless: personalized gift cards with LLM, image, video, and audio"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
     {name = "Santa Scale Challenge Team"}
 ]
-keywords = ["llm", "ai", "gift-cards", "mlflow", "nebius"]
+keywords = ["workshop", "media-gen", "gift-cards", "nebius", "serverless"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
 
 dependencies = [
-    "mlflow==2.21.2",
     "openai>=1.0.0",
-    "pandas>=2.0.0",
     "pydantic>=2.0.0",
-    "requests>=2.31.0",
-    "aiohttp>=3.11.0",
-    "python-dotenv>=1.0.0",
-    "google-api-python-client>=2.0.0",
-    "google-auth>=2.0.0",
-    "html2image>=2.0.0",
-    "boto3>=1.35.0",
-    "fastapi>=0.115.0",
-    "jinja2>=3.1.0",
-    "uvicorn[standard]>=0.32.0",
-    "python-multipart>=0.0.9",
+    "pydantic-settings>=2.0.0",
     "pyyaml>=6.0",
     "typer>=0.12",
     "rich>=13.0",
-    "truststore>=0.9",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+    "pillow>=10.0.0",
+    "jinja2>=3.1.0",
+    "imageio-ffmpeg>=0.5.0",
+    "boto3>=1.35.0",
+    "nebius>=0.2.0",
+    "pydantic-ai>=0.1.0",
+    "truststore>=0.9",  # laptop TLS: santa.cli injects the OS cert store
 ]
 
 [dependency-groups]
-# Development dependencies (for uv sync --group dev)
+service = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.9",
+]
+job = [
+    "torch>=2.4.0",
+    "diffusers>=0.31.0",
+    "transformers>=4.45.0",
+    "accelerate>=1.0.0",
+    "imageio-ffmpeg>=0.5.0",
+]
+research = [
+    "mlflow==2.21.2",
+    "pandas>=2.0.0",
+    "google-api-python-client>=2.0.0",
+    "google-auth>=2.0.0",
+    "aiohttp>=3.11.0",
+]
 dev = [
+    {include-group = "service"},
     "jupyterlab>=4.5.0",
     "ipykernel",
     "pytest>=7.4.0",
@@ -60,10 +75,13 @@ santa = "santa.cli:app"
 santa-demo = "santa_demo.app:main"
 
 [project.urls]
-Homepage = "https://github.com/your-org/santa-scale-challenge"
-Documentation = "https://github.com/your-org/santa-scale-challenge#readme"
-Repository = "https://github.com/your-org/santa-scale-challenge"
-Issues = "https://github.com/your-org/santa-scale-challenge/issues"
+Homepage = "https://github.com/mnrozhkov/santa-scale-challenge"
+Documentation = "https://github.com/mnrozhkov/santa-scale-challenge#readme"
+Repository = "https://github.com/mnrozhkov/santa-scale-challenge"
+Issues = "https://github.com/mnrozhkov/santa-scale-challenge/issues"
+
+[tool.uv]
+default-groups = []
 
 [build-system]
 requires = ["hatchling"]
@@ -77,12 +95,12 @@ packages = ["santa", "santa_demo"]
 
 [tool.black]
 line-length = 100
-target-version = ["py310", "py311", "py312"]
+target-version = ["py311", "py312"]
 include = '\.pyi?$'
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = [
@@ -103,7 +121,7 @@ ignore = [
 "__init__.py" = ["F401"]  # unused imports
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

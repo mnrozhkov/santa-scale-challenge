@@ -5,6 +5,9 @@ prototype/dev.ipynb
 !prototype/data/.gitignore
 .DS_Store
 _DEV/*
+*.pkg
+data/out/
+santa/out/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

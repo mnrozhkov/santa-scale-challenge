@@ -29,7 +29,7 @@ santa-scale-challenge/
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.11+
 - [uv](https://github.com/astral-sh/uv) package manager
 
 ### Setup
@@ -47,11 +47,15 @@ uv python install 3.12
 uv venv --python 3.12
 source .venv/bin/activate
 
-# Install dependencies
-uv pip install -e .
+# Laptop CLI only (core deps; ~1 s from a warm uv cache on this machine, well under 60 s)
+uv sync
 
-# Install development dependencies (optional, for Jupyter)
+# Service UI/API + tests (fastapi via the dev group)
 uv sync --group dev
+
+# Optional: GPU job weights pipeline, or research/MLflow notebooks
+# uv sync --group job
+# uv sync --group research
 ```
 
 ---
