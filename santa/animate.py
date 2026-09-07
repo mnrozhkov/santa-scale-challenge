@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-import yaml  # type: ignore[import-untyped]
+import yaml  # type: ignore[import-untyped,unused-ignore]
 
 from santa.config import REPO_ROOT, RoleConfig, Settings
 from santa.models import LocalTracksAdapter, adapter_for
@@ -59,11 +59,13 @@ def music_prompt(prompts: dict[str, Any], mood: str) -> str:
     return mood
 
 
-def audio_adapter(settings: Settings, *, mood_bank: bool = False, injected: Any = None) -> Any:
-    """Audio role via ``Resilient``, or ``local_tracks`` when ``--mood-bank``."""
+def audio_adapter(
+    settings: Settings, *, mood_bank: bool = False, fresh_music: bool = False, injected: Any = None
+) -> Any:
+    """Audio role via ``Resilient``. ``--mood-bank`` forces local tracks; ``--fresh-music`` ACE-Step."""
     if injected is not None:
         return injected
-    if mood_bank:
+    if mood_bank and not fresh_music:
         fb = settings.fallback("audio")
         opts = (
             dict(fb.options)
@@ -105,6 +107,7 @@ def run(
     settings: Settings | None = None,
     motion: str | None = None,
     mood_bank: bool = False,
+    fresh_music: bool = False,
     wait: bool = True,
     out: Path | str | None = None,
     video: Any = None,
@@ -121,7 +124,7 @@ def run(
     dest = _dest(png_path, out)
     settings = settings or Settings.load()
     video = adapter_for("video", settings) if video is None else video
-    audio = audio_adapter(settings, mood_bank=mood_bank, injected=audio)
+    audio = audio_adapter(settings, mood_bank=mood_bank, fresh_music=fresh_music, injected=audio)
     image = png_path.read_bytes()
     if not wait:
         job_id = video.submit(motion_text, image=image)
@@ -132,6 +135,7 @@ def run(
             "motion": motion_text,
             "mood": mood,
             "mood_bank": mood_bank,
+            "fresh_music": fresh_music,
         }
         ticket_path = png_path.parent / TICKET_NAME
         ticket_path.write_text(json.dumps(ticket, indent=2) + "\n", encoding="utf-8")
@@ -157,6 +161,11 @@ def poll_ticket(
     if result is None:
         return None
     prompts = load_prompts() if prompts is None else prompts
-    audio = audio_adapter(settings, mood_bank=bool(data.get("mood_bank")), injected=audio)
+    audio = audio_adapter(
+        settings,
+        mood_bank=bool(data.get("mood_bank")),
+        fresh_music=bool(data.get("fresh_music")),
+        injected=audio,
+    )
     dest = Path(data["out"])
     return _finish(result, dest, audio, prompts, str(data.get("mood") or DEFAULT_MOOD))

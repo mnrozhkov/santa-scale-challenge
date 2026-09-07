@@ -69,3 +69,4 @@ def test_mux_writes_playable_mp4_with_aac(tmp_path):
     log = probed.stderr.lower()
     assert "audio: aac" in log
     assert "video:" in log
+    # imageio-ffmpeg ships ffmpeg only, not ffprobe — same binary is the probe.

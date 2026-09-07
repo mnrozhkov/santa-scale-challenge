@@ -22,9 +22,10 @@ _INK = "#2c3e50"
 _RED = "#b30000"
 _GOLD = "#c9a227"
 
+BUNDLED_FONT = Path(__file__).resolve().parent / "assets" / "DejaVuSans.ttf"
 _FONT_CANDIDATES = (
+    BUNDLED_FONT,
     Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
-    Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
     Path("/Library/Fonts/DejaVuSans.ttf"),
     Path("/System/Library/Fonts/Supplemental/Arial Unicode.ttf"),
     Path("/System/Library/Fonts/Supplemental/Arial.ttf"),

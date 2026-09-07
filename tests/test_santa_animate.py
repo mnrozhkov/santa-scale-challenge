@@ -198,6 +198,23 @@ def test_cli_publish_errors_as_issue_10(tmp_path):
     assert "issue 10" in result.output.lower()
 
 
+def test_cli_fresh_music_passed_to_run(tmp_path, monkeypatch):
+    png = tmp_path / "card.png"
+    png.write_bytes(PNG_1PX)
+    seen: dict = {}
+
+    def fake_run(*a, **k):
+        seen.update(k)
+        return tmp_path / "card.mp4"
+
+    monkeypatch.setattr("santa.cli.Settings.load", lambda: object())
+    monkeypatch.setattr("santa.cli.run", fake_run)
+    result = CliRunner().invoke(app, ["animate", str(png), "--fresh-music"])
+    assert result.exit_code == 0, result.output
+    assert seen.get("fresh_music") is True
+    assert seen.get("mood_bank") is False
+
+
 def test_cli_no_wait_prints_ticket(tmp_path, monkeypatch):
     png = tmp_path / "card.png"
     png.write_bytes(PNG_1PX)

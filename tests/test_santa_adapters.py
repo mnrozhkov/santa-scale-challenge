@@ -325,6 +325,23 @@ def test_wan_sync_multipart_sends_input_reference_and_returns_mp4(monkeypatch):
     assert a.last_metrics["output_size_bytes"] == len(MP4_FAKE)
 
 
+def test_wan_models_404_skips_async_and_posts_sync(monkeypatch):
+    posts: list[str] = []
+
+    def fake_post(url, **kwargs):
+        posts.append(url)
+        return FakeResp(content=MP4_FAKE, headers={"content-type": "video/mp4"})
+
+    monkeypatch.setattr("santa.models.requests.post", fake_post)
+    monkeypatch.setattr(
+        "santa.models.requests.get",
+        lambda url, **kw: FakeResp(status_code=404, content=b"no models"),
+    )
+    a = WanOmniAdapter(video_cfg())
+    assert a.generate("gentle snow", image=PNG_1PX) == MP4_FAKE
+    assert posts == ["https://wan.example/v1/videos/sync"]
+
+
 def test_wan_async_submit_polls_then_downloads_mp4(monkeypatch):
     posts: list[str] = []
     gets: list[str] = []

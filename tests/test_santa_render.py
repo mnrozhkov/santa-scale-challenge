@@ -45,6 +45,15 @@ def test_render_png_is_1024_by_1400() -> None:
     assert im.format == "PNG"
 
 
+def test_bundled_font_is_truetype() -> None:
+    from PIL import ImageFont
+
+    from santa.render import BUNDLED_FONT, _font
+
+    assert BUNDLED_FONT.is_file()
+    assert isinstance(_font(28), ImageFont.FreeTypeFont)
+
+
 def test_write_card_html_has_og_tags(tmp_path) -> None:
     kid = _kid()
     png_path, html_path = write_card(tmp_path, PNG_1PX, kid, _rec(kid), _wish(kid))

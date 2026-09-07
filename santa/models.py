@@ -22,7 +22,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
-import requests  # type: ignore[import-untyped]
+import requests
 from openai import OpenAI
 
 from santa.config import (
@@ -164,11 +164,17 @@ class WanOmniAdapter(_Base):
     _DONE = frozenset({"completed", "succeeded", "success", "done"})
     _FAILED = frozenset({"failed", "error", "cancelled", "canceled"})
 
+    def __init__(self, cfg: RoleConfig) -> None:
+        super().__init__(cfg)
+        self._async_ok: bool | None = None
+
     def generate(self, prompt: str, *, image: bytes, seed: int | None = None) -> bytes:
         start = time.time()
-        self._probe_models()
-        resp = self._post_video(prompt, image, seed, sync=False)
-        if resp.status_code in (404, 405, 501):
+        if self._async_supported():
+            resp = self._post_video(prompt, image, seed, sync=False)
+            if resp.status_code in (404, 405, 501):
+                resp = self._post_video(prompt, image, seed, sync=True)
+        else:
             resp = self._post_video(prompt, image, seed, sync=True)
         if resp.status_code >= 400:
             raise AdapterError(
@@ -179,7 +185,10 @@ class WanOmniAdapter(_Base):
         return body
 
     def submit(self, prompt: str, *, image: bytes, seed: int | None = None) -> str:
-        self._probe_models()
+        if not self._async_supported():
+            raise AdapterError(
+                f"Wan endpoint does not support async POST /v1/videos ({self.cfg.v1}); omit --no-wait"
+            )
         resp = self._post_video(prompt, image, seed, sync=False)
         if resp.status_code in (404, 405, 501):
             raise AdapterError(
@@ -241,11 +250,17 @@ class WanOmniAdapter(_Base):
         except requests.RequestException as exc:
             raise AdapterError(f"video call failed ({self.cfg.v1}): {exc}") from exc
 
-    def _probe_models(self) -> None:
+    def _async_supported(self) -> bool:
+        """GET ``/v1/models``: 404/405/501 means sync-only; otherwise try async first."""
+        if self._async_ok is not None:
+            return self._async_ok
         try:
-            requests.get(f"{self.cfg.v1}/models", headers=self._headers(), timeout=10)
+            resp = requests.get(f"{self.cfg.v1}/models", headers=self._headers(), timeout=10)
         except requests.RequestException:
-            pass
+            self._async_ok = True
+            return True
+        self._async_ok = resp.status_code not in (404, 405, 501)
+        return self._async_ok
 
     def _looks_like_mp4(self, resp: requests.Response) -> bool:
         ctype = (resp.headers.get("content-type") or "").lower()

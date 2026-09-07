@@ -92,8 +92,8 @@ def card(
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(code=1) from exc
 
-    run = make_card(kid, Settings.load(), out_root=out)
-    _print_card_run(run)
+    card_run = make_card(kid, Settings.load(), out_root=out)
+    _print_card_run(card_run)
 
 
 def _kid_from_args(
@@ -182,6 +182,7 @@ def animate(
         settings=settings,
         motion=motion,
         mood_bank=mood_bank,
+        fresh_music=fresh_music,
         wait=wait,
         out=out,
     )

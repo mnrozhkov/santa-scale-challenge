@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -70,6 +71,11 @@ def test_make_card_from_fakes_attributes_image_to_primary(tmp_path, monkeypatch)
     assert Path(run.card.png_path).is_file()
     assert Path(run.card.html_path).is_file()
     assert (tmp_path / kid.id / "card.png").is_file()
+    card_json = tmp_path / kid.id / "card.json"
+    assert json.loads(card_json.read_text(encoding="utf-8"))["wish"]["mood"] == "warm"
+    from santa.animate import mood_for
+
+    assert mood_for(Path(run.card.png_path)) == "warm"
 
 
 def _image_cfg(**kw) -> RoleConfig:

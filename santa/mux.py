@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-import imageio_ffmpeg  # type: ignore[import-untyped]
+import imageio_ffmpeg
 
 
 class MuxError(RuntimeError):

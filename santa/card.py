@@ -114,7 +114,7 @@ def save_card(
 ) -> GiftCard:
     png_path, html_path = write_card(out_dir, illustration, kid, rec, wish)
     image_meta.path = str(png_path)
-    return GiftCard(
+    card = GiftCard(
         kid_id=kid.id,
         recommendation=rec,
         wish=wish,
@@ -123,6 +123,8 @@ def save_card(
         html_path=str(html_path),
         status="completed",
     )
+    (out_dir / "card.json").write_text(card.model_dump_json(indent=2), encoding="utf-8")
+    return card
 
 
 def make_card(
