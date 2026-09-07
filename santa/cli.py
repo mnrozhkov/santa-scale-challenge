@@ -96,6 +96,18 @@ def card(
     _print_card_run(card_run)
 
 
+@app.command()
+def agent(
+    request: str = typer.Argument(..., help="Natural-language card request."),
+    out: Path = typer.Option(Path("out"), "--out", help="Directory for out/<id>/card.png"),
+) -> None:
+    """Pydantic AI agent calls recommend_gift, write_wish, generate_image, save_card."""
+    from santa.agent import run_agent
+
+    path = run_agent(request, out_root=out)
+    console.print(f"[green]Wrote {path}[/green]")
+
+
 def _kid_from_args(
     *,
     form: bool,
