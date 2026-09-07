@@ -19,6 +19,10 @@ from santa.config import JobSpec, Settings
 class NebiusJobError(RuntimeError):
     """A job create/wait/cancel failed; message is participant-readable."""
 
+    def __init__(self, message: str, wait: JobWait | None = None) -> None:
+        super().__init__(message)
+        self.wait = wait
+
 
 @dataclass
 class JobPayload:
@@ -120,14 +124,44 @@ def create_and_wait(
     poll_s: float = 5.0,
     sleep: Callable[[float], None] = time.sleep,
     now: Callable[[], float] = time.time,
+    on_state: Callable[[str, str], None] | None = None,
 ) -> JobWait:
     """Create a job and poll until a terminal state. Records the state timeline."""
     job_id = service.create(payload)
     try:
-        return _wait_for_job_completion(service, job_id, poll_s=poll_s, sleep=sleep, now=now)
+        return wait_for_job(service, job_id, poll_s=poll_s, sleep=sleep, now=now, on_state=on_state)
     except BaseException:
         _cancel_nebius_job(service, job_id)
         raise
+
+
+def wait_for_job(
+    service: JobService,
+    job_id: str,
+    *,
+    poll_s: float = 5.0,
+    sleep: Callable[[float], None] = time.sleep,
+    now: Callable[[], float] = time.time,
+    on_state: Callable[[str, str], None] | None = None,
+) -> JobWait:
+    """Poll until a terminal state. Raises ``NebiusJobError`` (with ``.wait``) on failure."""
+    timeline: list[StateTransition] = []
+    t0 = now()
+    last = ""
+    while True:
+        state = (service.get(job_id) or "").upper()
+        if state != last:
+            timeline.append(StateTransition(state=state, at=now()))
+            last = state
+            if on_state is not None:
+                on_state(job_id, state)
+        if state in _DONE:
+            run_s = now() - t0
+            result = JobWait(job_id=job_id, timeline=timeline, state=state, run_s=run_s)
+            if state in _FAILED:
+                raise NebiusJobError(f"job {job_id} ended {state}", wait=result)
+            return result
+        sleep(poll_s)
 
 
 def _wait_for_job_completion(
@@ -137,29 +171,20 @@ def _wait_for_job_completion(
     poll_s: float = 5.0,
     sleep: Callable[[float], None] = time.sleep,
     now: Callable[[], float] = time.time,
+    on_state: Callable[[str, str], None] | None = None,
 ) -> JobWait:
-    timeline: list[StateTransition] = []
-    t0 = now()
-    last = ""
-    while True:
-        state = (service.get(job_id) or "").upper()
-        if state != last:
-            timeline.append(StateTransition(state=state, at=now()))
-            last = state
-        if state in _DONE:
-            run_s = now() - t0
-            result = JobWait(job_id=job_id, timeline=timeline, state=state, run_s=run_s)
-            if state in _FAILED:
-                raise NebiusJobError(f"job {job_id} ended {state}")
-            return result
-        sleep(poll_s)
+    return wait_for_job(service, job_id, poll_s=poll_s, sleep=sleep, now=now, on_state=on_state)
 
 
-def _cancel_nebius_job(service: JobService, job_id: str) -> None:
+def cancel_job(service: JobService, job_id: str) -> None:
     try:
         service.cancel(job_id)
     except Exception:
         pass
+
+
+def _cancel_nebius_job(service: JobService, job_id: str) -> None:
+    cancel_job(service, job_id)
 
 
 def to_sdk_spec(payload: JobPayload) -> Any:

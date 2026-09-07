@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -34,6 +35,20 @@ def test_skip_existing_cards_png(tmp_path) -> None:
     todo, skipped = skip_existing(kids, store)
     assert skipped == ["k0"]
     assert [k.id for k in todo] == ["k1", "k2"]
+
+
+def test_rerun_chunking_excludes_existing_videos() -> None:
+    from santa.batch import ids_missing_videos
+
+    store = MemoryStorage()
+    store.upload("videos/k00.mp4", b"mp4")
+    store.upload("videos/k01.mp4", b"mp4")
+    ids = [f"k{i:02d}" for i in range(4)]
+    missing, have = ids_missing_videos(ids, store)
+    assert have == ["k00", "k01"]
+    assert missing == ["k02", "k03"]
+    chunks = chunk_ids(missing, 4)
+    assert chunks == [["k02"], ["k03"]]
 
 
 def test_load_kids_from_csv(tmp_path) -> None:
@@ -293,14 +308,34 @@ def test_batch_cli_writes_chunks(tmp_path, monkeypatch) -> None:
         return SimpleNamespace(
             run_id=kw["run_id"],
             run_dir=run_dir,
+            kids=["a", "b"],
             made=["a", "b"],
             skipped=[],
             chunks=[p],
         )
 
     monkeypatch.setattr("santa.batch.run_cards_phase", fake_phase)
+    monkeypatch.setattr(
+        "santa.batch.run_jobs_phase",
+        lambda **kw: {
+            "run_id": kw["run_id"],
+            "jobs": [],
+            "totals": {
+                "done": 0,
+                "skipped": 0,
+                "failed": 0,
+                "cost_usd": 0,
+                "on_demand_cost_usd": 0,
+            },
+            "savings_usd": 0,
+        },
+    )
     monkeypatch.setattr("santa.cli.Settings.load", lambda: object())
     monkeypatch.setattr("santa.storage.Storage.from_env", lambda: MemoryStorage())
+    monkeypatch.setattr(
+        "santa.nebius_jobs.SdkJobService.from_env",
+        lambda: ScriptedJobService([]),
+    )
     result = CliRunner().invoke(
         app,
         [
@@ -321,6 +356,87 @@ def test_batch_cli_writes_chunks(tmp_path, monkeypatch) -> None:
     assert result.exit_code == 0, result.output
     assert "cli1" in result.output
     assert "made 2" in result.output
+
+
+def test_batch_cli_no_wait_prints_status_hint(tmp_path, monkeypatch) -> None:
+    from typer.testing import CliRunner
+
+    from santa.cli import app
+
+    csv_path = tmp_path / "kids.csv"
+    csv_path.write_text("id,name,age,wishlist\na,Emma,7,train\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "santa.batch.run_cards_phase",
+        lambda **kw: SimpleNamespace(
+            run_id=kw["run_id"],
+            run_dir=kw["run_dir"],
+            kids=["a"],
+            made=["a"],
+            skipped=[],
+            chunks=[],
+        ),
+    )
+    monkeypatch.setattr(
+        "santa.batch.run_jobs_phase",
+        lambda **kw: {"run_id": kw["run_id"], "jobs": [{"job_id": "j1"}], "waiting": True},
+    )
+    monkeypatch.setattr("santa.cli.Settings.load", lambda: object())
+    monkeypatch.setattr("santa.storage.Storage.from_env", lambda: MemoryStorage())
+    monkeypatch.setattr("santa.nebius_jobs.SdkJobService.from_env", lambda: object())
+    result = CliRunner().invoke(
+        app,
+        [
+            "batch",
+            "--kids",
+            "1",
+            "--jobs",
+            "1",
+            "--local",
+            "--kids-csv",
+            str(csv_path),
+            "--out",
+            str(tmp_path),
+            "--run-id",
+            "nowait1",
+            "--no-wait",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "submitted 1 jobs" in result.output
+    assert "--status nowait1" in result.output
+
+
+def test_batch_cli_status_resumes(tmp_path, monkeypatch) -> None:
+    from typer.testing import CliRunner
+
+    from santa.cli import app
+
+    run_dir = tmp_path / "runs" / "st1"
+    run_dir.mkdir(parents=True)
+    (run_dir / "ticket.json").write_text(
+        json.dumps({"run_id": "st1", "kids": ["a"], "jobs": []}) + "\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        "santa.batch.resume_jobs_phase",
+        lambda **kw: {
+            "run_id": "st1",
+            "jobs": [],
+            "totals": {
+                "done": 1,
+                "skipped": 0,
+                "failed": 0,
+                "cost_usd": 0,
+                "on_demand_cost_usd": 0,
+            },
+            "savings_usd": 0,
+        },
+    )
+    monkeypatch.setattr("santa.cli.Settings.load", lambda: object())
+    monkeypatch.setattr("santa.storage.Storage.from_env", lambda: MemoryStorage())
+    monkeypatch.setattr("santa.nebius_jobs.SdkJobService.from_env", lambda: object())
+    result = CliRunner().invoke(app, ["batch", "--status", "st1", "--out", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert "done 1" in result.output
 
 
 def test_sdk_job_service_requires_iam_token(monkeypatch) -> None:
@@ -379,3 +495,341 @@ def test_sdk_job_service_create_uses_project_id() -> None:
     assert captured["image"] == "cr.example/santa-job:t"
     svc.cancel("job-live")
     assert captured["cancel"] == "job-live"
+
+
+def test_summary_math_from_fake_records() -> None:
+    from santa.batch import JobRecord, build_run_summary
+
+    rec = JobRecord(
+        job_id="job-1",
+        chunk="runs/r1/chunks/0.json",
+        platform="gpu-h100-sxm",
+        preset="1gpu-16vcpu-200gb",
+        preemptible=True,
+        state_transitions=[{"state": "COMPLETED", "at": 1.0}],
+        run_s=1800.0,
+        done=["a"],
+        skipped=["b"],
+        failed=[],
+    )
+    summary = build_run_summary("r1", kids=["a", "b"], jobs=[rec])
+    assert summary["jobs"][0]["cost_usd"] == pytest.approx(1.075)
+    assert summary["jobs"][0]["on_demand_cost_usd"] == pytest.approx(1.925)
+    assert summary["totals"]["cost_usd"] == pytest.approx(1.075)
+    assert summary["totals"]["on_demand_cost_usd"] == pytest.approx(1.925)
+    assert summary["savings_usd"] == pytest.approx(0.85)
+    assert summary["totals"]["done"] == 1
+    assert summary["totals"]["skipped"] == 1
+    assert summary["totals"]["failed"] == 0
+
+
+def _job_settings(tmp_path: Path, monkeypatch) -> Settings:
+    monkeypatch.setenv("TOKEN_FACTORY_API_KEY", "k")
+    monkeypatch.setenv("IMAGE_ENDPOINT_URL", "https://img.example/")
+    monkeypatch.setenv("IMAGE_ENDPOINT_TOKEN", "t")
+    monkeypatch.setenv("NEBIUS_BUCKET_ID", "bucket-abc")
+    monkeypatch.setenv("NEBIUS_PROJECT_ID", "proj-1")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    src = Path(__file__).resolve().parents[1] / "config" / "models.yaml"
+    text = src.read_text(encoding="utf-8").replace(
+        'image: ""', 'image: "cr.example/santa-job:test"'
+    )
+    path = tmp_path / "models.yaml"
+    path.write_text(text, encoding="utf-8")
+    return Settings.load(path, env_file=NOENV)
+
+
+class ScriptedJobService:
+    """One state script per job, keyed by chunk index in the payload name (``santa-run-k``)."""
+
+    def __init__(self, scripts: list[list[str]]) -> None:
+        self.scripts = scripts
+        self.created: list = []
+        self.cancelled: list[str] = []
+        self._idx: dict[str, int] = {}
+        self._lock = threading.Lock()
+
+    def create(self, payload) -> str:
+        stem = str(getattr(payload, "name", "") or "").rsplit("-", 1)[-1]
+        jid = f"job-{stem}" if stem else f"job-{len(self.created)}"
+        with self._lock:
+            self.created.append(payload)
+            self._idx.setdefault(jid, 0)
+        return jid
+
+    def get(self, job_id: str) -> str:
+        states = self.scripts[int(job_id.split("-")[1])]
+        with self._lock:
+            i = self._idx.get(job_id, 0)
+            self._idx[job_id] = i + 1
+        return states[min(i, len(states) - 1)]
+
+    def cancel(self, job_id: str) -> None:
+        self.cancelled.append(job_id)
+
+
+def test_one_error_job_summary_has_three_done_and_failed_ids(tmp_path, monkeypatch) -> None:
+    from santa.batch import run_jobs_phase
+
+    settings = _job_settings(tmp_path, monkeypatch)
+    store = MemoryStorage()
+    kids = [f"k{i:02d}" for i in range(20)]
+    run_dir = tmp_path / "r1"
+    # 4 chunks of 5: jobs 0–2 succeed and wrote status; job 3 ERRORs with no json
+    for k in range(3):
+        ids = kids[k * 5 : (k + 1) * 5]
+        store.upload(
+            f"runs/r1/jobs/{k}.json",
+            json.dumps(
+                {
+                    "run_id": "r1",
+                    "chunk": str(k),
+                    "items": [{"id": i, "status": "done", "seconds": 1.0} for i in ids],
+                }
+            ).encode(),
+        )
+    svc = ScriptedJobService(
+        [
+            ["PENDING", "RUNNING", "COMPLETED"],
+            ["PENDING", "RUNNING", "COMPLETED"],
+            ["PENDING", "RUNNING", "COMPLETED"],
+            ["PENDING", "ERROR"],
+        ]
+    )
+    summary = run_jobs_phase(
+        kids=kids,
+        n_jobs=4,
+        run_id="r1",
+        run_dir=run_dir,
+        storage=store,
+        settings=settings,
+        service=svc,
+        wait=True,
+        poll_s=0,
+        sleep=lambda _s: None,
+    )
+    assert len(svc.created) == 4
+    assert summary["totals"]["done"] == 15
+    assert summary["jobs"][3]["failed"] == ["k15", "k16", "k17", "k18", "k19"]
+    assert summary["totals"]["failed"] == 5
+    completed = [j for j in summary["jobs"] if j["failed"] == []]
+    assert len(completed) == 3
+    assert store.exists("runs/r1/summary.json")
+    assert (run_dir / "summary.json").is_file()
+
+
+def test_kill_one_rerun_only_resubmits_the_gap(tmp_path, monkeypatch) -> None:
+    """Cancelling/ERROR on one job, then same run-id, only missing videos are chunked."""
+    from santa.batch import run_jobs_phase
+
+    settings = _job_settings(tmp_path, monkeypatch)
+    store = MemoryStorage()
+    kids = [f"k{i:02d}" for i in range(4)]
+    store.upload(
+        "runs/gap/jobs/0.json",
+        json.dumps(
+            {
+                "run_id": "gap",
+                "chunk": "0",
+                "items": [
+                    {"id": "k00", "status": "done", "seconds": 1},
+                    {"id": "k01", "status": "done", "seconds": 1},
+                ],
+            }
+        ).encode(),
+    )
+    first = ScriptedJobService([["COMPLETED"], ["ERROR"]])
+    run_jobs_phase(
+        kids=kids,
+        n_jobs=2,
+        run_id="gap",
+        run_dir=tmp_path / "gap",
+        storage=store,
+        settings=settings,
+        service=first,
+        wait=True,
+        poll_s=0,
+        sleep=lambda _s: None,
+    )
+    store.upload("videos/k00.mp4", b"mp4")
+    store.upload("videos/k01.mp4", b"mp4")
+    store.upload(
+        "runs/gap/jobs/0.json",
+        json.dumps(
+            {
+                "run_id": "gap",
+                "chunk": "0",
+                "items": [{"id": "k02", "status": "done", "seconds": 1}],
+            }
+        ).encode(),
+    )
+    store.upload(
+        "runs/gap/jobs/1.json",
+        json.dumps(
+            {
+                "run_id": "gap",
+                "chunk": "1",
+                "items": [{"id": "k03", "status": "done", "seconds": 1}],
+            }
+        ).encode(),
+    )
+    second = ScriptedJobService([["COMPLETED"], ["COMPLETED"]])
+    summary = run_jobs_phase(
+        kids=kids,
+        n_jobs=2,
+        run_id="gap",
+        run_dir=tmp_path / "gap",
+        storage=store,
+        settings=settings,
+        service=second,
+        wait=True,
+        poll_s=0,
+        sleep=lambda _s: None,
+    )
+    assert len(second.created) == 2
+    submitted: list[str] = []
+    for payload in second.created:
+        key = payload.env["CHUNK"].removeprefix("/data/")
+        submitted.extend(row["id"] for row in json.loads(store.download(key).decode()))
+    assert sorted(submitted) == ["k02", "k03"]
+    assert summary["totals"]["done"] == 2
+
+
+def test_jobs_phase_rerun_submits_only_missing_videos(tmp_path, monkeypatch) -> None:
+    from santa.batch import run_jobs_phase
+
+    settings = _job_settings(tmp_path, monkeypatch)
+    store = MemoryStorage()
+    kids = [f"k{i:02d}" for i in range(4)]
+    for i in ("k00", "k01"):
+        store.upload(f"videos/{i}.mp4", b"mp4")
+    store.upload(
+        "runs/r2/jobs/0.json",
+        json.dumps(
+            {"run_id": "r2", "chunk": "0", "items": [{"id": "k02", "status": "done", "seconds": 1}]}
+        ).encode(),
+    )
+    store.upload(
+        "runs/r2/jobs/1.json",
+        json.dumps(
+            {"run_id": "r2", "chunk": "1", "items": [{"id": "k03", "status": "done", "seconds": 1}]}
+        ).encode(),
+    )
+    svc = ScriptedJobService([["COMPLETED"], ["COMPLETED"]])
+    summary = run_jobs_phase(
+        kids=kids,
+        n_jobs=4,
+        run_id="r2",
+        run_dir=tmp_path / "r2",
+        storage=store,
+        settings=settings,
+        service=svc,
+        wait=True,
+        poll_s=0,
+        sleep=lambda _s: None,
+    )
+    assert len(svc.created) == 2
+    ids_submitted = []
+    for payload in svc.created:
+        chunk_key = payload.env["CHUNK"].removeprefix("/data/")
+        ids_submitted.extend(json.loads(store.download(chunk_key).decode()))
+    assert [row["id"] for row in ids_submitted] == ["k02", "k03"]
+    assert summary["totals"]["done"] == 2
+
+
+def test_no_wait_writes_ticket_not_summary(tmp_path, monkeypatch) -> None:
+    from santa.batch import run_jobs_phase
+
+    settings = _job_settings(tmp_path, monkeypatch)
+    store = MemoryStorage()
+    svc = ScriptedJobService([["PENDING"], ["PENDING"]])
+    result = run_jobs_phase(
+        kids=["a", "b"],
+        n_jobs=2,
+        run_id="r3",
+        run_dir=tmp_path / "r3",
+        storage=store,
+        settings=settings,
+        service=svc,
+        wait=False,
+    )
+    assert result["waiting"] is True
+    assert len(result["jobs"]) == 2
+    assert store.exists("runs/r3/ticket.json")
+    assert not store.exists("runs/r3/summary.json")
+    assert (tmp_path / "r3" / "ticket.json").is_file()
+
+
+def test_resume_waits_on_ticket_jobs(tmp_path, monkeypatch) -> None:
+    from santa.batch import resume_jobs_phase, run_jobs_phase
+
+    settings = _job_settings(tmp_path, monkeypatch)
+    store = MemoryStorage()
+    create_svc = ScriptedJobService([["PENDING"], ["PENDING"]])
+    ticket_run = run_jobs_phase(
+        kids=["a", "b"],
+        n_jobs=2,
+        run_id="r4",
+        run_dir=tmp_path / "r4",
+        storage=store,
+        settings=settings,
+        service=create_svc,
+        wait=False,
+    )
+    for k, kid in enumerate(["a", "b"]):
+        store.upload(
+            f"runs/r4/jobs/{k}.json",
+            json.dumps(
+                {
+                    "run_id": "r4",
+                    "chunk": str(k),
+                    "items": [{"id": kid, "status": "done", "seconds": 1}],
+                }
+            ).encode(),
+        )
+    wait_svc = ScriptedJobService([["RUNNING", "COMPLETED"], ["COMPLETED"]])
+    wait_svc.created = list(create_svc.created)
+
+    def get(job_id: str) -> str:
+        return ScriptedJobService.get(wait_svc, job_id)
+
+    wait_svc.get = get  # type: ignore[method-assign]
+    # ScriptedJobService.get uses create-order index from job-0, job-1 ids
+    wait_svc._idx = {"job-0": 0, "job-1": 0}
+    summary = resume_jobs_phase(
+        ticket=json.loads((tmp_path / "r4" / "ticket.json").read_text(encoding="utf-8")),
+        run_dir=tmp_path / "r4",
+        storage=store,
+        settings=settings,
+        service=wait_svc,
+        poll_s=0,
+        sleep=lambda _s: None,
+    )
+    assert summary["totals"]["done"] == 2
+    assert ticket_run["waiting"] is True
+
+
+def test_interrupt_cancels_all_submitted_jobs(tmp_path, monkeypatch) -> None:
+    from santa.batch import run_jobs_phase
+
+    settings = _job_settings(tmp_path, monkeypatch)
+
+    class Boom(ScriptedJobService):
+        def get(self, job_id: str) -> str:
+            raise KeyboardInterrupt
+
+    svc = Boom([["PENDING"], ["PENDING"]])
+    with pytest.raises(KeyboardInterrupt):
+        run_jobs_phase(
+            kids=["a", "b"],
+            n_jobs=2,
+            run_id="r5",
+            run_dir=tmp_path / "r5",
+            storage=MemoryStorage(),
+            settings=settings,
+            service=svc,
+            wait=True,
+            poll_s=0,
+            sleep=lambda _s: None,
+        )
+    assert set(svc.cancelled) == {"job-0", "job-1"}
