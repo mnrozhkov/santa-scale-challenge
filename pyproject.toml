@@ -39,6 +39,7 @@ dependencies = [
     "typer>=0.12",
     "rich>=13.0",
     "truststore>=0.9",
+    "imageio-ffmpeg>=0.5",
 ]
 
 [dependency-groups]

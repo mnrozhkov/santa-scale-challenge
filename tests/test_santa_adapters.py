@@ -9,7 +9,17 @@ from types import SimpleNamespace
 import pytest
 
 from santa.config import ConfigError, RoleConfig, Settings
-from santa.models import AdapterError, ChatAdapter, ImagesAdapter, Resilient, adapter_for
+from santa.models import (
+    AceStepAudioAdapter,
+    AdapterError,
+    ChatAdapter,
+    ImagesAdapter,
+    LocalTracksAdapter,
+    OpenAIVideoAdapter,
+    Resilient,
+    WanOmniAdapter,
+    adapter_for,
+)
 
 NOENV = Path("/nonexistent")
 TF_KEY = "k"  # pragma: allowlist secret
@@ -216,9 +226,332 @@ def test_adapter_for_off_policy_requires_primary(env):
         adapter_for("image", Settings.load(env_file=NOENV))
 
 
-def test_adapter_for_unknown_adapter_explains(env):
+def test_adapter_for_video_is_wan_omni(env):
     env.setenv("VIDEO_ENDPOINT_URL", "https://v.example")
     env.setenv("VIDEO_ENDPOINT_TOKEN", "v-token")
     env.setenv("SANTA_FALLBACK", "off")
-    with pytest.raises(AdapterError, match="wan_omni.*not available yet"):
-        adapter_for("video", Settings.load(env_file=NOENV))
+    r = adapter_for("video", Settings.load(env_file=NOENV))
+    assert r.cfg.adapter == "wan_omni" and isinstance(r.active, WanOmniAdapter)
+
+
+# ── WanOmniAdapter ────────────────────────────────────────────────────────────
+
+MP4_FAKE = b"\x00\x00\x00\x18ftypisom" + b"\x00" * 32
+
+
+class FakeResp:
+    def __init__(self, status_code=200, content=b"", headers=None, json_data=None):
+        self.status_code = status_code
+        self.content = content
+        self.headers = headers or {}
+        self._json = json_data
+        self.text = (
+            content.decode("utf-8", "replace") if isinstance(content, bytes) else str(content)
+        )
+
+    def json(self):
+        if self._json is not None:
+            return self._json
+        raise ValueError("not json")
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            import requests
+
+            err = requests.HTTPError(f"{self.status_code}")
+            err.response = self
+            raise err
+
+
+def video_cfg(**kw):
+    base = {
+        "name": "video",
+        "adapter": "wan_omni",
+        "base_url": "https://wan.example",
+        "api_key": "tok",  # pragma: allowlist secret
+        "model": "Wan-AI/Wan2.2-I2V-A14B-Diffusers",
+        "options": {
+            "size": "832x480",
+            "num_frames": 81,
+            "fps": 16,
+            "num_inference_steps": 20,
+            "guidance_scale": 1.0,
+            "guidance_scale_2": 1.0,
+            "flow_shift": 12.0,
+            "boundary_ratio": 0.875,
+        },
+    }
+    return RoleConfig(**{**base, **kw})
+
+
+def test_wan_sync_multipart_sends_input_reference_and_returns_mp4(monkeypatch):
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        if url.endswith("/videos") and not url.endswith("/videos/sync"):
+            return FakeResp(status_code=404, content=b"no async")
+        captured["url"] = url
+        captured["data"] = kwargs.get("data")
+        captured["files"] = kwargs.get("files")
+        captured["headers"] = kwargs.get("headers")
+        return FakeResp(content=MP4_FAKE, headers={"content-type": "video/mp4"})
+
+    monkeypatch.setattr("santa.models.requests.post", fake_post)
+    monkeypatch.setattr(
+        "santa.models.requests.get",
+        lambda url, **kw: FakeResp(json_data={"data": []}, content=b"{}"),
+    )
+    a = WanOmniAdapter(video_cfg())
+    assert a.generate("gentle snow", image=PNG_1PX, seed=7) == MP4_FAKE
+    assert captured["url"] == "https://wan.example/v1/videos/sync"
+    assert captured["headers"]["Authorization"] == "Bearer tok"
+    assert "input_reference" in captured["files"]
+    name, blob, ctype = captured["files"]["input_reference"]
+    assert name.endswith(".png") and ctype == "image/png"
+    data = blob.getvalue() if hasattr(blob, "getvalue") else blob
+    assert data == PNG_1PX
+    fields = captured["data"]
+    assert fields["model"] == "Wan-AI/Wan2.2-I2V-A14B-Diffusers"
+    assert fields["prompt"] == "gentle snow"
+    assert fields["size"] == "832x480"
+    assert fields["num_frames"] == "81"
+    assert fields["fps"] == "16"
+    assert fields["num_inference_steps"] == "20"
+    assert fields["guidance_scale"] == "1.0"
+    assert fields["guidance_scale_2"] == "1.0"
+    assert fields["flow_shift"] == "12.0"
+    assert fields["boundary_ratio"] == "0.875"
+    assert fields["seed"] == "7"
+    assert a.last_metrics["output_size_bytes"] == len(MP4_FAKE)
+
+
+def test_wan_async_submit_polls_then_downloads_mp4(monkeypatch):
+    posts: list[str] = []
+    gets: list[str] = []
+    polls = {"n": 0}
+
+    def fake_post(url, **kwargs):
+        posts.append(url)
+        assert "input_reference" in kwargs["files"]
+        assert url.endswith("/v1/videos")
+        return FakeResp(
+            json_data={"id": "job-1", "status": "queued"},
+            content=b'{"id":"job-1","status":"queued"}',
+            headers={"content-type": "application/json"},
+        )
+
+    def fake_get(url, **kwargs):
+        gets.append(url)
+        if url.endswith("/models"):
+            return FakeResp(json_data={"data": []}, content=b"{}")
+        if url.endswith("/videos/job-1/content"):
+            return FakeResp(content=MP4_FAKE, headers={"content-type": "video/mp4"})
+        if url.endswith("/videos/job-1"):
+            polls["n"] += 1
+            status = "in_progress" if polls["n"] < 2 else "completed"
+            return FakeResp(
+                json_data={"id": "job-1", "status": status},
+                content=b"{}",
+                headers={"content-type": "application/json"},
+            )
+        return FakeResp(status_code=404, content=b"missing")
+
+    monkeypatch.setattr("santa.models.requests.post", fake_post)
+    monkeypatch.setattr("santa.models.requests.get", fake_get)
+    monkeypatch.setattr("santa.models.time.sleep", lambda s: None)
+    a = WanOmniAdapter(video_cfg())
+    assert a.generate("gentle snow", image=PNG_1PX) == MP4_FAKE
+    assert posts == ["https://wan.example/v1/videos"]
+    assert any(u.endswith("/videos/job-1") for u in gets)
+    assert any(u.endswith("/videos/job-1/content") for u in gets)
+
+
+def test_wan_submit_returns_ticket_id_without_waiting(monkeypatch):
+    def fake_post(url, **kwargs):
+        return FakeResp(
+            json_data={"id": "job-9", "status": "queued"},
+            content=b'{"id":"job-9"}',
+            headers={"content-type": "application/json"},
+        )
+
+    monkeypatch.setattr("santa.models.requests.post", fake_post)
+    monkeypatch.setattr(
+        "santa.models.requests.get",
+        lambda url, **kw: FakeResp(json_data={"data": []}, content=b"{}"),
+    )
+    a = WanOmniAdapter(video_cfg())
+    assert a.submit("motion", image=PNG_1PX) == "job-9"
+
+
+def test_wan_poll_none_until_complete(monkeypatch):
+    states = iter(
+        [
+            FakeResp(
+                json_data={"id": "job-1", "status": "in_progress"},
+                content=b"{}",
+                headers={"content-type": "application/json"},
+            ),
+            FakeResp(
+                json_data={"id": "job-1", "status": "completed"},
+                content=b"{}",
+                headers={"content-type": "application/json"},
+            ),
+            FakeResp(content=MP4_FAKE, headers={"content-type": "video/mp4"}),
+        ]
+    )
+
+    def fake_get(url, **kwargs):
+        return next(states)
+
+    monkeypatch.setattr("santa.models.requests.get", fake_get)
+    a = WanOmniAdapter(video_cfg())
+    assert a.poll("job-1") is None
+    assert a.poll("job-1") == MP4_FAKE
+
+
+def test_wan_submit_errors_when_async_unsupported(monkeypatch):
+    monkeypatch.setattr(
+        "santa.models.requests.post",
+        lambda url, **kw: FakeResp(status_code=404, content=b"nope"),
+    )
+    monkeypatch.setattr(
+        "santa.models.requests.get",
+        lambda url, **kw: FakeResp(json_data={"data": []}, content=b"{}"),
+    )
+    a = WanOmniAdapter(video_cfg())
+    with pytest.raises(AdapterError, match="does not support async"):
+        a.submit("motion", image=PNG_1PX)
+
+
+# ── AceStepAudioAdapter ───────────────────────────────────────────────────────
+
+MP3_FAKE = b"ID3\x04\x00\x00" + b"\x00" * 24
+
+
+def audio_cfg(**kw):
+    base = {
+        "name": "audio",
+        "adapter": "acestep_audio",
+        "base_url": "https://ace.example",
+        "api_key": "atok",  # pragma: allowlist secret
+        "model": "ACE-Step/Ace-Step1.5",
+        "options": {
+            "audio_duration": 8,
+            "inference_steps": 8,
+            "audio_format": "mp3",
+            "thinking": False,
+        },
+    }
+    return RoleConfig(**{**base, **kw})
+
+
+def test_acestep_json_shape_returns_mp3_bytes(monkeypatch):
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured["url"] = url
+        captured["json"] = kwargs.get("json")
+        captured["headers"] = kwargs.get("headers")
+        return FakeResp(content=MP3_FAKE, headers={"content-type": "audio/mpeg"})
+
+    monkeypatch.setattr("santa.models.requests.post", fake_post)
+    a = AceStepAudioAdapter(audio_cfg())
+    assert a.generate("warm bells, instrumental") == MP3_FAKE
+    assert captured["url"] == "https://ace.example/v1/audio/generations"
+    assert captured["headers"]["Authorization"] == "Bearer atok"
+    body = captured["json"]
+    assert body["task_type"] == "text2music"
+    assert body["thinking"] is False
+    assert body["audio_duration"] == 8
+    assert body["inference_steps"] == 8
+    assert body["audio_format"] == "mp3"
+    assert body["model"] == "ACE-Step/Ace-Step1.5"
+    assert body["prompt"] == "warm bells, instrumental"
+    assert a.last_metrics["output_size_bytes"] == len(MP3_FAKE)
+
+
+# ── OpenAIVideoAdapter ────────────────────────────────────────────────────────
+
+
+def sora_cfg(**kw):
+    base = {
+        "name": "video",
+        "adapter": "openai_video",
+        "base_url": "https://api.openai.com/v1",
+        "api_key": OA_KEY,
+        "model": "sora-2",
+        "options": {"size": "1280x720", "seconds": 4},
+        "is_fallback": True,
+    }
+    return RoleConfig(**{**base, **kw})
+
+
+def test_openai_video_create_poll_download_uses_input_reference(monkeypatch):
+    posts: list[dict] = []
+    gets: list[str] = []
+    polls = {"n": 0}
+
+    def fake_post(url, **kwargs):
+        posts.append({"url": url, **kwargs})
+        return FakeResp(
+            json_data={"id": "video_abc", "status": "queued"},
+            content=b'{"id":"video_abc","status":"queued"}',
+            headers={"content-type": "application/json"},
+        )
+
+    def fake_get(url, **kwargs):
+        gets.append(url)
+        if url.endswith("/videos/video_abc/content"):
+            return FakeResp(content=MP4_FAKE, headers={"content-type": "video/mp4"})
+        polls["n"] += 1
+        status = "in_progress" if polls["n"] < 2 else "completed"
+        return FakeResp(
+            json_data={"id": "video_abc", "status": status},
+            content=b"{}",
+            headers={"content-type": "application/json"},
+        )
+
+    monkeypatch.setattr("santa.models.requests.post", fake_post)
+    monkeypatch.setattr("santa.models.requests.get", fake_get)
+    monkeypatch.setattr("santa.models.time.sleep", lambda s: None)
+    a = OpenAIVideoAdapter(sora_cfg())
+    assert a.generate("gentle drift", image=PNG_1PX) == MP4_FAKE
+    call = posts[0]
+    assert call["url"] == "https://api.openai.com/v1/videos"
+    assert "input_reference" in call["files"]
+    assert call["data"]["model"] == "sora-2"
+    assert call["data"]["prompt"] == "gentle drift"
+    assert call["data"]["size"] == "1280x720"
+    assert call["data"]["seconds"] == "4"
+    assert any(u.endswith("/videos/video_abc") for u in gets)
+    assert any(u.endswith("/videos/video_abc/content") for u in gets)
+
+
+# ── LocalTracksAdapter ────────────────────────────────────────────────────────
+
+
+def test_local_tracks_picks_mood_file_else_default(tmp_path):
+    moods = tmp_path / "moods"
+    moods.mkdir()
+    (moods / "playful.mp3").write_bytes(b"PLAYFUL")
+    (moods / "default.mp3").write_bytes(b"DEFAULT")
+    a = LocalTracksAdapter(
+        RoleConfig(
+            name="audio",
+            adapter="local_tracks",
+            options={"dir": str(moods)},
+            is_fallback=True,
+        )
+    )
+    assert a.generate("", mood="playful") == b"PLAYFUL"
+    assert a.generate("", mood="warm") == b"DEFAULT"
+
+
+def test_local_tracks_errors_when_nothing_on_disk(tmp_path):
+    empty = tmp_path / "moods"
+    empty.mkdir()
+    a = LocalTracksAdapter(
+        RoleConfig(name="audio", adapter="local_tracks", options={"dir": str(empty)})
+    )
+    with pytest.raises(AdapterError, match="no track"):
+        a.generate("", mood="warm")

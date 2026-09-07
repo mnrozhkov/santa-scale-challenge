@@ -1,0 +1,17 @@
+# Motion prompt for Wan I2V / OpenAI video, and mood → ACE-Step music prompts.
+# Mood tags match santa.prompts.MOODS (the wish JSON field).
+
+motion: >
+  Gentle storybook motion: a slow camera drift across the illustration, softly
+  falling snow and warm twinkling lights. Keep the scene object-centric.
+  No people, no faces, no text, no letters, no watermarks.
+
+music:
+  warm: warm orchestral lullaby, soft strings and chime bells, Christmas, instrumental, no vocals
+  playful: playful pizzicato strings and woodwind, light sleigh bells, instrumental, no vocals
+  dreamy: dreamy celesta and pad, slow falling-snow atmosphere, instrumental, no vocals
+  adventurous: gentle adventure theme, soft brass and strings, snowy trek, instrumental, no vocals
+  cozy: cozy fireplace acoustic guitar and low strings, instrumental, no vocals
+  magical: magical music-box sparkle and harp, wonder, instrumental, no vocals
+  joyful: joyful sleigh-bell carol, bright strings, instrumental, no vocals
+  calm: calm piano and soft choir pad, peaceful night, instrumental, no vocals

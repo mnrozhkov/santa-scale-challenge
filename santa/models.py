@@ -19,11 +19,20 @@ import logging
 import re
 import time
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, cast
 
+import requests  # type: ignore[import-untyped]
 from openai import OpenAI
 
-from santa.config import ConfigError, FallbackPolicy, RoleConfig, Settings, fallback_policy
+from santa.config import (
+    REPO_ROOT,
+    ConfigError,
+    FallbackPolicy,
+    RoleConfig,
+    Settings,
+    fallback_policy,
+)
 
 log = logging.getLogger("santa.models")
 _JSON_BLOCK = re.compile(r"\{.*\}", re.DOTALL)
@@ -31,6 +40,10 @@ _JSON_BLOCK = re.compile(r"\{.*\}", re.DOTALL)
 
 class AdapterError(RuntimeError):
     """A model call failed; message is participant-readable."""
+
+
+def _raw(resp: requests.Response) -> bytes:
+    return cast(bytes, resp.content)
 
 
 class _Base:
@@ -132,8 +145,6 @@ class ImagesAdapter(_Base):
         if getattr(item, "b64_json", None):
             png = base64.b64decode(item.b64_json)
         elif getattr(item, "url", None):
-            import requests  # type: ignore[import-untyped]
-
             png = requests.get(item.url, timeout=60).content
         else:
             raise AdapterError("image endpoint returned neither b64_json nor url")
@@ -141,9 +152,349 @@ class ImagesAdapter(_Base):
         return png
 
 
+class WanOmniAdapter(_Base):
+    """``wan_omni`` — cookbook Wan I2V. Multipart ``POST /v1/videos/sync`` → raw MP4.
+
+    ``generate`` tries async ``POST /v1/videos`` + poll first (after probing ``/v1/models``),
+    then falls back to the sync path when the endpoint has no async route.
+    """
+
+    _TIMEOUT_S = 600
+    _POLL_S = 2
+    _DONE = frozenset({"completed", "succeeded", "success", "done"})
+    _FAILED = frozenset({"failed", "error", "cancelled", "canceled"})
+
+    def generate(self, prompt: str, *, image: bytes, seed: int | None = None) -> bytes:
+        start = time.time()
+        self._probe_models()
+        resp = self._post_video(prompt, image, seed, sync=False)
+        if resp.status_code in (404, 405, 501):
+            resp = self._post_video(prompt, image, seed, sync=True)
+        if resp.status_code >= 400:
+            raise AdapterError(
+                f"video call failed ({self.cfg.v1}): HTTP {resp.status_code} {resp.text[:200]}"
+            )
+        body = self._body_or_wait(resp)
+        self._timed(start, output_size_bytes=len(body))
+        return body
+
+    def submit(self, prompt: str, *, image: bytes, seed: int | None = None) -> str:
+        self._probe_models()
+        resp = self._post_video(prompt, image, seed, sync=False)
+        if resp.status_code in (404, 405, 501):
+            raise AdapterError(
+                f"Wan endpoint does not support async POST /v1/videos ({self.cfg.v1}); omit --no-wait"
+            )
+        if resp.status_code >= 400:
+            raise AdapterError(
+                f"video submit failed ({self.cfg.v1}): HTTP {resp.status_code} {resp.text[:200]}"
+            )
+        job_id = self._job_id(resp)
+        if not job_id:
+            raise AdapterError(f"async video submit returned no job id ({self.cfg.v1})")
+        return job_id
+
+    def poll(self, job_id: str) -> bytes | None:
+        status, content = self._poll_once(job_id)
+        if status in self._FAILED:
+            raise AdapterError(f"video job {job_id} {status}")
+        if status in self._DONE:
+            return content if content else self._download(job_id)
+        return None
+
+    def _headers(self) -> dict[str, str]:
+        return {"Authorization": f"Bearer {self.cfg.api_key}"} if self.cfg.api_key else {}
+
+    def _form(self, prompt: str, seed: int | None) -> dict[str, str]:
+        opts = self.cfg.options
+        data = {
+            "model": self.cfg.model or "",
+            "prompt": prompt,
+            "size": str(opts.get("size", "832x480")),
+            "num_frames": str(opts.get("num_frames", 81)),
+            "fps": str(opts.get("fps", 16)),
+            "num_inference_steps": str(opts.get("num_inference_steps", 20)),
+            "guidance_scale": str(opts.get("guidance_scale", 1.0)),
+            "guidance_scale_2": str(opts.get("guidance_scale_2", 1.0)),
+            "flow_shift": str(opts.get("flow_shift", 12.0)),
+            "boundary_ratio": str(opts.get("boundary_ratio", 0.875)),
+        }
+        if seed is not None:
+            data["seed"] = str(seed)
+        return data
+
+    def _files(self, image: bytes) -> dict[str, tuple[str, bytes, str]]:
+        return {"input_reference": ("card.png", image, "image/png")}
+
+    def _post_video(
+        self, prompt: str, image: bytes, seed: int | None, *, sync: bool
+    ) -> requests.Response:
+        path = "/videos/sync" if sync else "/videos"
+        try:
+            return requests.post(
+                f"{self.cfg.v1}{path}",
+                data=self._form(prompt, seed),
+                files=self._files(image),
+                headers=self._headers(),
+                timeout=self._TIMEOUT_S,
+            )
+        except requests.RequestException as exc:
+            raise AdapterError(f"video call failed ({self.cfg.v1}): {exc}") from exc
+
+    def _probe_models(self) -> None:
+        try:
+            requests.get(f"{self.cfg.v1}/models", headers=self._headers(), timeout=10)
+        except requests.RequestException:
+            pass
+
+    def _looks_like_mp4(self, resp: requests.Response) -> bool:
+        ctype = (resp.headers.get("content-type") or "").lower()
+        if "json" in ctype:
+            return False
+        if not resp.content:
+            return False
+        if "mp4" in ctype or "octet-stream" in ctype:
+            return True
+        return b"ftyp" in resp.content[:64]
+
+    def _job_id(self, resp: requests.Response) -> str | None:
+        try:
+            data = resp.json()
+        except ValueError:
+            return None
+        if not isinstance(data, dict):
+            return None
+        raw = data.get("id") or data.get("job_id") or data.get("video_id")
+        return str(raw) if raw else None
+
+    def _body_or_wait(self, resp: requests.Response) -> bytes:
+        if self._looks_like_mp4(resp):
+            return _raw(resp)
+        job_id = self._job_id(resp)
+        if job_id:
+            return self._wait(job_id)
+        try:
+            url = resp.json().get("url") if resp.content else None
+        except ValueError:
+            url = None
+        if url:
+            try:
+                clip = requests.get(url, headers=self._headers(), timeout=self._TIMEOUT_S)
+            except requests.RequestException as exc:
+                raise AdapterError(f"video download failed ({url}): {exc}") from exc
+            if clip.content:
+                return _raw(clip)
+        if resp.content:
+            return _raw(resp)
+        raise AdapterError(f"video endpoint returned no MP4 ({self.cfg.v1})")
+
+    def _wait(self, job_id: str) -> bytes:
+        deadline = time.time() + self._TIMEOUT_S
+        while time.time() < deadline:
+            result = self.poll(job_id)
+            if result is not None:
+                return result
+            time.sleep(self._POLL_S)
+        raise AdapterError(f"video job {job_id} timed out")
+
+    def _poll_once(self, job_id: str) -> tuple[str, bytes | None]:
+        try:
+            resp = requests.get(
+                f"{self.cfg.v1}/videos/{job_id}", headers=self._headers(), timeout=30
+            )
+        except requests.RequestException as exc:
+            raise AdapterError(f"video poll failed ({self.cfg.v1}): {exc}") from exc
+        if resp.status_code >= 400:
+            raise AdapterError(
+                f"video poll failed ({self.cfg.v1}): HTTP {resp.status_code} {resp.text[:200]}"
+            )
+        if self._looks_like_mp4(resp):
+            return "completed", _raw(resp)
+        try:
+            data = resp.json()
+        except ValueError:
+            return "in_progress", None
+        status = str(data.get("status") or data.get("state") or "in_progress").lower()
+        if status in self._DONE and data.get("url"):
+            try:
+                clip = requests.get(data["url"], headers=self._headers(), timeout=self._TIMEOUT_S)
+            except requests.RequestException as exc:
+                raise AdapterError(f"video download failed: {exc}") from exc
+            return status, _raw(clip)
+        return status, None
+
+    def _download(self, job_id: str) -> bytes:
+        try:
+            resp = requests.get(
+                f"{self.cfg.v1}/videos/{job_id}/content",
+                headers=self._headers(),
+                timeout=self._TIMEOUT_S,
+            )
+        except requests.RequestException as exc:
+            raise AdapterError(f"video download failed ({self.cfg.v1}): {exc}") from exc
+        if resp.status_code >= 400 or not resp.content:
+            raise AdapterError(f"video download failed ({self.cfg.v1}): HTTP {resp.status_code}")
+        return _raw(resp)
+
+
+class AceStepAudioAdapter(_Base):
+    """``acestep_audio`` — ``POST /v1/audio/generations`` JSON → mp3 bytes."""
+
+    def generate(self, prompt: str, *, mood: str = "warm") -> bytes:
+        start = time.time()
+        opts = self.cfg.options
+        payload = {
+            "model": self.cfg.model,
+            "prompt": prompt,
+            "task_type": "text2music",
+            "thinking": bool(opts.get("thinking", False)),
+            "audio_duration": int(opts.get("audio_duration", 8)),
+            "inference_steps": int(opts.get("inference_steps", 8)),
+            "audio_format": str(opts.get("audio_format", "mp3")),
+        }
+        headers = {"Authorization": f"Bearer {self.cfg.api_key}"} if self.cfg.api_key else {}
+        try:
+            resp = requests.post(
+                f"{self.cfg.v1}/audio/generations",
+                json=payload,
+                headers=headers,
+                timeout=180,
+            )
+        except requests.RequestException as exc:
+            raise AdapterError(f"audio call failed ({self.cfg.v1}): {exc}") from exc
+        if resp.status_code >= 400:
+            raise AdapterError(
+                f"audio call failed ({self.cfg.v1}): HTTP {resp.status_code} {resp.text[:200]}"
+            )
+        body = self._mp3_bytes(resp)
+        self._timed(start, output_size_bytes=len(body), mood=mood)
+        return body
+
+    def _mp3_bytes(self, resp: requests.Response) -> bytes:
+        ctype = (resp.headers.get("content-type") or "").lower()
+        if "json" in ctype:
+            try:
+                data = resp.json()
+            except ValueError as exc:
+                raise AdapterError(f"audio endpoint returned invalid JSON ({self.cfg.v1})") from exc
+            raw = data.get("audio") or data.get("b64_json")
+            if isinstance(raw, str):
+                return base64.b64decode(raw)
+            items = data.get("data") or []
+            if items and isinstance(items[0], dict) and items[0].get("b64_json"):
+                return base64.b64decode(items[0]["b64_json"])
+        if resp.content:
+            return _raw(resp)
+        raise AdapterError(f"audio endpoint returned no mp3 ({self.cfg.v1})")
+
+
+class OpenAIVideoAdapter(_Base):
+    """``openai_video`` — OpenAI Videos API image-to-video (``input_reference``)."""
+
+    _TIMEOUT_S = 600
+    _POLL_S = 2
+    _DONE = frozenset({"completed", "succeeded", "success", "done"})
+    _FAILED = frozenset({"failed", "error", "cancelled", "canceled"})
+
+    def generate(self, prompt: str, *, image: bytes, seed: int | None = None) -> bytes:
+        start = time.time()
+        job_id = self.submit(prompt, image=image, seed=seed)
+        deadline = time.time() + self._TIMEOUT_S
+        while time.time() < deadline:
+            result = self.poll(job_id)
+            if result is not None:
+                self._timed(start, output_size_bytes=len(result))
+                return result
+            time.sleep(self._POLL_S)
+        raise AdapterError(f"OpenAI video job {job_id} timed out")
+
+    def submit(self, prompt: str, *, image: bytes, seed: int | None = None) -> str:
+        opts = self.cfg.options
+        data = {
+            "model": self.cfg.model or "",
+            "prompt": prompt,
+            "size": str(opts.get("size", "1280x720")),
+            "seconds": str(opts.get("seconds", 4)),
+        }
+        headers = {"Authorization": f"Bearer {self.cfg.api_key}"} if self.cfg.api_key else {}
+        try:
+            resp = requests.post(
+                f"{self.cfg.v1}/videos",
+                data=data,
+                files={"input_reference": ("card.png", image, "image/png")},
+                headers=headers,
+                timeout=60,
+            )
+        except requests.RequestException as exc:
+            raise AdapterError(f"video call failed ({self.cfg.v1}): {exc}") from exc
+        if resp.status_code >= 400:
+            raise AdapterError(
+                f"video call failed ({self.cfg.v1}): HTTP {resp.status_code} {resp.text[:200]}"
+            )
+        try:
+            job_id = resp.json().get("id")
+        except ValueError:
+            job_id = None
+        if not job_id:
+            raise AdapterError(f"OpenAI Videos API returned no id ({self.cfg.v1})")
+        return str(job_id)
+
+    def poll(self, job_id: str) -> bytes | None:
+        headers = {"Authorization": f"Bearer {self.cfg.api_key}"} if self.cfg.api_key else {}
+        try:
+            resp = requests.get(f"{self.cfg.v1}/videos/{job_id}", headers=headers, timeout=30)
+        except requests.RequestException as exc:
+            raise AdapterError(f"video poll failed ({self.cfg.v1}): {exc}") from exc
+        if resp.status_code >= 400:
+            raise AdapterError(
+                f"video poll failed ({self.cfg.v1}): HTTP {resp.status_code} {resp.text[:200]}"
+            )
+        try:
+            data = resp.json()
+        except ValueError as exc:
+            raise AdapterError(f"video poll returned non-JSON ({self.cfg.v1})") from exc
+        status = str(data.get("status") or "").lower()
+        if status in self._FAILED:
+            raise AdapterError(f"video job {job_id} {status}: {data.get('error') or ''}".strip())
+        if status not in self._DONE:
+            return None
+        try:
+            clip = requests.get(
+                f"{self.cfg.v1}/videos/{job_id}/content",
+                headers=headers,
+                timeout=self._TIMEOUT_S,
+            )
+        except requests.RequestException as exc:
+            raise AdapterError(f"video download failed ({self.cfg.v1}): {exc}") from exc
+        if clip.status_code >= 400 or not clip.content:
+            raise AdapterError(f"video download failed ({self.cfg.v1}): HTTP {clip.status_code}")
+        return _raw(clip)
+
+
+class LocalTracksAdapter(_Base):
+    """``local_tracks`` — pick ``dir/<mood>.mp3``, else the bundled default track."""
+
+    def generate(self, prompt: str = "", *, mood: str = "warm") -> bytes:
+        start = time.time()
+        raw = self.cfg.options.get("dir", "data/fallback/moods")
+        directory = Path(raw) if Path(raw).is_absolute() else REPO_ROOT / raw
+        chosen = directory / f"{mood}.mp3"
+        if not chosen.is_file():
+            chosen = directory / "default.mp3"
+        if not chosen.is_file():
+            raise AdapterError(f"no track for mood {mood!r} in {directory}")
+        data = chosen.read_bytes()
+        self._timed(start, output_size_bytes=len(data), mood=mood, path=str(chosen))
+        return data
+
+
 _REGISTRY: dict[str, type[_Base]] = {
     "openai_chat": ChatAdapter,
     "openai_images": ImagesAdapter,
+    "wan_omni": WanOmniAdapter,
+    "openai_video": OpenAIVideoAdapter,
+    "acestep_audio": AceStepAudioAdapter,
+    "local_tracks": LocalTracksAdapter,
 }
 
 
