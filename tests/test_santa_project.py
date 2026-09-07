@@ -83,7 +83,7 @@ def test_pyproject_requires_python_and_santa_wheel() -> None:
     assert data["project"]["requires-python"] == ">=3.11"
     packages = data["tool"]["hatch"]["build"]["targets"]["wheel"]["packages"]
     assert "santa" in packages
-    assert "santa_demo" in packages  # presenter app until issue 04
+    assert "santa_demo" not in packages
 
 
 def test_pyproject_core_deps_are_laptop_cli_only() -> None:

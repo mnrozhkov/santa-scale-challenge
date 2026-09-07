@@ -5742,6 +5742,14 @@ dependencies = [
     { name = "typer" },
 ]
 
+[package.optional-dependencies]
+service = [
+    { name = "fastapi" },
+    { name = "jinja2" },
+    { name = "python-multipart" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "black" },
@@ -5782,8 +5790,10 @@ service = [
 [package.metadata]
 requires-dist = [
     { name = "boto3", specifier = ">=1.35.0" },
+    { name = "fastapi", marker = "extra == 'service'", specifier = ">=0.115.0" },
     { name = "imageio-ffmpeg", specifier = ">=0.5.0" },
     { name = "jinja2", specifier = ">=3.1.0" },
+    { name = "jinja2", marker = "extra == 'service'", specifier = ">=3.1.0" },
     { name = "nebius", specifier = ">=0.2.0" },
     { name = "openai", specifier = ">=1.0.0" },
     { name = "pillow", specifier = ">=10.0.0" },
@@ -5791,12 +5801,15 @@ requires-dist = [
     { name = "pydantic-ai", specifier = ">=0.1.0" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
+    { name = "python-multipart", marker = "extra == 'service'", specifier = ">=0.0.9" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "rich", specifier = ">=13.0" },
     { name = "truststore", specifier = ">=0.9" },
     { name = "typer", specifier = ">=0.12" },
+    { name = "uvicorn", extras = ["standard"], marker = "extra == 'service'", specifier = ">=0.32.0" },
 ]
+provides-extras = ["service"]
 
 [package.metadata.requires-dev]
 dev = [

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Santa wall</title>
+  <style>
+    :root { font-family: Georgia, serif; color: #1a1a1a; background: #f6efe6; }
+    body { max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.6rem; }
+    .error { background: #fde8e8; border: 1px solid #c0392b; padding: 0.75rem; margin: 1rem 0; }
+    .card { background: #fff; border: 1px solid #d9cbb8; padding: 1rem; margin-top: 1.5rem; }
+    pre { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Wall</h1>
+  <p><a href="/">Back to card form</a></p>
+
+  {% if error %}
+  <div class="error">{{ error }}</div>
+  {% endif %}
+
+  <section class="card">
+    <h2>Cards</h2>
+    {% if cards %}
+    <ul>
+      {% for key in cards %}
+      <li><code>{{ key }}</code></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p>No cards in the bucket yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Videos</h2>
+    {% if videos %}
+    <ul>
+      {% for key in videos %}
+      <li><code>{{ key }}</code></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p>No videos in the bucket yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Latest run summary</h2>
+    {% if summary %}
+    <pre>{{ summary | tojson(indent=2) }}</pre>
+    {% else %}
+    <p>No <code>runs/*/summary.json</code> yet.</p>
+    {% endif %}
+  </section>
+</body>
+</html>
