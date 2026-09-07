@@ -1,0 +1,78 @@
+# Every model used by the demo is named here — and only here.
+# Roles are what the code asks for; adapters are how a role is called.
+# Secrets and URLs live in .env (url_env / token_env / api_key_env).
+#
+# Each role has a `fallback:` — used when the primary is not configured or fails
+# (policy: SANTA_FALLBACK=auto|off|only, default auto). OpenAI is the default fallback.
+
+roles:
+  llm:
+    adapter: openai_chat
+    base_url: https://api.tokenfactory.nebius.com/v1
+    api_key_env: TOKEN_FACTORY_API_KEY  # pragma: allowlist secret
+    model: openai/gpt-oss-120b        # placeholder until scripts/bench_tool_calling.py picks the winner
+    # candidates: zai-org/GLM-5.3-Flash · nvidia/Nemotron-3_5-Lightning · deepseek-ai/DeepSeek-V4-Pro
+    options: {temperature: 0.8, max_tokens: 400}
+    fallback:
+      adapter: openai_chat
+      base_url: https://api.openai.com/v1
+      api_key_env: OPENAI_API_KEY  # pragma: allowlist secret
+      model: gpt-4o-mini
+      options: {temperature: 0.8, max_tokens: 400}
+
+  image:
+    adapter: openai_images            # cookbook templates/endpoint-sana: POST /v1/images/generations -> b64_json
+    url_env: IMAGE_ENDPOINT_URL
+    token_env: IMAGE_ENDPOINT_TOKEN
+    model: sana
+    options: {size: 1024x1024}
+    fallback:
+      adapter: openai_images
+      base_url: https://api.openai.com/v1
+      api_key_env: OPENAI_API_KEY  # pragma: allowlist secret
+      model: gpt-image-1
+      options: {size: 1024x1024}
+
+  video:
+    adapter: wan_omni                 # cookbook templates/endpoint-wan22-i2v-a14b: POST /v1/videos/sync (multipart)
+    url_env: VIDEO_ENDPOINT_URL
+    token_env: VIDEO_ENDPOINT_TOKEN
+    model: Wan-AI/Wan2.2-I2V-A14B-Diffusers
+    options:
+      size: 832x480
+      num_frames: 81
+      fps: 16
+      num_inference_steps: 20
+      guidance_scale: 1.0
+      guidance_scale_2: 1.0
+      flow_shift: 12.0
+      boundary_ratio: 0.875
+    fallback:
+      adapter: openai_video           # OpenAI Videos API (image-to-video with input_reference)
+      base_url: https://api.openai.com/v1
+      api_key_env: OPENAI_API_KEY  # pragma: allowlist secret
+      model: sora-2
+      options: {size: 1280x720, seconds: 4}
+
+  audio:
+    adapter: acestep_audio            # cookbook templates/endpoint-ace-step-1-5: POST /v1/audio/generations -> mp3
+    url_env: AUDIO_ENDPOINT_URL
+    token_env: AUDIO_ENDPOINT_TOKEN
+    model: ACE-Step/Ace-Step1.5
+    options: {audio_duration: 8, inference_steps: 8, audio_format: mp3, thinking: false}
+    fallback:
+      adapter: local_tracks           # no OpenAI music API — bundled royalty-free tracks per mood
+      options: {dir: data/fallback/moods}
+
+# Step 6: K preemptible GPU Jobs running `python -m santa.job` (Wan I2V in-container) in YOUR project.
+job:
+  image: ""                           # cr.eu-north1.nebius.cloud/<your-registry>/santa-job:<tag>  (issue 08)
+  model: Wan-AI/Wan2.2-I2V-A14B-Diffusers
+  platform: gpu-h100-sxm
+  preset: 1gpu-16vcpu-200gb
+  preemptible: true
+  disk_gb: 250
+  timeout_min: 90
+  mount_path: /data                   # your bucket (NEBIUS_BUCKET_ID) mounted here
+  hf_home: /data/models               # pre-baked weights (scripts/sync_models.py)
+  # alternative: {model: Wan-AI/Wan2.2-TI2V-5B-Diffusers, platform: gpu-l40s-d, preset: 1gpu-16vcpu-96gb}

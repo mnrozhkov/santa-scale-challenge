@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Santa Serverless Demo</title>
+  <style>
+    :root { font-family: Georgia, serif; color: #1a1a1a; background: #f6efe6; }
+    body { max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.6rem; }
+    label { display: block; margin-top: 0.75rem; font-weight: 600; }
+    input, textarea { width: 100%; padding: 0.4rem; font-size: 1rem; box-sizing: border-box; }
+    button { margin-top: 1rem; padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; }
+    .error { background: #fde8e8; border: 1px solid #c0392b; padding: 0.75rem; margin: 1rem 0; }
+    .card { background: #fff; border: 1px solid #d9cbb8; padding: 1rem; margin-top: 1.5rem; }
+    .card img, .card video { max-width: 100%; height: auto; }
+    ul { margin: 0.25rem 0 0.75rem; }
+  </style>
+</head>
+<body>
+  <h1>Santa card — Serverless image endpoint</h1>
+  <p>One KidProfile → gift + wish (Token Factory) → illustration (your image endpoint) → GiftCard.</p>
+
+  {% if error %}
+  <div class="error">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/generate">
+    <label for="name">Name</label>
+    <input id="name" name="name" required>
+
+    <label for="age">Age (1–18)</label>
+    <input id="age" name="age" type="number" min="1" max="18" required>
+
+    <label for="wish">Wish (or what they wanted as a child)</label>
+    <textarea id="wish" name="wish" rows="3"></textarea>
+
+    <button type="submit">Generate GiftCard</button>
+  </form>
+
+  {% if card %}
+  <section class="card">
+    <h2>{{ card.profile.name }}, {{ card.profile.age }}</h2>
+    <p><strong>Wish</strong></p>
+    <p>{{ card.wish_text }}</p>
+    <p><strong>Gifts</strong></p>
+    <ul>
+      {% for gift in card.gifts %}
+      <li>{{ gift }}</li>
+      {% endfor %}
+    </ul>
+    {% if card.png_path %}
+    <p><img src="/card.png" alt="GiftCard illustration"></p>
+    {% endif %}
+    <p><a href="/card.html" target="_blank">Open HTML card</a></p>
+    <p><small>Image endpoint: {{ card.image_endpoint_url }}</small></p>
+  </section>
+  {% endif %}
+
+  <section class="card">
+    <h2>S2 — animate via video endpoint</h2>
+    <form method="post" action="/animate">
+      <button type="submit">Animate this card</button>
+    </form>
+    {% if video_path %}
+    <p><video src="/card.mp4" controls autoplay muted></video></p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>S3 — four GPU Jobs (Wan container, one PNG each)</h2>
+    <form method="post" action="/batch">
+      <label>
+        <input type="checkbox" name="include_last" {% if not has_live_png %}disabled{% endif %}>
+        Include last live card
+      </label>
+      <button type="submit">Start 4 video Jobs</button>
+    </form>
+    {% if jobs %}
+    <form method="post" action="/batch/refresh">
+      <button type="submit">Refresh Job status</button>
+    </form>
+    <ul>
+      {% for job in jobs %}
+      <li>
+        <strong>{{ job.id }}</strong> — {{ job.state }}
+        {% if job.mp4_url %} — <a href="{{ job.mp4_url }}">MP4</a>{% endif %}
+        {% if job.error %} — {{ job.error }}{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+</body>
+</html>

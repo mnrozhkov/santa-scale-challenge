@@ -8,7 +8,7 @@ license = {text = "MIT"}
 authors = [
     {name = "Santa Scale Challenge Team"}
 ]
-keywords = ["llm", "ai", "gift-cards", "mlflow", "skypilot", "nebius"]
+keywords = ["llm", "ai", "gift-cards", "mlflow", "nebius"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -31,13 +31,15 @@ dependencies = [
     "google-auth>=2.0.0",
     "html2image>=2.0.0",
     "boto3>=1.35.0",
+    "fastapi>=0.115.0",
+    "jinja2>=3.1.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.9",
+    "pyyaml>=6.0",
+    "typer>=0.12",
+    "rich>=13.0",
+    "truststore>=0.9",
 ]
-
-# [project.optional-dependencies]
-# # SkyPilot for distributed processing
-# skypilot = [
-#     "skypilot>=0.11.0",
-# ]
 
 [dependency-groups]
 # Development dependencies (for uv sync --group dev)
@@ -52,10 +54,10 @@ dev = [
     "pre-commit>=3.5.0",
     "detect-secrets>=1.4.0",
 ]
-skypilot = [
-    # "boto3>=1.42.12",
-    "skypilot-nightly[nebius]>=1.0.0.dev20251217",
-]
+
+[project.scripts]
+santa = "santa.cli:app"
+santa-demo = "santa_demo.app:main"
 
 [project.urls]
 Homepage = "https://github.com/your-org/santa-scale-challenge"
@@ -68,7 +70,10 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["santa_scale_challenge"]
+packages = ["santa", "santa_demo"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"santa_demo/data" = "santa_demo/data"
 
 [tool.black]
 line-length = 100
@@ -118,7 +123,8 @@ python_functions = ["test_*"]
 addopts = [
     "--strict-markers",
     "--strict-config",
-    "--cov=santa_scale_challenge",
+    "--cov=santa",
+    "--cov=santa_demo",
     "--cov-report=term-missing",
     "--cov-report=html",
 ]
