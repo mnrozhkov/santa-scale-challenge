@@ -74,7 +74,10 @@ class Storage:
             raise StorageError(f"exists {key} failed: {exc}") from exc
 
     def list(self, prefix: str = "") -> list[str]:
-        keys: list[str] = []
+        return [k for k, _ in self.list_with_mtime(prefix)]
+
+    def list_with_mtime(self, prefix: str = "") -> list[tuple[str, float]]:
+        items: list[tuple[str, float]] = []
         token = None
         try:
             while True:
@@ -83,13 +86,16 @@ class Storage:
                     kw["ContinuationToken"] = token
                 resp = self.client.list_objects_v2(**kw)
                 for obj in resp.get("Contents") or []:
-                    keys.append(obj["Key"])
+                    key = obj["Key"]
+                    stamp = obj.get("LastModified")
+                    mtime = stamp.timestamp() if hasattr(stamp, "timestamp") else 0.0
+                    items.append((key, mtime))
                 if not resp.get("IsTruncated"):
                     break
                 token = resp.get("NextContinuationToken")
         except Exception as exc:
             raise StorageError(f"list {prefix!r} failed: {exc}") from exc
-        return keys
+        return items
 
     def download(self, key: str) -> bytes:
         try:
@@ -105,15 +111,22 @@ class MemoryStorage:
 
     def __init__(self) -> None:
         self.objects: dict[str, bytes] = {}
+        self._mtime: dict[str, int] = {}
+        self._tick = 0
 
     def upload(self, key: str, data: bytes, *, content_type: str | None = None) -> None:
+        self._tick += 1
         self.objects[key] = data
+        self._mtime[key] = self._tick
 
     def exists(self, key: str) -> bool:
         return key in self.objects
 
     def list(self, prefix: str = "") -> list[str]:
         return [k for k in sorted(self.objects) if k.startswith(prefix)]
+
+    def list_with_mtime(self, prefix: str = "") -> list[tuple[str, float]]:
+        return [(k, float(self._mtime[k])) for k in self.list(prefix)]
 
     def download(self, key: str) -> bytes:
         if key not in self.objects:

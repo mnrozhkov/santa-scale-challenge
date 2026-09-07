@@ -10,6 +10,7 @@
     h1 { font-size: 1.6rem; }
     .error { background: #fde8e8; border: 1px solid #c0392b; padding: 0.75rem; margin: 1rem 0; }
     .card { background: #fff; border: 1px solid #d9cbb8; padding: 1rem; margin-top: 1.5rem; }
+    .card img, .card video { max-width: 100%; height: auto; }
     pre { white-space: pre-wrap; }
   </style>
 </head>
@@ -26,7 +27,13 @@
     {% if cards %}
     <ul>
       {% for key in cards %}
-      <li><code>{{ key }}</code></li>
+      <li>
+        {% if key.endswith('.png') %}
+        <img src="/media/{{ key }}" alt="{{ key }}">
+        {% else %}
+        <code>{{ key }}</code>
+        {% endif %}
+      </li>
       {% endfor %}
     </ul>
     {% else %}
@@ -39,7 +46,13 @@
     {% if videos %}
     <ul>
       {% for key in videos %}
-      <li><code>{{ key }}</code></li>
+      <li>
+        {% if key.endswith('.mp4') %}
+        <video src="/media/{{ key }}" controls muted></video>
+        {% else %}
+        <code>{{ key }}</code>
+        {% endif %}
+      </li>
       {% endfor %}
     </ul>
     {% else %}

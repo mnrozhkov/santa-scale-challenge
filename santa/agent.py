@@ -6,11 +6,11 @@ from pathlib import Path
 from typing import Any
 
 from pydantic_ai import Agent
-from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from santa.card_tools import card_tools
-from santa.config import Settings
+from santa.config import ConfigError, Settings
 from santa.models import adapter_for
 
 
@@ -29,8 +29,10 @@ def run_agent(
     )
     if model is None:
         r = s.role("llm")
-        model = OpenAIChatModel(
-            r.model or "openai/gpt-oss-120b",
+        if not r.model:
+            raise ConfigError("llm role has no model in config/models.yaml.")
+        model = OpenAIModel(
+            r.model,
             provider=OpenAIProvider(base_url=r.v1, api_key=r.api_key),
         )
     Agent(model, tools=tools, instructions="Use the four card tools in order.").run_sync(request)

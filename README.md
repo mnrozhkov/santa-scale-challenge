@@ -296,6 +296,33 @@ python prototype/src/data_upload.py \
 
 ---
 
+## Agent / MCP
+
+If Token Factory tool-calling is flaky, the same card pipeline is a one-tool MCP server (`generate_card`).
+
+Claude Code:
+
+```bash
+claude mcp add santa -- python -m santa.mcp
+```
+
+Cursor (`.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "santa": {
+      "command": "python",
+      "args": ["-m", "santa.mcp"]
+    }
+  }
+}
+```
+
+Or: `santa agent "make a card for a 7-year-old who wants a telescope"`
+
+---
+
 ## 📄 License
 
 MIT — use freely for workshops, training, and holiday-themed AI adventures.

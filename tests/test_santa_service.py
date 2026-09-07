@@ -166,6 +166,25 @@ def test_api_cards_returns_card_json_with_model_fallback(
     assert steps["image"]["fallback"] is True
     assert steps["llm"]["fallback"] is False
     assert "png_url" in data and "html_url" in data
+    assert data["png_url"] == f"/cards/{data['card']['kid_id']}.png"
+
+
+def test_api_cards_urls_are_per_kid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from fastapi.testclient import TestClient
+
+    session = _session(tmp_path, monkeypatch, runner=_writing_runner(tmp_path))
+    client = TestClient(create_app(session))
+    first = KidProfile(id="k-a", name="Emma", age=7, wishlist=["stars"])
+    second = KidProfile(id="k-b", name="Noah", age=8, wishlist=["trains"])
+    a = client.post("/api/cards", json=first.model_dump())
+    b = client.post("/api/cards", json=second.model_dump())
+    assert a.json()["png_url"] == "/cards/k-a.png"
+    assert b.json()["png_url"] == "/cards/k-b.png"
+    png_a = client.get("/cards/k-a.png")
+    png_b = client.get("/cards/k-b.png")
+    assert png_a.status_code == 200
+    assert png_b.status_code == 200
+    assert png_a.content == b"png-bytes"
 
 
 def _writing_runner(tmp_path: Path):
@@ -266,13 +285,13 @@ def test_api_wall_lists_keys_from_fake_storage(
     session.storage.upload("cards/k1.png", b"png")
     session.storage.upload("videos/k1.mp4", b"mp4")
     session.storage.upload(
-        "runs/r1/summary.json",
-        json.dumps({"run_id": "r1", "kids": 1}).encode(),
+        "runs/r2/summary.json",
+        json.dumps({"run_id": "r2", "kids": 2}).encode(),
         content_type="application/json",
     )
     session.storage.upload(
-        "runs/r2/summary.json",
-        json.dumps({"run_id": "r2", "kids": 2}).encode(),
+        "runs/r1/summary.json",
+        json.dumps({"run_id": "r1", "kids": 1}).encode(),
         content_type="application/json",
     )
     client = TestClient(create_app(session))
@@ -281,4 +300,11 @@ def test_api_wall_lists_keys_from_fake_storage(
     data = resp.json()
     assert data["cards"] == ["cards/k1.png"]
     assert data["videos"] == ["videos/k1.mp4"]
-    assert data["summary"] == {"run_id": "r2", "kids": 2}
+    assert data["summary"] == {"run_id": "r1", "kids": 1}  # last uploaded, not lex max
+    page = client.get("/wall")
+    assert page.status_code == 200
+    assert "Wall" in page.text
+    assert "/media/cards/k1.png" in page.text
+    home = client.get("/")
+    assert home.status_code == 200
+    assert "GiftCard" in home.text or "Generate" in home.text

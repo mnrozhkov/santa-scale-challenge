@@ -27,6 +27,9 @@ class StorageLike(Protocol):
     def list(self, prefix: str = "") -> list[str]:
         ...
 
+    def list_with_mtime(self, prefix: str = "") -> list[tuple[str, float]]:
+        ...
+
     def download(self, key: str) -> bytes:
         ...
 
@@ -153,9 +156,10 @@ class ServiceSession:
     def wall(self) -> dict[str, Any]:
         cards = self.storage.list("cards/")
         videos = self.storage.list("videos/")
-        summaries = [k for k in self.storage.list("runs/") if k.endswith("/summary.json")]
+        listed = self.storage.list_with_mtime("runs/")
+        summaries = [(k, t) for k, t in listed if k.endswith("/summary.json")]
         summary: Any = None
         if summaries:
-            raw = self.storage.download(max(summaries))
-            summary = json.loads(raw)
+            key = max(summaries, key=lambda item: item[1])[0]
+            summary = json.loads(self.storage.download(key))
         return {"cards": cards, "videos": videos, "summary": summary}

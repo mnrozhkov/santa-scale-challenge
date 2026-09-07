@@ -97,14 +97,47 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="HTML file missing")
         return HTMLResponse(path.read_text(encoding="utf-8"))
 
+    @application.get("/cards/{kid_id}.png")
+    def card_id_png(kid_id: str) -> FileResponse:
+        path = current().out_root / kid_id / "card.png"
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="PNG file missing")
+        return FileResponse(path, media_type="image/png")
+
+    @application.get("/cards/{kid_id}.html", response_class=HTMLResponse)
+    def card_id_html(kid_id: str) -> HTMLResponse:
+        path = current().out_root / kid_id / "card.html"
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="HTML file missing")
+        return HTMLResponse(path.read_text(encoding="utf-8"))
+
+    @application.get("/media/{key:path}")
+    def media(key: str) -> Any:
+        from fastapi.responses import Response
+
+        if ".." in Path(key).parts:
+            raise HTTPException(status_code=400, detail="Invalid key")
+        try:
+            data = current().storage.download(key)
+        except StorageError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if key.endswith(".png"):
+            media_type = "image/png"
+        elif key.endswith(".mp4"):
+            media_type = "video/mp4"
+        else:
+            media_type = "application/octet-stream"
+        return Response(content=data, media_type=media_type)
+
     @application.post("/api/cards")
     def api_cards(kid: KidProfile) -> dict[str, Any]:
         run = current().generate_card(kid)
+        kid_id = run.card.kid_id
         return {
             "card": json.loads(run.card.model_dump_json()),
             "steps": run.steps,
-            "png_url": "/card.png" if run.card.png_path else None,
-            "html_url": "/card.html" if run.card.html_path else None,
+            "png_url": f"/cards/{kid_id}.png" if run.card.png_path else None,
+            "html_url": f"/cards/{kid_id}.html" if run.card.html_path else None,
         }
 
     @application.post("/api/cards/batch")
