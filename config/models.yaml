@@ -11,7 +11,9 @@ roles:
     base_url: https://api.tokenfactory.nebius.com/v1
     api_key_env: TOKEN_FACTORY_API_KEY  # pragma: allowlist secret
     model: openai/gpt-oss-120b        # placeholder until scripts/bench_tool_calling.py picks the winner
-    # candidates: zai-org/GLM-5.3-Flash · nvidia/Nemotron-3_5-Lightning · deepseek-ai/DeepSeek-V4-Pro
+    # zai-org/GLM-5.3-Flash           # candidate — uncomment runners-up after a live bench
+    # nvidia/Nemotron-3_5-Lightning
+    # deepseek-ai/DeepSeek-V4-Pro
     options: {temperature: 0.8, max_tokens: 400}
     fallback:
       adapter: openai_chat
