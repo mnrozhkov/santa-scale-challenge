@@ -107,6 +107,9 @@ def test_pyproject_optional_groups() -> None:
     assert any(isinstance(item, dict) and item.get("include-group") == "service" for item in dev)
     assert "job" not in {item.get("include-group") for item in dev if isinstance(item, dict)}
     assert "research" not in {item.get("include-group") for item in dev if isinstance(item, dict)}
+    extras = _pyproject()["project"]["optional-dependencies"]
+    assert _names(extras["job"]) >= set(JOB_PACKAGES)
+    assert _names(extras["service"]) >= set(SERVICE_PACKAGES)
 
 
 def test_gitignore_blocks_env_pkg_and_outputs() -> None:

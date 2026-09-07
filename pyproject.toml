@@ -45,10 +45,13 @@ service = [
 ]
 job = [
     "torch>=2.4.0",
-    "diffusers>=0.31.0",
+    "diffusers>=0.35.0",
     "transformers>=4.45.0",
     "accelerate>=1.0.0",
+    "huggingface_hub>=0.25.0",
+    "imageio>=2.34.0",
     "imageio-ffmpeg>=0.5.0",
+    "sentencepiece>=0.2.0",
 ]
 research = [
     "mlflow==2.21.2",
@@ -76,6 +79,16 @@ service = [
     "uvicorn[standard]>=0.32.0",
     "jinja2>=3.1.0",
     "python-multipart>=0.0.9",
+]
+job = [
+    "torch>=2.4.0",
+    "diffusers>=0.35.0",
+    "transformers>=4.45.0",
+    "accelerate>=1.0.0",
+    "huggingface_hub>=0.25.0",
+    "imageio>=2.34.0",
+    "imageio-ffmpeg>=0.5.0",
+    "sentencepiece>=0.2.0",
 ]
 
 [project.scripts]
@@ -141,6 +154,16 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "torch",
+    "torch.*",
+    "diffusers",
+    "diffusers.*",
+    "huggingface_hub",
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
