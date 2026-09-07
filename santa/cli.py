@@ -192,6 +192,61 @@ def animate(
     console.print(str(result))
 
 
+@app.command()
+def batch(
+    kids: int = typer.Option(20, "--kids", help="How many kids to take from the CSV."),
+    jobs: int = typer.Option(4, "--jobs", help="How many GPU job chunks to write."),
+    run_id: str | None = typer.Option(None, "--run-id"),
+    no_wait: bool = typer.Option(False, "--no-wait", help="Issue 09: skip waiting on GPU jobs."),
+    local: bool = typer.Option(
+        False, "--local", help="Make cards on this laptop even if SANTA_SERVICE_URL is set."
+    ),
+    kids_csv: Path | None = typer.Option(None, "--kids-csv"),
+    out: Path = typer.Option(Path("out"), "--out"),
+) -> None:
+    """Cards phase of a batch run: kids → cards → bucket → chunk files. GPU jobs are issue 09."""
+    import os
+    import uuid
+
+    from santa.batch import DEFAULT_KIDS_CSV, load_kids, run_cards_phase
+    from santa.storage import MemoryStorage, Storage, local_run_dir
+
+    rid = run_id or uuid.uuid4().hex[:10]
+    csv_path = kids_csv or DEFAULT_KIDS_CSV
+    try:
+        selected = load_kids(csv_path, kids)
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+    run_dir = local_run_dir(rid, root=out)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    service_url = "" if local else (os.environ.get("SANTA_SERVICE_URL") or "").strip()
+    try:
+        store: MemoryStorage | Storage = Storage.from_env()
+    except Exception:
+        store = MemoryStorage()
+        console.print("[yellow]No bucket creds — cards stay local (MemoryStorage).[/yellow]")
+    settings = Settings.load()
+    phase = run_cards_phase(
+        kids=selected,
+        n_jobs=jobs,
+        run_id=rid,
+        run_dir=run_dir,
+        storage=store,
+        settings=settings,
+        local=local or not service_url,
+        service_url=service_url,
+    )
+    console.print(
+        f"[green]run {phase.run_id}[/green] made {len(phase.made)} skipped {len(phase.skipped)} "
+        f"chunks {len(phase.chunks)} → {phase.run_dir}"
+    )
+    if no_wait:
+        console.print("[dim]--no-wait: GPU job submission is issue 09.[/dim]")
+    else:
+        console.print("[dim]GPU job submission is issue 09.[/dim]")
+
+
 def main() -> None:  # `python -m santa.cli`
     app()
 
