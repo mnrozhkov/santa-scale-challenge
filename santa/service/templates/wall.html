@@ -3,15 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="10">
   <title>Santa wall</title>
   <style>
     :root { font-family: Georgia, serif; color: #1a1a1a; background: #f6efe6; }
-    body { max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    body { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
     h1 { font-size: 1.6rem; }
     .error { background: #fde8e8; border: 1px solid #c0392b; padding: 0.75rem; margin: 1rem 0; }
-    .card { background: #fff; border: 1px solid #d9cbb8; padding: 1rem; margin-top: 1.5rem; }
-    .card img, .card video { max-width: 100%; height: auto; }
-    pre { white-space: pre-wrap; }
+    .counter { font-size: 1.1rem; margin: 0.5rem 0 1.5rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+    .tile { background: #fff; border: 1px solid #d9cbb8; padding: 0.5rem; }
+    .tile img, .tile video { width: 100%; height: auto; display: block; }
+    .tile code { font-size: 0.8rem; word-break: break-all; }
+    pre { white-space: pre-wrap; background: #fff; border: 1px solid #d9cbb8; padding: 1rem; }
   </style>
 </head>
 <body>
@@ -22,51 +26,43 @@
   <div class="error">{{ error }}</div>
   {% endif %}
 
-  <section class="card">
-    <h2>Cards</h2>
-    {% if cards %}
-    <ul>
-      {% for key in cards %}
-      <li>
-        {% if key.endswith('.png') %}
-        <img src="/media/{{ key }}" alt="{{ key }}">
-        {% else %}
-        <code>{{ key }}</code>
-        {% endif %}
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p>No cards in the bucket yet.</p>
-    {% endif %}
-  </section>
+  {% if counter is not none %}
+  <p class="counter"><span>{{ counter }}</span> done</p>
+  {% else %}
+  <p class="counter">No run summary yet.</p>
+  {% endif %}
 
-  <section class="card">
-    <h2>Videos</h2>
-    {% if videos %}
-    <ul>
-      {% for key in videos %}
-      <li>
-        {% if key.endswith('.mp4') %}
-        <video src="/media/{{ key }}" controls muted></video>
-        {% else %}
-        <code>{{ key }}</code>
-        {% endif %}
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p>No videos in the bucket yet.</p>
-    {% endif %}
-  </section>
+  <h2>Cards</h2>
+  {% if cards %}
+  <div class="grid">
+    {% for key in cards if key.endswith('.png') %}
+    <div class="tile">
+      <img src="/media/{{ key }}" alt="{{ key }}">
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p>No cards in the bucket yet.</p>
+  {% endif %}
 
-  <section class="card">
-    <h2>Latest run summary</h2>
-    {% if summary %}
-    <pre>{{ summary | tojson(indent=2) }}</pre>
-    {% else %}
-    <p>No <code>runs/*/summary.json</code> yet.</p>
-    {% endif %}
-  </section>
+  <h2>Videos</h2>
+  {% if videos %}
+  <div class="grid">
+    {% for key in videos if key.endswith('.mp4') %}
+    <div class="tile">
+      <video src="/media/{{ key }}" autoplay muted loop playsinline controls></video>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p>No videos in the bucket yet.</p>
+  {% endif %}
+
+  <h2>Latest run summary</h2>
+  {% if summary %}
+  <pre>{{ summary | tojson(indent=2) }}</pre>
+  {% else %}
+  <p>No <code>runs/*/summary.json</code> yet.</p>
+  {% endif %}
 </body>
 </html>

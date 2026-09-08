@@ -305,6 +305,29 @@ def test_api_wall_lists_keys_from_fake_storage(
     assert page.status_code == 200
     assert "Wall" in page.text
     assert "/media/cards/k1.png" in page.text
+    assert "display: grid" in page.text
+    assert "autoplay" in page.text
+    assert "muted" in page.text
+    assert "loop" in page.text
+    assert 'http-equiv="refresh"' in page.text
+    assert 'content="10"' in page.text
+    assert 'class="counter"' in page.text
+    assert ">1<" in page.text or ">1 done<" in page.text or "1 done" in page.text
+    assert data.get("counter") == 1
     home = client.get("/")
     assert home.status_code == 200
     assert "GiftCard" in home.text or "Generate" in home.text
+
+
+def test_wall_counter_prefers_totals_done(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    session = _session(tmp_path, monkeypatch)
+    session.storage.upload(
+        "runs/r1/summary.json",
+        json.dumps(
+            {"run_id": "r1", "kids": 20, "totals": {"done": 7, "skipped": 2, "failed": 1}}
+        ).encode(),
+        content_type="application/json",
+    )
+    listing = session.wall()
+    assert listing["counter"] == 7
+    assert listing["summary"]["kids"] == 20

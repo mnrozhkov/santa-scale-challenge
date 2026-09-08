@@ -1,10 +1,12 @@
 """``santa`` — the participant CLI.
 
 santa doctor
-santa card …      (issue 02)
+santa card …      (issue 02) [--publish]
 santa agent …     (issue 06)
 santa batch …     (issues 07, 09)
-santa animate …   (issue 05)
+santa animate …   (issue 05) [--publish]
+santa publish …   (issue 10)
+santa teardown …  (issue 13)
 """
 
 from __future__ import annotations
@@ -82,6 +84,10 @@ def card(
     age: int | None = typer.Option(None, "--age"),
     wish: str | None = typer.Option(None, "--wish"),
     out: Path = typer.Option(Path("out"), "--out", help="Directory for out/<id>/card.png"),
+    publish: bool = typer.Option(False, "--publish", help="Upload PNG/HTML to the wall."),
+    local: bool = typer.Option(
+        False, "--local", help="Upload with this laptop's bucket creds instead of the service."
+    ),
 ) -> None:
     """Gift rec + wish + illustration → Pillow PNG and shareable HTML."""
     from santa.card import ProfileError, make_card
@@ -95,6 +101,12 @@ def card(
 
     card_run = make_card(kid, Settings.load(), out_root=out)
     _print_card_run(card_run)
+    if publish:
+        _publish_outputs(
+            _card_artifact_paths(card_run.card),
+            local=local,
+            object_id=card_run.card.kid_id,
+        )
 
 
 @app.command()
@@ -161,6 +173,31 @@ def _print_card_run(run: Any) -> None:
     console.print(f"[green]Wrote {run.card.html_path}[/green]")
 
 
+def _card_artifact_paths(card: Any) -> list[Path]:
+    paths: list[Path] = []
+    for raw in (getattr(card, "png_path", None), getattr(card, "html_path", None)):
+        if not raw:
+            continue
+        path = Path(raw)
+        if path.is_file():
+            paths.append(path)
+    return paths
+
+
+def _publish_outputs(paths: list[Path], *, local: bool, object_id: str | None = None) -> None:
+    from santa.publish import PublishError, publish_files
+
+    if not paths:
+        return
+    try:
+        keys = publish_files(paths, local=local, object_id=object_id)
+    except PublishError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+    for key in keys:
+        console.print(f"[green]published {key}[/green]")
+
+
 @app.command()
 def animate(
     png: Path | None = typer.Argument(None, exists=False, readable=False),
@@ -169,13 +206,13 @@ def animate(
     fresh_music: bool = typer.Option(False, "--fresh-music"),
     mood_bank: bool = typer.Option(False, "--mood-bank"),
     wait: bool = typer.Option(True, "--wait/--no-wait"),
-    publish: bool = typer.Option(False, "--publish"),
+    publish: bool = typer.Option(False, "--publish", help="Upload the MP4 to the wall."),
+    local: bool = typer.Option(
+        False, "--local", help="Upload with this laptop's bucket creds instead of the service."
+    ),
     out: Path | None = typer.Option(None, "--out"),
 ) -> None:
     """Submit a card PNG to Wan (or sora-2), add ACE-Step music, mux to card.mp4."""
-    if publish:
-        console.print("[red]not implemented (issue 10)[/red]")
-        raise typer.Exit(code=1)
     if fresh_music and mood_bank:
         console.print("[red]--fresh-music and --mood-bank cannot be combined[/red]")
         raise typer.Exit(code=1)
@@ -186,6 +223,8 @@ def animate(
             console.print("still running")
             raise typer.Exit()
         console.print(str(done))
+        if publish:
+            _publish_outputs([Path(done)], local=local)
         raise typer.Exit()
     if png is None:
         console.print("[red]Pass a PNG path, or --status <ticket.json>[/red]")
@@ -203,6 +242,8 @@ def animate(
         console.print_json(data=result)
         return
     console.print(str(result))
+    if publish:
+        _publish_outputs([Path(result)], local=local)
 
 
 @app.command()
@@ -383,6 +424,39 @@ def _batch_status(run_id: str, out: Path) -> None:
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(code=1) from exc
     _print_summary(summary, run_dir)
+
+
+@app.command()
+def publish(
+    paths: list[Path] = typer.Argument(
+        ..., exists=True, dir_okay=False, readable=True, help="PNG, HTML, JSON, or MP4 files."
+    ),
+    local: bool = typer.Option(
+        False, "--local", help="Upload with this laptop's bucket creds instead of the service."
+    ),
+) -> None:
+    """Upload files to the bucket so they show on /wall. Default: POST /api/publish."""
+    _publish_outputs(paths, local=local)
+
+
+@app.command()
+def teardown(
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="List what would stop/cancel without changing anything."
+    ),
+) -> None:
+    """Stop your endpoints, cancel lingering jobs, print leftovers and $/h saved."""
+    from santa.nebius_jobs import NebiusJobError
+    from santa.teardown import ports_from_env, print_report
+    from santa.teardown import run as run_teardown
+
+    try:
+        endpoints, jobs = ports_from_env()
+        report = run_teardown(dry_run=dry_run, endpoints=endpoints, jobs=jobs)
+    except NebiusJobError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+    print_report(report)
 
 
 def main() -> None:  # `python -m santa.cli`

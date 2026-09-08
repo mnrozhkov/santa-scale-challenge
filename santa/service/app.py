@@ -164,7 +164,7 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
             return TEMPLATES.TemplateResponse(
                 request,
                 "wall.html",
-                {"error": str(exc), "cards": [], "videos": [], "summary": None},
+                {"error": str(exc), "cards": [], "videos": [], "summary": None, "counter": None},
             )
 
     return application

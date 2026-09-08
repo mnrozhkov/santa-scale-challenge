@@ -190,12 +190,36 @@ def test_no_wait_writes_ticket_and_status_finishes(tmp_path):
     assert dest == tmp_path / "card.mp4" and dest.is_file()
 
 
-def test_cli_publish_errors_as_issue_10(tmp_path):
+def test_cli_publish_uploads_mp4(tmp_path, monkeypatch):
     png = tmp_path / "card.png"
+    mp4 = tmp_path / "card.mp4"
     png.write_bytes(PNG_1PX)
+    mp4.write_bytes(b"mp4-bytes")
+    monkeypatch.setenv("SANTA_SERVICE_URL", "http://santa.test")
+    monkeypatch.setattr("santa.cli.Settings.load", lambda: object())
+    monkeypatch.setattr("santa.cli.run", lambda *a, **k: mp4)
+    posted: list[tuple[str, bytes]] = []
+
+    def fake_post(url, files=None, timeout=None):
+        name, data, _ctype = files["file"]
+        posted.append((name, data))
+
+        class Resp:
+            status_code = 200
+
+            def json(self):
+                return {"key": f"videos/{name}"}
+
+            def raise_for_status(self):
+                return None
+
+        return Resp()
+
+    monkeypatch.setattr("santa.publish.requests.post", fake_post)
     result = CliRunner().invoke(app, ["animate", str(png), "--publish"])
-    assert result.exit_code != 0
-    assert "issue 10" in result.output.lower()
+    assert result.exit_code == 0, result.output
+    assert posted == [("card.mp4", b"mp4-bytes")]
+    assert "videos/card.mp4" in result.output
 
 
 def test_cli_fresh_music_passed_to_run(tmp_path, monkeypatch):

@@ -142,14 +142,13 @@ class ServiceSession:
         self.storage.upload(f"cards/{kid_id}.json", payload, content_type="application/json")
 
     def publish(self, filename: str, data: bytes, content_type: str = "") -> str:
+        from santa.publish import content_type_for, object_key
+
         name = Path(filename).name or "upload"
-        ctype = content_type.lower()
-        if ctype.startswith("video/") or name.lower().endswith(".mp4"):
-            key = f"videos/{name}"
-            stored_type = content_type or "video/mp4"
-        else:
-            key = f"cards/{name}"
-            stored_type = content_type or "image/png"
+        key = object_key(name, content_type=content_type)
+        stored_type = content_type or content_type_for(name)
+        if stored_type == "application/octet-stream":
+            stored_type = "video/mp4" if key.startswith("videos/") else "image/png"
         self.storage.upload(key, data, content_type=stored_type)
         return key
 
@@ -162,4 +161,27 @@ class ServiceSession:
         if summaries:
             key = max(summaries, key=lambda item: item[1])[0]
             summary = json.loads(self.storage.download(key))
-        return {"cards": cards, "videos": videos, "summary": summary}
+        return {
+            "cards": cards,
+            "videos": videos,
+            "summary": summary,
+            "counter": _wall_counter(summary),
+        }
+
+
+def _wall_counter(summary: Any) -> int | None:
+    """Live counter: ``totals.done`` if present, else ``kids``."""
+    if not isinstance(summary, dict):
+        return None
+    totals = summary.get("totals")
+    if isinstance(totals, dict) and totals.get("done") is not None:
+        try:
+            return int(totals["done"])
+        except (TypeError, ValueError):
+            pass
+    if summary.get("kids") is not None:
+        try:
+            return int(summary["kids"])
+        except (TypeError, ValueError):
+            return None
+    return None
