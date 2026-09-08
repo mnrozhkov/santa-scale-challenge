@@ -1,10 +1,10 @@
 """``santa`` — the participant CLI.
 
 santa doctor
-santa card …      (issue 02) [--publish]
+santa card …      (issue 02) [--publish] [--offline]
 santa agent …     (issue 06)
-santa batch …     (issues 07, 09)
-santa animate …   (issue 05) [--publish]
+santa batch …     (issues 07, 09) [--offline]
+santa animate …   (issue 05) [--publish] [--offline]
 santa publish …   (issue 10)
 santa teardown …  (issue 13)
 """
@@ -88,10 +88,28 @@ def card(
     local: bool = typer.Option(
         False, "--local", help="Upload with this laptop's bucket creds instead of the service."
     ),
+    offline: bool = typer.Option(
+        False, "--offline", help="Copy a bundled fallback card; skip endpoints."
+    ),
 ) -> None:
     """Gift rec + wish + illustration → Pillow PNG and shareable HTML."""
     from santa.card import ProfileError, make_card
     from santa.config import Settings
+
+    if offline:
+        from santa.offline import OfflineError, copy_fallback_card
+
+        try:
+            png, html = copy_fallback_card(out, name=name)
+        except OfflineError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(code=1) from exc
+        console.print("[yellow]offline[/yellow] — bundled fallback (endpoints not called)")
+        console.print(f"[green]Wrote {png}[/green]")
+        console.print(f"[green]Wrote {html}[/green]")
+        if publish:
+            _publish_outputs([png, html], local=local, object_id=png.parent.name)
+        return
 
     try:
         kid = _kid_from_args(form=form, profile=profile, name=name, age=age, wish=wish)
@@ -211,8 +229,25 @@ def animate(
         False, "--local", help="Upload with this laptop's bucket creds instead of the service."
     ),
     out: Path | None = typer.Option(None, "--out"),
+    offline: bool = typer.Option(
+        False, "--offline", help="Copy the bundled fallback MP4; skip endpoints."
+    ),
 ) -> None:
     """Submit a card PNG to Wan (or sora-2), add ACE-Step music, mux to card.mp4."""
+    if offline:
+        from santa.offline import OfflineError, copy_fallback_video
+
+        dest = Path(out) if out is not None else Path("out") / "card.mp4"
+        try:
+            path = copy_fallback_video(dest)
+        except OfflineError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(code=1) from exc
+        console.print("[yellow]offline[/yellow] — bundled fallback (endpoints not called)")
+        console.print(str(path))
+        if publish:
+            _publish_outputs([path], local=local)
+        return
     if fresh_music and mood_bank:
         console.print("[red]--fresh-music and --mood-bank cannot be combined[/red]")
         raise typer.Exit(code=1)
@@ -258,6 +293,9 @@ def batch(
     ),
     kids_csv: Path | None = typer.Option(None, "--kids-csv"),
     out: Path = typer.Option(Path("out"), "--out"),
+    offline: bool = typer.Option(
+        False, "--offline", help="Copy the bundled run summary; skip endpoints and jobs."
+    ),
 ) -> None:
     """Cards then K preemptible GPU Jobs → ``runs/<run_id>/summary.json``."""
     import os
@@ -274,6 +312,23 @@ def batch(
 
     if status:
         _batch_status(status, out)
+        return
+
+    if offline:
+        import json
+
+        from santa.offline import OfflineError, copy_fallback_summary
+
+        rid = run_id or "offline"
+        run_dir = local_run_dir(rid, root=out)
+        try:
+            dest = copy_fallback_summary(run_dir / "summary.json")
+        except OfflineError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(code=1) from exc
+        summary = json.loads(dest.read_text(encoding="utf-8"))
+        console.print("[yellow]offline[/yellow] — bundled fallback (endpoints not called)")
+        _print_summary(summary, run_dir)
         return
 
     rid = run_id or uuid.uuid4().hex[:10]

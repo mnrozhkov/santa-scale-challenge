@@ -1,12 +1,13 @@
 # Project files
 openspec/changes/*
-prototype/data/*
-prototype/dev.ipynb
-!prototype/data/.gitignore
 .DS_Store
 _DEV/*
 *.pkg
+/out/
 data/out/
+data/evaluation/
+notebooks/data/
+notebooks/out/
 santa/out/
 
 # Byte-compiled / optimized / DLL files

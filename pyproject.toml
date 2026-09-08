@@ -56,6 +56,8 @@ job = [
 research = [
     "mlflow==2.21.2",
     "pandas>=2.0.0",
+    "matplotlib>=3.8.0",
+    "seaborn>=0.13.0",
     "google-api-python-client>=2.0.0",
     "google-auth>=2.0.0",
     "aiohttp>=3.11.0",
@@ -162,6 +164,9 @@ module = [
     "diffusers",
     "diffusers.*",
     "huggingface_hub",
+    "pandas",
+    "mlflow",
+    "mlflow.*",
 ]
 ignore_missing_imports = true
 

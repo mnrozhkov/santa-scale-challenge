@@ -36,7 +36,7 @@ DROPPED_FROM_CORE = (
 )
 SERVICE_PACKAGES = ("fastapi", "uvicorn", "jinja2", "python-multipart")
 JOB_PACKAGES = ("torch", "diffusers", "transformers", "accelerate", "imageio-ffmpeg")
-RESEARCH_PACKAGES = ("mlflow", "pandas", "aiohttp")
+RESEARCH_PACKAGES = ("mlflow", "pandas", "aiohttp", "matplotlib", "seaborn")
 ENV_KEYS = (
     "TOKEN_FACTORY_API_KEY",
     "IMAGE_ENDPOINT_URL",
@@ -57,7 +57,16 @@ ENV_KEYS = (
     "AWS_SECRET_ACCESS_KEY",
     "AWS_ENDPOINT_URL",
 )
-GITIGNORE_PATTERNS = (".env", "*.pkg", "data/out/", "santa/out/")
+GITIGNORE_PATTERNS = (
+    ".env",
+    "*.pkg",
+    "/out/",
+    "data/out/",
+    "data/evaluation/",
+    "notebooks/data/",
+    "notebooks/out/",
+    "santa/out/",
+)
 # Real tokens, not placeholders like "your_key" or empty values.
 SECRETISH = re.compile(r"^[A-Za-z0-9_\-+/=]{32,}$")
 

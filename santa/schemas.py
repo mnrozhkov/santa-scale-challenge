@@ -50,6 +50,11 @@ class CardImage(BaseModel):
     prompt: str | None = None
     endpoint: str | None = Field(default=None, description="Base URL that produced it")
 
+    @property
+    def image_url(self) -> str:
+        """Alias used by research notebooks (MLflow image logging)."""
+        return self.path
+
 
 class GiftCard(BaseModel):
     """Complete gift card: recommendation + wish + illustration, rendered to PNG + HTML."""
