@@ -1,20 +1,18 @@
-"""Batch cards phase: chunking, skip-existing, JobSpec from yaml, fake JobService timeline."""
+"""Batch Jobs-only: inventory cards/*.png, skip existing videos, fake JobService."""
 
 from __future__ import annotations
 
 import json
 import threading
-from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from santa.batch import chunk_ids, load_kids, run_cards_phase, skip_existing
+from santa.batch import BatchError, chunk_ids, inventory_card_ids, load_kids, require_card_ids
 from santa.config import Settings
 from santa.cost import cost_usd, hourly_rate, on_demand_cost_usd
 from santa.nebius_jobs import NebiusJobError, create_and_wait, job_payload
-from santa.schemas import KidProfile
 from santa.storage import MemoryStorage, staged_write
 
 NOENV = Path("/nonexistent")
@@ -28,13 +26,22 @@ def test_chunking_20_kids_into_4_jobs() -> None:
     assert [x for c in chunks for x in c] == ids
 
 
-def test_skip_existing_cards_png(tmp_path) -> None:
-    kids = [KidProfile(id=f"k{i}", name=f"Kid{i}", age=7) for i in range(3)]
+def test_inventory_lists_png_stems_under_cards() -> None:
     store = MemoryStorage()
-    store.upload("cards/k0.png", b"png")
-    todo, skipped = skip_existing(kids, store)
-    assert skipped == ["k0"]
-    assert [k.id for k in todo] == ["k1", "k2"]
+    store.upload("cards/k00.png", b"png")
+    store.upload("cards/k01.png", b"png")
+    store.upload("cards/k01.json", b"{}")
+    store.upload("cards/k00.html", b"<html>")
+    store.upload("other/k99.png", b"nope")
+    assert inventory_card_ids(store) == ["k00", "k01"]
+
+
+def test_empty_cards_prefix_is_an_error() -> None:
+    store = MemoryStorage()
+    store.upload("videos/k00.mp4", b"mp4")
+    with pytest.raises(BatchError, match="santa card") as exc:
+        require_card_ids(store)
+    assert "--publish" in str(exc.value)
 
 
 def test_rerun_chunking_excludes_existing_videos() -> None:
@@ -143,58 +150,6 @@ def test_staged_write_renames_into_place(tmp_path) -> None:
     staged_write(dest, b"mp4-bytes")
     assert dest.read_bytes() == b"mp4-bytes"
     assert not list(tmp_path.rglob("*.tmp"))
-
-
-def test_cards_phase_skips_existing_and_writes_four_chunks(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("TOKEN_FACTORY_API_KEY", "k")
-    monkeypatch.setenv("IMAGE_ENDPOINT_URL", "https://img.example/")
-    monkeypatch.setenv("IMAGE_ENDPOINT_TOKEN", "t")
-    kids = [
-        KidProfile(id=f"k{i:02d}", name=f"Kid{i}", age=7, wishlist=["train"]) for i in range(20)
-    ]
-    store = MemoryStorage()
-    store.upload("cards/k00.png", b"already")
-    store.upload("cards/k00.json", json.dumps({"wish": {"mood": "cozy"}}).encode())
-
-    @dataclass
-    class FakeWish:
-        mood: str = "playful"
-
-    @dataclass
-    class FakeCard:
-        png_path: str
-        html_path: str | None
-        wish: FakeWish
-
-    @dataclass
-    class FakeRun:
-        card: FakeCard
-
-    def fake_make(kid, settings, **kw):
-        out = Path(kw["out_root"]) / kid.id
-        out.mkdir(parents=True, exist_ok=True)
-        png = out / "card.png"
-        png.write_bytes(b"png")
-        (out / "card.json").write_text(json.dumps({"wish": {"mood": "playful"}}), encoding="utf-8")
-        return FakeRun(card=FakeCard(png_path=str(png), html_path=None, wish=FakeWish()))
-
-    phase = run_cards_phase(
-        kids=kids,
-        n_jobs=4,
-        run_id="r1",
-        run_dir=tmp_path / "r1",
-        storage=store,
-        settings=Settings.load(env_file=NOENV),
-        local=True,
-        make_card=fake_make,
-    )
-    assert phase.skipped == ["k00"]
-    assert len(phase.made) == 19
-    assert len(phase.chunks) == 4
-    first = json.loads(phase.chunks[0].read_text(encoding="utf-8"))
-    assert first[0] == {"id": "k00", "mood": "cozy"}  # skipped, mood from cards/k00.json
-    assert store.exists("cards/k01.png")
-    assert store.exists("runs/r1/chunks/0.json")
 
 
 class FakeS3:
@@ -328,100 +283,124 @@ def test_to_sdk_spec_mounts_bucket_and_env() -> None:
     assert names["RUN_ID"] == "r1" and names["HF_HOME"] == "/data/models"
 
 
-def test_cards_phase_uses_service_when_url_set(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("TOKEN_FACTORY_API_KEY", "k")
-    monkeypatch.setenv("IMAGE_ENDPOINT_URL", "https://img.example/")
-    monkeypatch.setenv("IMAGE_ENDPOINT_TOKEN", "t")
-    kids = [KidProfile(id="k1", name="Emma", age=7)]
+def _png_store(*ids: str, videos: tuple[str, ...] = ()) -> MemoryStorage:
     store = MemoryStorage()
-    store.upload("cards/k1.json", json.dumps({"wish": {"mood": "playful"}}).encode())
-    posted: list = []
-
-    def post(url, batch_kids):
-        posted.append((url, [k.id for k in batch_kids]))
-        return [k.id for k in batch_kids]
-
-    phase = run_cards_phase(
-        kids=kids,
-        n_jobs=1,
-        run_id="r2",
-        run_dir=tmp_path / "r2",
-        storage=store,
-        settings=Settings.load(env_file=NOENV),
-        local=False,
-        service_url="https://santa.example",
-        post_batch=post,
-    )
-    assert phase.used_service is True
-    assert posted == [("https://santa.example", ["k1"])]
-    chunk = json.loads(phase.chunks[0].read_text(encoding="utf-8"))
-    assert chunk == [{"id": "k1", "mood": "playful"}]
+    for kid_id in ids:
+        store.upload(f"cards/{kid_id}.png", b"png")
+    for kid_id in videos:
+        store.upload(f"videos/{kid_id}.mp4", b"mp4")
+    return store
 
 
-def test_batch_cli_writes_chunks(tmp_path, monkeypatch) -> None:
+def _wire_batch_cli(tmp_path, monkeypatch, store: MemoryStorage, svc: ScriptedJobService):
+    """Inject Settings, in-memory storage, and a fake Job service at CLI boundaries."""
+    settings = _job_settings(tmp_path, monkeypatch)
+    order: list[str] = []
+
+    def load():
+        order.append("load")
+        return settings
+
+    def store_from_env():
+        order.append("storage")
+        return store
+
+    def jobs_from_env():
+        order.append("jobs")
+        return svc
+
+    monkeypatch.setattr("santa.cli.Settings.load", load)
+    monkeypatch.setattr("santa.storage.Storage.from_env", store_from_env)
+    monkeypatch.setattr("santa.nebius_jobs.SdkJobService.from_env", jobs_from_env)
+    return settings, order
+
+
+def test_batch_cli_rejects_kids_option() -> None:
     from typer.testing import CliRunner
 
     from santa.cli import app
 
-    csv_path = tmp_path / "kids.csv"
-    csv_path.write_text("id,name,age,wishlist\na,Emma,7,train\nb,Leo,8,sled\n", encoding="utf-8")
+    result = CliRunner().invoke(app, ["batch", "--kids", "20"])
+    assert result.exit_code != 0
+    assert "no such option" in result.output.lower()
+    assert "--kids" in result.output
+    for flag in ("--kids-csv", "--local"):
+        denied = CliRunner().invoke(app, ["batch", flag])
+        assert denied.exit_code != 0
+        assert "no such option" in denied.output.lower()
 
-    def fake_phase(**kw):
-        run_dir = kw["run_dir"]
-        (run_dir / "chunks").mkdir(parents=True, exist_ok=True)
-        p = run_dir / "chunks" / "0.json"
-        p.write_text("[]", encoding="utf-8")
-        return SimpleNamespace(
-            run_id=kw["run_id"],
-            run_dir=run_dir,
-            kids=["a", "b"],
-            made=["a", "b"],
-            skipped=[],
-            chunks=[p],
-        )
 
-    monkeypatch.setattr("santa.batch.run_cards_phase", fake_phase)
-    monkeypatch.setattr(
-        "santa.batch.run_jobs_phase",
-        lambda **kw: {
-            "run_id": kw["run_id"],
-            "jobs": [],
-            "totals": {
-                "done": 0,
-                "skipped": 0,
-                "failed": 0,
-                "cost_usd": 0,
-                "on_demand_cost_usd": 0,
-            },
-            "savings_usd": 0,
-        },
-    )
-    monkeypatch.setattr("santa.cli.Settings.load", lambda: object())
-    monkeypatch.setattr("santa.storage.Storage.from_env", lambda: MemoryStorage())
-    monkeypatch.setattr(
-        "santa.nebius_jobs.SdkJobService.from_env",
-        lambda: ScriptedJobService([]),
-    )
+def test_batch_cli_empty_cards_exits_before_jobs(tmp_path, monkeypatch) -> None:
+    from typer.testing import CliRunner
+
+    from santa.cli import app
+
+    svc = ScriptedJobService([])
+    _, order = _wire_batch_cli(tmp_path, monkeypatch, MemoryStorage(), svc)
+    result = CliRunner().invoke(app, ["batch", "--jobs", "4", "--out", str(tmp_path)])
+    assert result.exit_code != 0, result.output
+    assert "santa card" in result.output
+    assert "--publish" in result.output
+    assert "jobs" not in order  # Job service is constructed only after inventory
+    assert svc.created == []
+
+
+def test_batch_cli_three_pngs_submits_jobs_covering_ids(tmp_path, monkeypatch) -> None:
+    from typer.testing import CliRunner
+
+    from santa.cli import app
+
+    store = _png_store("k00", "k01", "k02")
+    store.upload("cards/k00.json", json.dumps({"wish": {"mood": "cozy"}}).encode())
+    store.upload("videos/k01.mp4", b"mp4")
+    svc = ScriptedJobService([["PENDING"], ["PENDING"]])
+
+    def boom_make(*args, **kwargs):
+        raise AssertionError("santa batch must not manufacture GiftCards")
+
+    monkeypatch.setattr("santa.card.make_card", boom_make)
+    monkeypatch.setenv("SANTA_SERVICE_URL", "https://santa.example")
+    _wire_batch_cli(tmp_path, monkeypatch, store, svc)
     result = CliRunner().invoke(
         app,
-        [
-            "batch",
-            "--kids",
-            "2",
-            "--jobs",
-            "1",
-            "--local",
-            "--kids-csv",
-            str(csv_path),
-            "--out",
-            str(tmp_path),
-            "--run-id",
-            "cli1",
-        ],
+        ["batch", "--jobs", "4", "--no-wait", "--out", str(tmp_path), "--run-id", "cli1"],
     )
     assert result.exit_code == 0, result.output
-    assert "cli1" in result.output
-    assert "made 2" in result.output
+    assert "submitted" in result.output
+    assert "--status cli1" in result.output
+    submitted: list[str] = []
+    moods: dict[str, str] = {}
+    for payload in svc.created:
+        assert payload.image == "cr.example/santa-job:test"
+        key = payload.env["CHUNK"].removeprefix("/data/")
+        for row in json.loads(store.download(key).decode()):
+            submitted.append(row["id"])
+            moods[row["id"]] = row["mood"]
+    assert sorted(submitted) == ["k00", "k02"]
+    assert moods["k00"] == "cozy"
+    assert moods["k02"] == "warm"
+    assert len(svc.created) == 2  # K shrinks; no empty Jobs
+
+
+def test_batch_cli_three_pngs_no_videos_covers_all_ids(tmp_path, monkeypatch) -> None:
+    from typer.testing import CliRunner
+
+    from santa.cli import app
+
+    store = _png_store("k00", "k01", "k02")
+    svc = ScriptedJobService([["PENDING"], ["PENDING"], ["PENDING"]])
+    _wire_batch_cli(tmp_path, monkeypatch, store, svc)
+    result = CliRunner().invoke(
+        app,
+        ["batch", "--jobs", "4", "--no-wait", "--out", str(tmp_path), "--run-id", "all3"],
+    )
+    assert result.exit_code == 0, result.output
+    submitted: list[str] = []
+    for payload in svc.created:
+        key = payload.env["CHUNK"].removeprefix("/data/")
+        submitted.extend(row["id"] for row in json.loads(store.download(key).decode()))
+    assert sorted(submitted) == ["k00", "k01", "k02"]
+    assert len(svc.created) == 3
 
 
 def test_batch_cli_loads_dotenv_before_storage(tmp_path, monkeypatch) -> None:
@@ -430,114 +409,15 @@ def test_batch_cli_loads_dotenv_before_storage(tmp_path, monkeypatch) -> None:
 
     from santa.cli import app
 
-    csv_path = tmp_path / "kids.csv"
-    csv_path.write_text("id,name,age,wishlist\na,Emma,7,train\n", encoding="utf-8")
-    order: list[str] = []
-
-    def load():
-        order.append("load")
-        return object()
-
-    def store():
-        order.append("storage")
-        return MemoryStorage()
-
-    monkeypatch.setattr(
-        "santa.batch.run_cards_phase",
-        lambda **kw: SimpleNamespace(
-            run_id=kw["run_id"],
-            run_dir=kw["run_dir"],
-            kids=["a"],
-            made=["a"],
-            skipped=[],
-            chunks=[],
-        ),
-    )
-    monkeypatch.setattr(
-        "santa.batch.run_jobs_phase",
-        lambda **kw: {
-            "run_id": kw["run_id"],
-            "jobs": [],
-            "totals": {
-                "done": 0,
-                "skipped": 0,
-                "failed": 0,
-                "cost_usd": 0,
-                "on_demand_cost_usd": 0,
-            },
-            "savings_usd": 0,
-        },
-    )
-    monkeypatch.setattr("santa.cli.Settings.load", load)
-    monkeypatch.setattr("santa.storage.Storage.from_env", store)
-    monkeypatch.setattr("santa.nebius_jobs.SdkJobService.from_env", lambda: ScriptedJobService([]))
+    store = _png_store("a")
+    svc = ScriptedJobService([["PENDING"]])
+    _, order = _wire_batch_cli(tmp_path, monkeypatch, store, svc)
     result = CliRunner().invoke(
         app,
-        [
-            "batch",
-            "--kids",
-            "1",
-            "--jobs",
-            "1",
-            "--local",
-            "--kids-csv",
-            str(csv_path),
-            "--out",
-            str(tmp_path),
-            "--run-id",
-            "dotenv1",
-        ],
+        ["batch", "--jobs", "1", "--no-wait", "--out", str(tmp_path), "--run-id", "dotenv1"],
     )
     assert result.exit_code == 0, result.output
     assert order[:2] == ["load", "storage"]
-
-
-def test_batch_cli_no_wait_prints_status_hint(tmp_path, monkeypatch) -> None:
-    from typer.testing import CliRunner
-
-    from santa.cli import app
-
-    csv_path = tmp_path / "kids.csv"
-    csv_path.write_text("id,name,age,wishlist\na,Emma,7,train\n", encoding="utf-8")
-    monkeypatch.setattr(
-        "santa.batch.run_cards_phase",
-        lambda **kw: SimpleNamespace(
-            run_id=kw["run_id"],
-            run_dir=kw["run_dir"],
-            kids=["a"],
-            made=["a"],
-            skipped=[],
-            chunks=[],
-        ),
-    )
-    monkeypatch.setattr(
-        "santa.batch.run_jobs_phase",
-        lambda **kw: {"run_id": kw["run_id"], "jobs": [{"job_id": "j1"}], "waiting": True},
-    )
-    monkeypatch.setattr("santa.cli.Settings.load", lambda: object())
-    monkeypatch.setattr("santa.storage.Storage.from_env", lambda: MemoryStorage())
-    monkeypatch.setattr("santa.nebius_jobs.SdkJobService.from_env", lambda: object())
-    result = CliRunner().invoke(
-        app,
-        [
-            "batch",
-            "--kids",
-            "1",
-            "--jobs",
-            "1",
-            "--local",
-            "--kids-csv",
-            str(csv_path),
-            "--out",
-            str(tmp_path),
-            "--run-id",
-            "nowait1",
-            "--no-wait",
-        ],
-    )
-    assert result.exit_code == 0, result.output
-    assert "submitted 1 jobs" in result.output
-    assert "--status nowait1" in result.output
 
 
 def test_batch_cli_status_resumes(tmp_path, monkeypatch) -> None:

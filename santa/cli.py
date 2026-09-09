@@ -3,7 +3,7 @@
 santa doctor
 santa card …      (issue 02) [--publish] [--offline]
 santa agent …     (issue 06)
-santa batch …     (issues 07, 09) [--offline]
+santa batch …     (issue 16: Jobs over published cards/*.png) [--offline]
 santa animate …   (issue 05) [--publish] [--offline]
 santa publish …   (issue 10)
 santa teardown …  (issue 13)
@@ -283,30 +283,19 @@ def animate(
 
 @app.command()
 def batch(
-    kids: int = typer.Option(20, "--kids", help="How many kids to take from the CSV."),
-    jobs: int = typer.Option(4, "--jobs", help="How many GPU job chunks to write."),
+    jobs: int = typer.Option(4, "--jobs", help="How many GPU job chunks to submit."),
     run_id: str | None = typer.Option(None, "--run-id"),
     no_wait: bool = typer.Option(False, "--no-wait", help="Submit jobs and return the run id."),
     status: str | None = typer.Option(None, "--status", help="Resume polling a --no-wait run."),
-    local: bool = typer.Option(
-        False, "--local", help="Make cards on this laptop even if SANTA_SERVICE_URL is set."
-    ),
-    kids_csv: Path | None = typer.Option(None, "--kids-csv"),
     out: Path = typer.Option(Path("out"), "--out"),
     offline: bool = typer.Option(
         False, "--offline", help="Copy the bundled run summary; skip endpoints and jobs."
     ),
 ) -> None:
-    """Cards then K preemptible GPU Jobs → ``runs/<run_id>/summary.json``."""
-    import os
+    """K preemptible GPU Jobs over published ``cards/*.png`` → ``runs/<run_id>/summary.json``."""
     import uuid
 
-    from santa.batch import (
-        DEFAULT_KIDS_CSV,
-        load_kids,
-        run_cards_phase,
-        run_jobs_phase,
-    )
+    from santa.batch import BatchError, require_card_ids, run_jobs_phase
     from santa.nebius_jobs import NebiusJobError, SdkJobService
     from santa.storage import Storage, StorageError, local_run_dir
 
@@ -332,16 +321,7 @@ def batch(
         return
 
     rid = run_id or uuid.uuid4().hex[:10]
-    csv_path = kids_csv or DEFAULT_KIDS_CSV
-    try:
-        selected = load_kids(csv_path, kids)
-    except (OSError, ValueError) as exc:
-        console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(code=1) from exc
-    run_dir = local_run_dir(rid, root=out)
-    run_dir.mkdir(parents=True, exist_ok=True)
     settings = Settings.load()
-    service_url = "" if local else (os.environ.get("SANTA_SERVICE_URL") or "").strip()
     try:
         store = Storage.from_env()
     except Exception as exc:
@@ -349,23 +329,12 @@ def batch(
         console.print("Set NEBIUS_BUCKET_NAME (and AWS_* keys) in .env.")
         raise typer.Exit(code=1) from exc
     try:
-        phase = run_cards_phase(
-            kids=selected,
-            n_jobs=jobs,
-            run_id=rid,
-            run_dir=run_dir,
-            storage=store,
-            settings=settings,
-            local=local or not service_url,
-            service_url=service_url,
-        )
-    except StorageError as exc:
+        card_ids = require_card_ids(store)
+    except (BatchError, StorageError) as exc:
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(code=1) from exc
-    console.print(
-        f"[green]run {phase.run_id}[/green] made {len(phase.made)} skipped {len(phase.skipped)} "
-        f"chunks {len(phase.chunks)} → {phase.run_dir}"
-    )
+    run_dir = local_run_dir(rid, root=out)
+    run_dir.mkdir(parents=True, exist_ok=True)
     try:
         svc = SdkJobService.from_env()
     except NebiusJobError as exc:
@@ -374,9 +343,9 @@ def batch(
     try:
         if no_wait:
             result = run_jobs_phase(
-                kids=phase.kids,
+                kids=card_ids,
                 n_jobs=jobs,
-                run_id=phase.run_id,
+                run_id=rid,
                 run_dir=run_dir,
                 storage=store,
                 settings=settings,
@@ -385,15 +354,15 @@ def batch(
             )
             console.print(
                 f"[green]submitted {len(result.get('jobs') or [])} jobs[/green] "
-                f"— santa batch --status {phase.run_id}"
+                f"— santa batch --status {rid}"
             )
             return
         summary = _wait_jobs_live(
             run_jobs_phase,
             include_wait=True,
-            kids=phase.kids,
+            kids=card_ids,
             n_jobs=jobs,
-            run_id=phase.run_id,
+            run_id=rid,
             run_dir=run_dir,
             storage=store,
             settings=settings,

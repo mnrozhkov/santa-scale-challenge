@@ -87,7 +87,10 @@ def job_payload(
     bucket = (os.environ.get("NEBIUS_BUCKET_ID") or "").strip()
     if not spec.image:
         raise NebiusJobError(
-            "job.image is empty in config/models.yaml. Push santa-job (issue 08) and set the tag."
+            "job.image is empty in config/models.yaml. "
+            "Build and push docker/job.Dockerfile for linux/amd64 "
+            "(docker build --platform linux/amd64 -f docker/job.Dockerfile -t santa-job:local .) "
+            "and paste the registry tag into the job.image field."
         )
     if not bucket:
         raise NebiusJobError("NEBIUS_BUCKET_ID is missing. Mount your bucket at /data.")

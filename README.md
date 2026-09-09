@@ -12,7 +12,7 @@ santa-scale-challenge/
 │   ├── cli.py             # santa doctor | card | agent | batch | animate | teardown
 │   ├── card.py            # Gift rec + wish + illustration → PNG/HTML
 │   ├── animate.py         # Wan I2V + music → card.mp4
-│   ├── batch.py           # Cards then K GPU Jobs
+│   ├── batch.py           # Inventory cards/*.png → K GPU Jobs
 │   ├── service/           # FastAPI UI + /wall
 │   └── job.py             # GPU Job entrypoint
 ├── config/
@@ -20,7 +20,7 @@ santa-scale-challenge/
 │   └── prompts.yaml       # Motion / mood prompts
 ├── notebooks/             # Playgrounds + research evals
 ├── data/
-│   ├── kids.csv           # 200 profiles for santa batch
+│   ├── kids.csv           # 200 KidProfiles (santa card / CPU UI)
 │   └── fallback/          # Offline cards, mp4, moods, run summary
 ├── docker/
 │   ├── service.Dockerfile # CPU UI / API
@@ -92,7 +92,7 @@ VIDEO_ENDPOINT_TOKEN=your_endpoint_token
 AUDIO_ENDPOINT_URL=https://your-acestep-endpoint
 AUDIO_ENDPOINT_TOKEN=your_endpoint_token
 
-# CPU service (optional; santa batch / santa publish without --local)
+# CPU service (optional; santa publish without --local)
 SANTA_SERVICE_URL=https://your-cpu-service
 
 # Object Storage (publish + santa batch)
@@ -172,13 +172,14 @@ Catalog: [serverless-ai-cookbook/templates](https://github.com/nebius/serverless
 santa animate out/<id>/card.png --mood-bank
 ```
 
-**3. Batch** — cards first, then K preemptible GPU Jobs. Needs bucket + IAM and `job.image` in `config/models.yaml`:
+**3. Batch** — publish GiftCards via the API, then K preemptible GPU Jobs over `cards/*.png`. Needs bucket + IAM and `job.image` in `config/models.yaml`:
 
 ```bash
-santa batch --kids 20 --jobs 4
+santa card --name Emma --age 7 --wish "a telescope" --publish
+santa batch --jobs 4
 ```
 
-`--local` makes cards on the laptop even if `SANTA_SERVICE_URL` is set. `--no-wait` + `santa batch --status <run_id>` to poll later.
+`--no-wait` + `santa batch --status <run_id>` to poll later. Existing `videos/{id}.mp4` are skipped.
 
 **4. Publish** to the wall (`GET /wall` on the CPU service):
 
@@ -205,7 +206,8 @@ Echo prompts for listing/stopping endpoints: [skills/README.md](skills/README.md
 | TLS / `SSLError` on a corporate laptop | The CLI injects the OS cert store (`truststore`). Persist with `export SSL_CERT_FILE=/path/to/corp-ca.pem`. S3: `AWS_CA_BUNDLE=/etc/ssl/cert.pem`. |
 | No GPU endpoints yet | `SANTA_FALLBACK=only` skips primaries. Or `santa card --offline` / `santa animate --offline` / `santa batch --offline` (copies `data/fallback/`, calls no models). |
 | `santa batch` / publish 403 | Use Object Storage access keys (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`), not `NEBIUS_IAM_TOKEN`. Bucket **name** is `NEBIUS_BUCKET_NAME`; bucket **id** (`NEBIUS_BUCKET_ID`) is only for Job FUSE mounts. |
-| Jobs never submit | Set `NEBIUS_IAM_TOKEN` (`nebius iam get-access-token`), `NEBIUS_PROJECT_ID`, `NEBIUS_BUCKET_ID`, `NEBIUS_SUBNET_ID`, and a non-empty `job.image` in `config/models.yaml`. |
+| `santa batch` empty `cards/` | Publish GiftCards first (`santa card … --publish`), then `santa batch --jobs 4`. Batch is Jobs only — it does not make GiftCards. |
+| Jobs never submit | Publish GiftCards, then set `NEBIUS_IAM_TOKEN` (`nebius iam get-access-token`), `NEBIUS_PROJECT_ID`, `NEBIUS_BUCKET_ID`, `NEBIUS_SUBNET_ID`, and a non-empty `job.image` in `config/models.yaml` (`docker build --platform linux/amd64 -f docker/job.Dockerfile`). |
 | Agent tool-calling is flaky | `claude mcp add santa -- python -m santa.mcp` |
 
 `santa doctor` does not stop anything. `santa teardown` does.

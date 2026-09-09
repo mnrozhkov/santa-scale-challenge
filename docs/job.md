@@ -8,7 +8,7 @@ Env: `RUN_ID`, `CHUNK=/data/runs/<run_id>/chunks/<k>.json`, `HF_HOME=/data/model
 
 Reads `cards/{id}.png`. Writes `videos/{id}.mp4` via staged rename; skips if the object exists. Appends `runs/<run_id>/jobs/<k>.json`. Exit 0 even with per-card failures; non-zero only on setup failure.
 
-`santa batch` submits K jobs and writes `runs/<run_id>/summary.json` (timelines, cost, savings vs on-demand).
+`santa batch` inventories `cards/*.png`, submits K jobs, and writes `runs/<run_id>/summary.json` (timelines, cost, savings vs on-demand). GiftCards are published first with `santa card … --publish`.
 
 ## Build / push
 

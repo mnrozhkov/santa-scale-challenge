@@ -158,3 +158,11 @@ def test_batch_plumbing_presence_is_optional(env):
     assert row(checks, "jobs · NEBIUS_IAM_TOKEN").ok
     assert row(checks, "jobs · NEBIUS_PROJECT_ID").ok
     assert row(checks, "jobs · NEBIUS_BUCKET_ID").ok
+
+
+def test_empty_job_image_is_skip_with_docker_fix(env):
+    checks = run_checks(Settings.load(env_file=NOENV), probe=OK)
+    img = row(checks, "jobs · job.image")
+    assert img.status == "SKIP"
+    assert "docker" in img.fix.lower() and "job.Dockerfile" in img.fix
+    assert "issue" not in img.fix.lower()

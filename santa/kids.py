@@ -1,4 +1,4 @@
-"""Generate ``data/kids.csv``: ``id,name,age,wishlist`` profiles for ``santa batch``."""
+"""Generate ``data/kids.csv``: ``id,name,age,wishlist`` KidProfiles for ``santa card`` / the CPU UI."""
 
 from __future__ import annotations
 

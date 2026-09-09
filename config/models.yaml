@@ -68,7 +68,7 @@ roles:
 
 # Step 6: K preemptible GPU Jobs running `python -m santa.job` (Wan I2V in-container) in YOUR project.
 job:
-  image: ""                           # cr.eu-north1.nebius.cloud/<your-registry>/santa-job:<tag>  (issue 08)
+  image: ""                           # cr.eu-north1.nebius.cloud/<your-registry>/santa-job:<tag>
   model: Wan-AI/Wan2.2-I2V-A14B-Diffusers
   platform: gpu-h100-sxm
   preset: 1gpu-16vcpu-200gb

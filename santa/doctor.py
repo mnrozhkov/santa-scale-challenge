@@ -181,7 +181,7 @@ def run_checks(settings: Settings | None = None, *, probe: Probe = _http_get) ->
         Check(
             "service · SANTA_SERVICE_URL",
             bool(service),
-            service or "not set → cards run locally",
+            service or "not set → santa publish needs --local",
             "Deploy santa-service (docker/service.Dockerfile) and set its URL",
             required=False,
         )
@@ -198,6 +198,19 @@ def run_checks(settings: Settings | None = None, *, probe: Probe = _http_get) ->
         checks.append(
             Check(f"jobs · {var}", bool(val), "set" if val else "not set", fix, required=False)
         )
+    image = (settings.job.image or "").strip()
+    checks.append(
+        Check(
+            "jobs · job.image",
+            bool(image),
+            image or "not set",
+            (
+                "docker build --platform linux/amd64 -f docker/job.Dockerfile -t santa-job:local . "
+                "then push to your registry and paste the tag into config/models.yaml job.image"
+            ),
+            required=False,
+        )
+    )
     return checks
 
 

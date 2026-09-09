@@ -1,4 +1,4 @@
-"""``santa batch``: cards phase then K GPU Jobs → ``run_summary.json``."""
+"""``santa batch``: inventory published GiftCards, then K GPU Jobs → ``run_summary.json``."""
 
 from __future__ import annotations
 
@@ -8,8 +8,7 @@ import json
 import time
 import uuid
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -28,6 +27,12 @@ from santa.schemas import KidProfile
 
 DEFAULT_KIDS_CSV = REPO_ROOT / "data" / "kids.csv"
 
+PUBLISH_HINT = 'santa card --name Emma --age 7 --wish "a telescope" --publish'
+
+
+class BatchError(RuntimeError):
+    """Participant-readable failure before Jobs are submitted."""
+
 
 class StorageLike(Protocol):
     def exists(self, key: str) -> bool:
@@ -41,6 +46,29 @@ class StorageLike(Protocol):
 
     def download(self, key: str) -> bytes:
         ...
+
+
+def inventory_card_ids(storage: StorageLike) -> list[str]:
+    """Illustration ids from PNG keys directly under ``cards/`` (stem of each key)."""
+    ids: list[str] = []
+    for key in storage.list("cards/"):
+        if not key.startswith("cards/") or not key.endswith(".png"):
+            continue
+        rest = key.removeprefix("cards/")
+        if not rest or "/" in rest:
+            continue
+        ids.append(rest[: -len(".png")])
+    return ids
+
+
+def require_card_ids(storage: StorageLike) -> list[str]:
+    """Inventory ``cards/*.png``; empty prefix is a hard error with a publish hint."""
+    ids = inventory_card_ids(storage)
+    if not ids:
+        raise BatchError(
+            "No GiftCard illustrations in cards/. Publish a GiftCard first: " + PUBLISH_HINT
+        )
+    return ids
 
 
 def chunk_ids(ids: list[str], k: int) -> list[list[str]]:
@@ -89,20 +117,6 @@ def load_kids(path: Path | str, n: int) -> list[KidProfile]:
     return kids
 
 
-def skip_existing(
-    kids: list[KidProfile], storage: StorageLike
-) -> tuple[list[KidProfile], list[str]]:
-    """Kids whose ``cards/{id}.png`` already exists are skipped."""
-    existing = set(storage.list("cards/"))
-    todo, skipped = [], []
-    for kid in kids:
-        if f"cards/{kid.id}.png" in existing:
-            skipped.append(kid.id)
-        else:
-            todo.append(kid)
-    return todo, skipped
-
-
 def ids_missing_videos(ids: list[str], storage: StorageLike) -> tuple[list[str], list[str]]:
     """Ids whose ``videos/{id}.mp4`` is missing, plus those already on the bucket."""
     existing = set(storage.list("videos/"))
@@ -143,77 +157,6 @@ def write_chunks(run_dir: Path, chunks: list[list[dict[str, str]]]) -> list[Path
         path.write_text(json.dumps(chunk, indent=2) + "\n", encoding="utf-8")
         paths.append(path)
     return paths
-
-
-@dataclass
-class CardsPhase:
-    run_id: str
-    run_dir: Path
-    kids: list[str]
-    made: list[str]
-    skipped: list[str]
-    chunks: list[Path] = field(default_factory=list)
-    used_service: bool = False
-
-
-def run_cards_phase(
-    *,
-    kids: list[KidProfile],
-    n_jobs: int,
-    run_id: str,
-    run_dir: Path,
-    storage: StorageLike,
-    settings: Settings,
-    local: bool = False,
-    service_url: str = "",
-    make_card: Callable[..., Any] | None = None,
-    post_batch: Callable[[str, list[KidProfile]], list[str]] | None = None,
-    max_workers: int = 4,
-) -> CardsPhase:
-    """Select kids → cards (service or local) → upload → chunk files."""
-    todo, skipped = skip_existing(kids, storage)
-    made: list[str] = []
-    moods: dict[str, str] = {}
-    use_service = bool(service_url) and not local
-    if use_service:
-        post = post_batch or _post_service_batch
-        ids = post(service_url, todo)
-        made = list(ids)
-        for kid in todo:
-            moods[kid.id] = mood_from_storage(storage, kid.id)
-    else:
-        from santa.card import make_card as _make
-
-        fn = make_card or _make
-        with ThreadPoolExecutor(max_workers=max_workers) as pool:
-            futs = {
-                pool.submit(_local_one, kid, settings, run_dir, storage, fn): kid for kid in todo
-            }
-            for fut in as_completed(futs):
-                kid_id, mood = fut.result()
-                made.append(kid_id)
-                moods[kid_id] = mood
-    for kid_id in skipped:
-        moods[kid_id] = mood_from_storage(storage, kid_id)
-    ordered = [k.id for k in kids]
-    chunk_lists = chunk_ids(ordered, n_jobs)
-    packed = [[{"id": i, "mood": moods.get(i, "warm")} for i in ch] for ch in chunk_lists]
-    paths = write_chunks(run_dir, packed)
-    for path in paths:
-        storage.upload(
-            f"runs/{run_id}/chunks/{path.name}",
-            path.read_bytes(),
-            content_type="application/json",
-        )
-    return CardsPhase(
-        run_id=run_id,
-        run_dir=run_dir,
-        kids=ordered,
-        made=made,
-        skipped=skipped,
-        chunks=paths,
-        used_service=use_service,
-    )
 
 
 @dataclass
@@ -535,38 +478,3 @@ def resume_jobs_phase(
     summary = build_run_summary(run_id, kids, records)
     _write_json(run_dir, "summary.json", run_id, storage, summary)
     return summary
-
-
-def _local_one(
-    kid: KidProfile,
-    settings: Settings,
-    run_dir: Path,
-    storage: StorageLike,
-    make_card: Callable[..., Any],
-) -> tuple[str, str]:
-    run = make_card(kid, settings, out_root=run_dir / "cards")
-    png = Path(run.card.png_path)
-    storage.upload(f"cards/{kid.id}.png", png.read_bytes(), content_type="image/png")
-    html = run.card.html_path
-    if html and Path(html).is_file():
-        storage.upload(f"cards/{kid.id}.html", Path(html).read_bytes(), content_type="text/html")
-    card_json = png.parent / "card.json"
-    if card_json.is_file():
-        storage.upload(
-            f"cards/{kid.id}.json", card_json.read_bytes(), content_type="application/json"
-        )
-    mood = getattr(run.card.wish, "mood", None) or "warm"
-    return kid.id, str(mood)
-
-
-def _post_service_batch(url: str, kids: list[KidProfile]) -> list[str]:
-    import requests
-
-    resp = requests.post(
-        f"{url.rstrip('/')}/api/cards/batch",
-        json={"kids": [k.model_dump() for k in kids]},
-        timeout=600,
-    )
-    resp.raise_for_status()
-    data = resp.json()
-    return [str(i) for i in data.get("ids") or []]

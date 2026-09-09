@@ -15,7 +15,7 @@ santa-service          # HOST=0.0.0.0 PORT=8000
 - `POST /api/publish` — laptop `--publish` default (no S3 creds on the laptop)
 - `GET /wall` · `GET /api/wall` — cards, videos, latest run summary
 
-Set `SANTA_SERVICE_URL=https://<your-endpoint>` so `santa batch` (without `--local`) and `santa publish` go through this process.
+Set `SANTA_SERVICE_URL=https://<your-endpoint>` so `santa publish` (without `--local`) goes through this process. `santa batch` does not call this service.
 
 ## Image
 
