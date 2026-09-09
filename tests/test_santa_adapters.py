@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import base64
+import io
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from PIL import Image
 
 from santa.config import ConfigError, RoleConfig, Settings
 from santa.models import (
@@ -307,9 +310,9 @@ def test_wan_sync_multipart_sends_input_reference_and_returns_mp4(monkeypatch):
     assert captured["headers"]["Authorization"] == "Bearer tok"
     assert "input_reference" in captured["files"]
     name, blob, ctype = captured["files"]["input_reference"]
-    assert name.endswith(".png") and ctype == "image/png"
     data = blob.getvalue() if hasattr(blob, "getvalue") else blob
-    assert data == PNG_1PX
+    assert Image.open(io.BytesIO(data)).size == (832, 480)
+    assert name.endswith((".png", ".jpg")) and ctype in ("image/png", "image/jpeg")
     fields = captured["data"]
     assert fields["model"] == "Wan-AI/Wan2.2-I2V-A14B-Diffusers"
     assert fields["prompt"] == "gentle snow"
@@ -536,12 +539,87 @@ def test_openai_video_create_poll_download_uses_input_reference(monkeypatch):
     call = posts[0]
     assert call["url"] == "https://api.openai.com/v1/videos"
     assert "input_reference" in call["files"]
+    _, blob, _ = call["files"]["input_reference"]
+    data = blob.getvalue() if hasattr(blob, "getvalue") else blob
+    assert Image.open(io.BytesIO(data)).size == (1280, 720)
     assert call["data"]["model"] == "sora-2"
     assert call["data"]["prompt"] == "gentle drift"
     assert call["data"]["size"] == "1280x720"
     assert call["data"]["seconds"] == "4"
     assert any(u.endswith("/videos/video_abc") for u in gets)
     assert any(u.endswith("/videos/video_abc/content") for u in gets)
+
+
+def _card_png(w=1024, h=1400) -> bytes:
+    buf = io.BytesIO()
+    Image.new("RGB", (w, h), (180, 30, 30)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _noisy_png(w=1024, h=1400) -> bytes:
+    im = Image.frombytes("RGB", (w, h), os.urandom(w * h * 3))
+    buf = io.BytesIO()
+    im.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _posted_ref(files):
+    name, blob, ctype = files["input_reference"]
+    data = blob.getvalue() if hasattr(blob, "getvalue") else blob
+    return name, data, ctype, Image.open(io.BytesIO(data)).size
+
+
+def _stub_wan_sync(monkeypatch, captured):
+    def fake_post(url, **kwargs):
+        if url.endswith("/videos") and not url.endswith("/videos/sync"):
+            return FakeResp(status_code=404, content=b"no async")
+        captured["files"] = kwargs.get("files")
+        return FakeResp(content=MP4_FAKE, headers={"content-type": "video/mp4"})
+
+    monkeypatch.setattr("santa.models.requests.post", fake_post)
+    monkeypatch.setattr(
+        "santa.models.requests.get",
+        lambda url, **kw: FakeResp(json_data={"data": []}, content=b"{}"),
+    )
+
+
+def test_wan_letterboxes_portrait_card_to_configured_size(monkeypatch):
+    captured = {}
+    _stub_wan_sync(monkeypatch, captured)
+    src = _card_png()
+    assert Image.open(io.BytesIO(src)).size == (1024, 1400)
+    WanOmniAdapter(video_cfg()).generate("gentle snow", image=src)
+    _, data, _, size = _posted_ref(captured["files"])
+    assert size == (832, 480)
+    assert len(data) < 1_000_000
+
+
+def test_wan_compresses_noisy_card_under_nginx_1m(monkeypatch):
+    captured = {}
+    _stub_wan_sync(monkeypatch, captured)
+    src = _noisy_png(832, 480)
+    assert len(src) > 1_000_000
+    WanOmniAdapter(video_cfg()).generate("gentle snow", image=src)
+    _, data, _, size = _posted_ref(captured["files"])
+    assert size == (832, 480)
+    assert len(data) < 1_000_000
+
+
+def test_openai_video_letterboxes_portrait_card_to_configured_size(monkeypatch):
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured["files"] = kwargs.get("files")
+        return FakeResp(
+            json_data={"id": "video_abc", "status": "queued"},
+            content=b'{"id":"video_abc"}',
+            headers={"content-type": "application/json"},
+        )
+
+    monkeypatch.setattr("santa.models.requests.post", fake_post)
+    OpenAIVideoAdapter(sora_cfg()).submit("gentle drift", image=_card_png())
+    _, _, _, size = _posted_ref(captured["files"])
+    assert size == (1280, 720)
 
 
 # ── LocalTracksAdapter ────────────────────────────────────────────────────────

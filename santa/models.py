@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import base64
+import io
 import json
 import logging
 import re
@@ -24,6 +25,7 @@ from typing import Any, cast
 
 import requests
 from openai import OpenAI
+from PIL import Image
 
 from santa.config import (
     REPO_ROOT,
@@ -44,6 +46,34 @@ class AdapterError(RuntimeError):
 
 def _raw(resp: requests.Response) -> bytes:
     return cast(bytes, resp.content)
+
+
+_BODY_BUDGET = 900_000  # nginx default client_max_body_size is 1m; leave room for multipart fields
+_LETTERBOX = "#fffaf2"  # gift-card cream so padded bars match the PNG
+
+
+def _wh(size: str) -> tuple[int, int]:
+    w, h = size.lower().replace("*", "x").split("x", 1)
+    return int(w.strip()), int(h.strip())
+
+
+def _fit_reference(image: bytes, size: str) -> tuple[str, bytes, str]:
+    """Letterbox to WxH. JPEG if a PNG would trip nginx's 1m body limit."""
+    width, height = _wh(size)
+    src = Image.open(io.BytesIO(image)).convert("RGB")
+    canvas = Image.new("RGB", (width, height), _LETTERBOX)
+    scale = min(width / src.width, height / src.height)
+    nw, nh = max(1, round(src.width * scale)), max(1, round(src.height * scale))
+    fitted = src.resize((nw, nh), Image.Resampling.LANCZOS)
+    canvas.paste(fitted, ((width - nw) // 2, (height - nh) // 2))
+    png = io.BytesIO()
+    canvas.save(png, format="PNG", optimize=True)
+    data = png.getvalue()
+    if len(data) <= _BODY_BUDGET:
+        return ("card.png", data, "image/png")
+    jpeg = io.BytesIO()
+    canvas.save(jpeg, format="JPEG", quality=85, optimize=True)
+    return ("card.jpg", jpeg.getvalue(), "image/jpeg")
 
 
 class _Base:
@@ -233,7 +263,8 @@ class WanOmniAdapter(_Base):
         return data
 
     def _files(self, image: bytes) -> dict[str, tuple[str, bytes, str]]:
-        return {"input_reference": ("card.png", image, "image/png")}
+        size = str(self.cfg.options.get("size", "832x480"))
+        return {"input_reference": _fit_reference(image, size)}
 
     def _post_video(
         self, prompt: str, image: bytes, seed: int | None, *, sync: bool
@@ -436,7 +467,7 @@ class OpenAIVideoAdapter(_Base):
             resp = requests.post(
                 f"{self.cfg.v1}/videos",
                 data=data,
-                files={"input_reference": ("card.png", image, "image/png")},
+                files={"input_reference": _fit_reference(image, data["size"])},
                 headers=headers,
                 timeout=60,
             )
