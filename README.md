@@ -9,10 +9,10 @@ A reference implementation for orchestrating LLMs and image, video, and audio mo
 ```
 santa-scale-challenge/
 ├── santa/                 # One package: CLI, CPU service, GPU job
-│   ├── cli.py             # santa doctor | card | agent | batch | animate | teardown
+│   ├── cli.py             # santa doctor | card | batch | animate | teardown
 │   ├── card.py            # Gift rec + wish + illustration → PNG/HTML
 │   ├── animate.py         # Wan I2V + music → card.mp4
-│   ├── batch.py           # Inventory cards/*.png → K GPU Jobs
+│   ├── batch.py           # Inventory cards/{id}/card.png → K GPU Jobs
 │   ├── service/           # FastAPI UI + /wall
 │   └── job.py             # GPU Job entrypoint
 ├── config/
@@ -64,7 +64,7 @@ uv sync --group dev        # Jupyter, pytest, linters
 uv sync --group research   # MLflow eval notebooks
 ```
 
-`uv sync` with no groups is the laptop core: `santa doctor`, `santa card`, `santa agent`.
+`uv sync` with no groups is the laptop core: `santa doctor`, `santa card`.
 
 ## ⚙️ Configuration
 
@@ -135,12 +135,6 @@ santa animate --offline
 santa batch --offline
 ```
 
-Agent (Pydantic AI tools: `recommend_gift`, `write_wish`, `generate_image`, `save_card`):
-
-```bash
-santa agent "make a card for a 7-year-old who wants a telescope"
-```
-
 CPU UI on the laptop:
 
 ```bash
@@ -156,7 +150,7 @@ uv sync --group dev && uv run jupyter lab
 
 ## ☁️ Running with Serverless AI
 
-Everything below runs in **your** Nebius project. Workshop walkthrough: [_DEV/WORKSHOP.md](_DEV/WORKSHOP.md) (steps 0–8). After the session: [_DEV/AFTER_THE_WORKSHOP.md](_DEV/AFTER_THE_WORKSHOP.md).
+Everything below runs in **your** Nebius project. Workshop walkthrough: [WORKSHOP.md](WORKSHOP.md) (steps 0–7). After the session: [_DEV/AFTER_THE_WORKSHOP.md](_DEV/AFTER_THE_WORKSHOP.md).
 
 **1. Deploy endpoints** from the console templates (Create Endpoint), then paste URL + token into `.env`:
 
@@ -172,14 +166,14 @@ Catalog: [serverless-ai-cookbook/templates](https://github.com/nebius/serverless
 santa animate out/<id>/card.png --mood-bank
 ```
 
-**3. Batch** — publish GiftCards via the API, then K preemptible GPU Jobs over `cards/*.png`. Needs bucket + IAM and `job.image` in `config/models.yaml`:
+**3. Batch** — publish GiftCards via the API, then K preemptible GPU Jobs over `cards/{id}/card.png`. Needs bucket + IAM and `job.image` in `config/models.yaml`:
 
 ```bash
 santa card --name Emma --age 7 --wish "a telescope" --publish
 santa batch --jobs 4
 ```
 
-`--no-wait` + `santa batch --status <run_id>` to poll later. Existing `videos/{id}.mp4` are skipped.
+`--no-wait` + `santa batch --status <run_id>` to poll later. Existing `cards/{id}/video.mp4` are skipped.
 
 **4. Publish** to the wall (`GET /wall` on the CPU service):
 
@@ -208,6 +202,5 @@ Echo prompts for listing/stopping endpoints: [skills/README.md](skills/README.md
 | `santa batch` / publish 403 | Use Object Storage access keys (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`), not `NEBIUS_IAM_TOKEN`. Bucket **name** is `NEBIUS_BUCKET_NAME`; bucket **id** (`NEBIUS_BUCKET_ID`) is only for Job FUSE mounts. |
 | `santa batch` empty `cards/` | Publish GiftCards first (`santa card … --publish`), then `santa batch --jobs 4`. Batch is Jobs only — it does not make GiftCards. |
 | Jobs never submit | Publish GiftCards, then set `NEBIUS_IAM_TOKEN` (`nebius iam get-access-token`), `NEBIUS_PROJECT_ID`, `NEBIUS_BUCKET_ID`, `NEBIUS_SUBNET_ID`, and a non-empty `job.image` in `config/models.yaml` (`docker build --platform linux/amd64 -f docker/job.Dockerfile`). |
-| Agent tool-calling is flaky | `claude mcp add santa -- python -m santa.mcp` |
 
 `santa doctor` does not stop anything. `santa teardown` does.

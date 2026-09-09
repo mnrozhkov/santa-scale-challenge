@@ -208,7 +208,7 @@ def test_cli_publish_uploads_mp4(tmp_path, monkeypatch):
             status_code = 200
 
             def json(self):
-                return {"key": f"videos/{name}"}
+                return {"key": f"cards/{name}"}
 
             def raise_for_status(self):
                 return None
@@ -218,8 +218,8 @@ def test_cli_publish_uploads_mp4(tmp_path, monkeypatch):
     monkeypatch.setattr("santa.publish.requests.post", fake_post)
     result = CliRunner().invoke(app, ["animate", str(png), "--publish"])
     assert result.exit_code == 0, result.output
-    assert posted == [("card.mp4", b"mp4-bytes")]
-    assert "videos/card.mp4" in result.output
+    assert posted == [("card/video.mp4", b"mp4-bytes")]
+    assert "cards/card/video.mp4" in result.output
 
 
 def test_cli_fresh_music_passed_to_run(tmp_path, monkeypatch):

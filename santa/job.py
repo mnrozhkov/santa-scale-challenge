@@ -1,4 +1,4 @@
-"""GPU Job entrypoint: a chunk of card ids → Wan I2V + mood mux → ``videos/{id}.mp4``.
+"""GPU Job entrypoint: a chunk of card ids → Wan I2V + mood mux → ``cards/{id}/video.mp4``.
 
 ``python -m santa.job`` reads ``CHUNK`` / ``RUN_ID`` / ``HF_HOME``. Tests inject a
 ``ClipRenderer`` so CI never loads torch. Exit 0 on per-card failures; non-zero
@@ -110,11 +110,11 @@ def _one_card(
     renderer: ClipRenderer,
     prompt: str,
 ) -> ItemResult:
-    dest = data_root / "videos" / f"{kid_id}.mp4"
+    dest = data_root / "cards" / kid_id / "video.mp4"
     if dest.is_file() and dest.stat().st_size > 0:
         return ItemResult(id=kid_id, status="skipped", seconds=0.0)
     t0 = time.time()
-    png = data_root / "cards" / f"{kid_id}.png"
+    png = data_root / "cards" / kid_id / "card.png"
     if not png.is_file():
         return ItemResult(
             id=kid_id, status="failed", seconds=round(time.time() - t0, 3), error=f"missing {png}"

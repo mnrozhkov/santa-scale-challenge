@@ -8,7 +8,7 @@
 
 **What to build:** After publishing GiftCards with the card command, a participant runs `santa batch --jobs 4` and gets K Nebius GPU Jobs that write `videos/{id}.mp4` from illustrations already in `cards/`. The command never manufactures GiftCards, never reads the kids CSV, and never POSTs to the CPU service.
 
-Two workshop patterns stay unmixed: API inference on endpoints (`santa card`, `santa agent`, `santa animate`) versus batch inference on GPU Jobs (`santa batch`). GiftCards are never a Job and never a batch CLI.
+Two workshop patterns stay unmixed: API inference on endpoints (`santa card`, `santa animate`) versus batch inference on GPU Jobs (`santa batch`). GiftCards are never a Job and never a batch CLI.
 
 - [x] `santa batch --jobs 4` inventories `cards/*.png`, skips existing videos, submits K Jobs, writes a run summary
 - [x] Empty `cards/` exits non-zero with a publish hint (`santa card … --publish`)

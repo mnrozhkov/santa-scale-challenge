@@ -28,17 +28,18 @@ def test_chunking_20_kids_into_4_jobs() -> None:
 
 def test_inventory_lists_png_stems_under_cards() -> None:
     store = MemoryStorage()
-    store.upload("cards/k00.png", b"png")
-    store.upload("cards/k01.png", b"png")
-    store.upload("cards/k01.json", b"{}")
-    store.upload("cards/k00.html", b"<html>")
+    store.upload("cards/k00/card.png", b"png")
+    store.upload("cards/k01/card.png", b"png")
+    store.upload("cards/k01/card.json", b"{}")
+    store.upload("cards/k00/card.html", b"<html>")
+    store.upload("cards/k00.png", b"legacy")
     store.upload("other/k99.png", b"nope")
     assert inventory_card_ids(store) == ["k00", "k01"]
 
 
 def test_empty_cards_prefix_is_an_error() -> None:
     store = MemoryStorage()
-    store.upload("videos/k00.mp4", b"mp4")
+    store.upload("cards/k00/video.mp4", b"mp4")
     with pytest.raises(BatchError, match="santa card") as exc:
         require_card_ids(store)
     assert "--publish" in str(exc.value)
@@ -48,8 +49,8 @@ def test_rerun_chunking_excludes_existing_videos() -> None:
     from santa.batch import ids_missing_videos
 
     store = MemoryStorage()
-    store.upload("videos/k00.mp4", b"mp4")
-    store.upload("videos/k01.mp4", b"mp4")
+    store.upload("cards/k00/video.mp4", b"mp4")
+    store.upload("cards/k01/video.mp4", b"mp4")
     ids = [f"k{i:02d}" for i in range(4)]
     missing, have = ids_missing_videos(ids, store)
     assert have == ["k00", "k01"]
@@ -286,9 +287,9 @@ def test_to_sdk_spec_mounts_bucket_and_env() -> None:
 def _png_store(*ids: str, videos: tuple[str, ...] = ()) -> MemoryStorage:
     store = MemoryStorage()
     for kid_id in ids:
-        store.upload(f"cards/{kid_id}.png", b"png")
+        store.upload(f"cards/{kid_id}/card.png", b"png")
     for kid_id in videos:
-        store.upload(f"videos/{kid_id}.mp4", b"mp4")
+        store.upload(f"cards/{kid_id}/video.mp4", b"mp4")
     return store
 
 
@@ -351,8 +352,8 @@ def test_batch_cli_three_pngs_submits_jobs_covering_ids(tmp_path, monkeypatch) -
     from santa.cli import app
 
     store = _png_store("k00", "k01", "k02")
-    store.upload("cards/k00.json", json.dumps({"wish": {"mood": "cozy"}}).encode())
-    store.upload("videos/k01.mp4", b"mp4")
+    store.upload("cards/k00/card.json", json.dumps({"wish": {"mood": "cozy"}}).encode())
+    store.upload("cards/k01/video.mp4", b"mp4")
     svc = ScriptedJobService([["PENDING"], ["PENDING"]])
 
     def boom_make(*args, **kwargs):
@@ -665,8 +666,8 @@ def test_kill_one_rerun_only_resubmits_the_gap(tmp_path, monkeypatch) -> None:
         poll_s=0,
         sleep=lambda _s: None,
     )
-    store.upload("videos/k00.mp4", b"mp4")
-    store.upload("videos/k01.mp4", b"mp4")
+    store.upload("cards/k00/video.mp4", b"mp4")
+    store.upload("cards/k01/video.mp4", b"mp4")
     store.upload(
         "runs/gap/jobs/0.json",
         json.dumps(
@@ -716,7 +717,7 @@ def test_jobs_phase_rerun_submits_only_missing_videos(tmp_path, monkeypatch) -> 
     store = MemoryStorage()
     kids = [f"k{i:02d}" for i in range(4)]
     for i in ("k00", "k01"):
-        store.upload(f"videos/{i}.mp4", b"mp4")
+        store.upload(f"cards/{i}/video.mp4", b"mp4")
     store.upload(
         "runs/r2/jobs/0.json",
         json.dumps(

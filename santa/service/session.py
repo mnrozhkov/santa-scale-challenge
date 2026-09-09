@@ -128,33 +128,35 @@ class ServiceSession:
         return kid.id
 
     def _upload_card(self, kid_id: str, run: CardRun) -> None:
+        from santa.storage import card_html_key, card_json_key, card_png_key
+
         png = Path(run.card.png_path) if run.card.png_path else None
         if png is not None and png.is_file():
-            self.storage.upload(f"cards/{kid_id}.png", png.read_bytes(), content_type="image/png")
+            self.storage.upload(card_png_key(kid_id), png.read_bytes(), content_type="image/png")
         html = Path(run.card.html_path) if run.card.html_path else None
         if html is not None and html.is_file():
-            self.storage.upload(f"cards/{kid_id}.html", html.read_bytes(), content_type="text/html")
+            self.storage.upload(card_html_key(kid_id), html.read_bytes(), content_type="text/html")
         json_path = png.parent / "card.json" if png is not None else None
         if json_path is not None and json_path.is_file():
             payload = json_path.read_bytes()
         else:
             payload = run.card.model_dump_json().encode()
-        self.storage.upload(f"cards/{kid_id}.json", payload, content_type="application/json")
+        self.storage.upload(card_json_key(kid_id), payload, content_type="application/json")
 
     def publish(self, filename: str, data: bytes, content_type: str = "") -> str:
         from santa.publish import content_type_for, object_key
 
-        name = Path(filename).name or "upload"
-        key = object_key(name, content_type=content_type)
-        stored_type = content_type or content_type_for(name)
+        key = object_key(filename, content_type=content_type)
+        stored_type = content_type or content_type_for(filename)
         if stored_type == "application/octet-stream":
-            stored_type = "video/mp4" if key.startswith("videos/") else "image/png"
+            stored_type = "video/mp4" if key.endswith(".mp4") else "image/png"
         self.storage.upload(key, data, content_type=stored_type)
         return key
 
     def wall(self) -> dict[str, Any]:
-        cards = self.storage.list("cards/")
-        videos = self.storage.list("videos/")
+        keys = self.storage.list("cards/")
+        cards = [k for k in keys if k.endswith("/card.png")]
+        videos = [k for k in keys if k.endswith("/video.mp4")]
         listed = self.storage.list_with_mtime("runs/")
         summaries = [(k, t) for k, t in listed if k.endswith("/summary.json")]
         summary: Any = None

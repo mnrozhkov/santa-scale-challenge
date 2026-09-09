@@ -1,6 +1,6 @@
 # Workshop
 
-Eight steps. One command block each. Everything runs in **your** Nebius project.
+Seven steps. One command block each. Everything runs in **your** Nebius project.
 
 Stuck at any step? Set `OPENAI_API_KEY` in `.env` — fallbacks kick in (`SANTA_FALLBACK=auto`). Still no network? `santa card --offline` / `santa animate --offline` / `santa batch --offline` copies bundled files from `data/fallback/`.
 
@@ -48,27 +48,11 @@ In Cursor / Claude Code, load `skills/serverless-ai` (see `skills/README.md`) an
 
 Expected: a list of *your* endpoints (id, state, platform) — not a shared pool.
 
-## 5 · Agent
+## 5 · Batch (GPU Jobs)
 
-```bash
-santa agent "make a card for a 7-year-old who wants a telescope"
-```
+Two patterns, consecutive: publish GiftCards via the API (same as Step 3), then submit K GPU Jobs over whatever illustrations are already in `cards/{id}/`. Batch does not manufacture GiftCards.
 
-Expected: `Wrote out/<id>/card.png`. The agent calls `recommend_gift`, `write_wish`, `generate_image`, `save_card`.
-
-MCP fallback (if tool-calling is flaky):
-
-```bash
-claude mcp add santa -- python -m santa.mcp
-```
-
-
-
-## 6 · Batch (GPU Jobs)
-
-Two patterns, consecutive: publish GiftCards via the API (same as Step 3), then submit K GPU Jobs over whatever PNGs are already in `cards/`. Batch does not manufacture GiftCards.
-
-Publish a few illustrations (repeat as needed):
+Publish a few illustrations (repeat as needed). Each kid lands in one bucket folder: `cards/{id}/card.png`, `card.html`, `card.json`. Jobs add `video.mp4` next to them.
 
 ```bash
 santa card --name Emma --age 7 --wish "a telescope" --publish
@@ -89,7 +73,7 @@ summary done … skipped … failed … cost $… saved $… → out/runs/<run_i
 
 `--no-wait` + `santa batch --status <run_id>` to poll later. Re-run the same `--run-id` to fill video gaps only. Empty `cards/` exits with a publish hint.
 
-## 7 · Video card
+## 6 · Video card
 
 Needs a Wan endpoint: [Wan 2.2 I2V A14B](https://console.nebius.com/serverless/endpoint/create?image=vllm%2Fvllm-omni%3Av0.24.0&command=vllm%20serve%20Wan-AI%2FWan2.2-I2V-A14B-Diffusers%20--omni%20--host%200.0.0.0%20--port%208000&targetPort=8000&platform=gpu-h100-sxm&preset=1gpu-16vcpu-200gb&diskSize=500GiB&preemptible=true) → `VIDEO_ENDPOINT_URL` / `VIDEO_ENDPOINT_TOKEN`. Audio uses [ACE-Satep 1.5](https://console.nebius.com/serverless/endpoint/create?image=cr.eu-north1.nebius.cloud%2Fe00gw2b7v3pxetvpy7%2Facestep-serve%3Ad315ae1&targetPort=8000&platform=gpu-h100-sxm&preset=1gpu-16vcpu-200gb&diskSize=500GiB&preemptible=true), or `--mood-bank` for bundled tracks.
 
@@ -108,7 +92,7 @@ santa animate out/<id>/card.png --mood-bank --publish
 
 
 
-## 8 · Keep building
+## 7 · Keep building
 
 - [AFTER_THE_WORKSHOP.md](AFTER_THE_WORKSHOP.md) — stop/start, cost, OpenAI SDK, swap a model, deploy video/audio, BYOC, scale the batch, credits
 - [notebooks/README.md](notebooks/README.md) — one playground per endpoint

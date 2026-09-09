@@ -13,6 +13,37 @@ class StorageError(RuntimeError):
     """S3/bucket call failed; message is participant-readable."""
 
 
+# One folder per kid: cards/{id}/card.png|html|json and video.mp4
+CARD_PNG = "card.png"
+CARD_HTML = "card.html"
+CARD_JSON = "card.json"
+CARD_VIDEO = "video.mp4"
+
+
+def card_png_key(kid_id: str) -> str:
+    return f"cards/{kid_id}/{CARD_PNG}"
+
+
+def card_html_key(kid_id: str) -> str:
+    return f"cards/{kid_id}/{CARD_HTML}"
+
+
+def card_json_key(kid_id: str) -> str:
+    return f"cards/{kid_id}/{CARD_JSON}"
+
+
+def card_video_key(kid_id: str) -> str:
+    return f"cards/{kid_id}/{CARD_VIDEO}"
+
+
+def id_from_card_png_key(key: str) -> str | None:
+    """Return the id if ``key`` is ``cards/{id}/card.png``."""
+    parts = key.split("/")
+    if len(parts) == 3 and parts[0] == "cards" and parts[2] == CARD_PNG and parts[1]:
+        return parts[1]
+    return None
+
+
 def staged_write(dest: Path | str, data: bytes) -> Path:
     """Write ``data`` to ``dest`` via a sibling tmp file then rename (safe on FUSE)."""
     path = Path(dest)
@@ -99,7 +130,7 @@ def _boto_s3_client() -> Any:
 
 
 class Storage:
-    """Thin boto3 wrapper. Keys are POSIX paths in the bucket (``cards/{id}.png``)."""
+    """Thin boto3 wrapper. Keys are POSIX paths (``cards/{id}/card.png``)."""
 
     def __init__(self, client: Any, bucket: str) -> None:
         if not bucket:

@@ -75,8 +75,8 @@ def _layout(tmp_path: Path) -> tuple[Path, Path, FakePipeline]:
     cards = data / "cards"
     moods = data / "audio" / "moods"
     moods.mkdir(parents=True)
-    _png(cards / "a.png")
-    _png(cards / "b.png")
+    _png(cards / "a" / "card.png")
+    _png(cards / "b" / "card.png")
     _mp3(moods / "playful.mp3", 440)
     _mp3(moods / "warm.mp3", 220)
     chunk = data / "runs" / "r1" / "chunks" / "0.json"
@@ -95,7 +95,7 @@ def test_fake_pipeline_writes_two_mp4s_via_staged_write(tmp_path: Path) -> None:
     assert [i.status for i in report.items] == ["done", "done"]
     assert "storybook" in pipe.calls[0][1].lower()
     for kid in ("a", "b"):
-        dest = data / "videos" / f"{kid}.mp4"
+        dest = data / "cards" / kid / "video.mp4"
         assert dest.is_file() and dest.stat().st_size > 0
         assert not (dest.parent / f".{dest.name}.tmp").exists()
     assert len(pipe.calls) == 2
@@ -111,16 +111,16 @@ def test_second_run_skips_existing_videos(tmp_path: Path) -> None:
     report = run_job(data_root=data, chunk_path=chunk, run_id="r1", renderer=pipe)
     assert [i.status for i in report.items] == ["skipped", "skipped"]
     assert pipe.calls == []
-    a = (data / "videos" / "a.mp4").read_bytes()
-    b = (data / "videos" / "b.mp4").read_bytes()
+    a = (data / "cards" / "a" / "video.mp4").read_bytes()
+    b = (data / "cards" / "b" / "video.mp4").read_bytes()
     assert a and b
 
 
 def test_mood_pick_is_deterministic(tmp_path: Path) -> None:
     data, chunk, pipe = _layout(tmp_path)
     run_job(data_root=data, chunk_path=chunk, run_id="r1", renderer=pipe)
-    playful = (data / "videos" / "a.mp4").read_bytes()
-    warm = (data / "videos" / "b.mp4").read_bytes()
+    playful = (data / "cards" / "a" / "video.mp4").read_bytes()
+    warm = (data / "cards" / "b" / "video.mp4").read_bytes()
     assert playful != warm
 
     swapped = data / "runs" / "r1" / "chunks" / "0.json"
@@ -128,20 +128,20 @@ def test_mood_pick_is_deterministic(tmp_path: Path) -> None:
         json.dumps([{"id": "a", "mood": "warm"}, {"id": "b", "mood": "playful"}]) + "\n",
         encoding="utf-8",
     )
-    (data / "videos" / "a.mp4").unlink()
-    (data / "videos" / "b.mp4").unlink()
+    (data / "cards" / "a" / "video.mp4").unlink()
+    (data / "cards" / "b" / "video.mp4").unlink()
     run_job(data_root=data, chunk_path=swapped, run_id="r1", renderer=pipe)
-    assert (data / "videos" / "a.mp4").read_bytes() == warm
-    assert (data / "videos" / "b.mp4").read_bytes() == playful
+    assert (data / "cards" / "a" / "video.mp4").read_bytes() == warm
+    assert (data / "cards" / "b" / "video.mp4").read_bytes() == playful
 
 
 def test_partial_card_failure_still_finishes(tmp_path: Path) -> None:
     data, chunk, pipe = _layout(tmp_path)
-    (data / "cards" / "b.png").unlink()
+    (data / "cards" / "b" / "card.png").unlink()
     report = run_job(data_root=data, chunk_path=chunk, run_id="r1", renderer=pipe)
     assert [i.status for i in report.items] == ["done", "failed"]
-    assert (data / "videos" / "a.mp4").is_file()
-    assert not (data / "videos" / "b.mp4").exists()
+    assert (data / "cards" / "a" / "video.mp4").is_file()
+    assert not (data / "cards" / "b" / "video.mp4").exists()
 
 
 def test_status_json_updates_after_each_card(tmp_path: Path) -> None:
@@ -151,7 +151,7 @@ def test_status_json_updates_after_each_card(tmp_path: Path) -> None:
 
     class MidRunPipeline:
         def render(self, image: Path, prompt: str) -> bytes:
-            if image.name == "b.png":
+            if image.parent.name == "b":
                 mid = json.loads(status_path.read_text(encoding="utf-8"))
                 assert [row["status"] for row in mid["items"]] == ["done"]
             return silent

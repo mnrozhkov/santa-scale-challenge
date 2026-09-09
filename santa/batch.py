@@ -24,6 +24,7 @@ from santa.nebius_jobs import (
     wait_for_job,
 )
 from santa.schemas import KidProfile
+from santa.storage import card_json_key, card_video_key, id_from_card_png_key
 
 DEFAULT_KIDS_CSV = REPO_ROOT / "data" / "kids.csv"
 
@@ -49,20 +50,17 @@ class StorageLike(Protocol):
 
 
 def inventory_card_ids(storage: StorageLike) -> list[str]:
-    """Illustration ids from PNG keys directly under ``cards/`` (stem of each key)."""
+    """Illustration ids from ``cards/{id}/card.png``."""
     ids: list[str] = []
     for key in storage.list("cards/"):
-        if not key.startswith("cards/") or not key.endswith(".png"):
-            continue
-        rest = key.removeprefix("cards/")
-        if not rest or "/" in rest:
-            continue
-        ids.append(rest[: -len(".png")])
+        kid_id = id_from_card_png_key(key)
+        if kid_id:
+            ids.append(kid_id)
     return ids
 
 
 def require_card_ids(storage: StorageLike) -> list[str]:
-    """Inventory ``cards/*.png``; empty prefix is a hard error with a publish hint."""
+    """Inventory ``cards/{id}/card.png``; empty prefix is a hard error with a publish hint."""
     ids = inventory_card_ids(storage)
     if not ids:
         raise BatchError(
@@ -118,11 +116,10 @@ def load_kids(path: Path | str, n: int) -> list[KidProfile]:
 
 
 def ids_missing_videos(ids: list[str], storage: StorageLike) -> tuple[list[str], list[str]]:
-    """Ids whose ``videos/{id}.mp4`` is missing, plus those already on the bucket."""
-    existing = set(storage.list("videos/"))
+    """Ids whose ``cards/{id}/video.mp4`` is missing, plus those already on the bucket."""
     missing, have = [], []
     for kid_id in ids:
-        if f"videos/{kid_id}.mp4" in existing:
+        if storage.exists(card_video_key(kid_id)):
             have.append(kid_id)
         else:
             missing.append(kid_id)
@@ -130,9 +127,9 @@ def ids_missing_videos(ids: list[str], storage: StorageLike) -> tuple[list[str],
 
 
 def mood_from_storage(storage: StorageLike, kid_id: str) -> str:
-    """Read ``wish.mood`` from ``cards/{id}.json`` in the bucket; default ``warm``."""
+    """Read ``wish.mood`` from ``cards/{id}/card.json`` in the bucket; default ``warm``."""
     try:
-        raw = storage.download(f"cards/{kid_id}.json")
+        raw = storage.download(card_json_key(kid_id))
     except Exception:
         return "warm"
     try:

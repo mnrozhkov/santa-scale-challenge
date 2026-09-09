@@ -25,19 +25,19 @@ class FakeResponse:
             raise RuntimeError(f"HTTP {self.status_code}")
 
 
-def test_object_key_routes_png_html_json_to_cards_and_mp4_to_videos(tmp_path: Path) -> None:
-    assert object_key(tmp_path / "gift.png") == "cards/gift.png"
-    assert object_key(tmp_path / "gift.html") == "cards/gift.html"
-    assert object_key(tmp_path / "card.json") == "cards/card.json"
-    assert object_key(tmp_path / "clip.mp4") == "videos/clip.mp4"
-    assert object_key("clip.bin", content_type="video/mp4") == "videos/clip.bin"
+def test_object_key_puts_all_artefacts_in_the_kid_folder(tmp_path: Path) -> None:
+    assert object_key(tmp_path / "gift.png") == "cards/gift/card.png"
+    assert object_key(tmp_path / "gift.html") == "cards/gift/card.html"
+    assert object_key(tmp_path / "card.json") == "cards/card/card.json"
+    assert object_key(tmp_path / "clip.mp4") == "cards/clip/video.mp4"
+    assert object_key("clip.bin", content_type="video/mp4") == "cards/clip/video.mp4"
     kid = tmp_path / "k01" / "card.png"
     kid.parent.mkdir()
     kid.write_bytes(b"x")
-    assert object_key(kid) == "cards/k01.png"
-    assert object_key(tmp_path / "k01" / "card.html") == "cards/k01.html"
-    assert object_key(tmp_path / "k01" / "card.mp4") == "videos/k01.mp4"
-    assert object_key(tmp_path / "k01" / "card.png", object_id="k99") == "cards/k99.png"
+    assert object_key(kid) == "cards/k01/card.png"
+    assert object_key(tmp_path / "k01" / "card.html") == "cards/k01/card.html"
+    assert object_key(tmp_path / "k01" / "card.mp4") == "cards/k01/video.mp4"
+    assert object_key(tmp_path / "k01" / "card.png", object_id="k99") == "cards/k99/card.png"
 
 
 def test_publish_files_posts_multipart_to_service(tmp_path: Path) -> None:
@@ -58,7 +58,7 @@ def test_publish_files_posts_multipart_to_service(tmp_path: Path) -> None:
         service_url="http://santa.test",
         post=fake_post,
     )
-    assert keys == ["cards/gift.png", "cards/gift.html"]
+    assert keys == ["cards/gift/card.png", "cards/gift/card.html"]
     assert posted[0]["url"] == "http://santa.test/api/publish"
     assert posted[0]["data"] == b"png-bytes"
     assert posted[0]["ctype"] == "image/png"
@@ -79,9 +79,9 @@ def test_publish_files_local_uploads_via_storage(tmp_path: Path) -> None:
     mp4.write_bytes(b"mp4-bytes")
     store = MemoryStorage()
     keys = publish_files([png, mp4], local=True, storage=store)
-    assert keys == ["cards/gift.png", "videos/clip.mp4"]
-    assert store.download("cards/gift.png") == b"png-bytes"
-    assert store.download("videos/clip.mp4") == b"mp4-bytes"
+    assert keys == ["cards/gift/card.png", "cards/clip/video.mp4"]
+    assert store.download("cards/gift/card.png") == b"png-bytes"
+    assert store.download("cards/clip/video.mp4") == b"mp4-bytes"
 
 
 def test_cli_publish_command_posts_to_service(
@@ -101,7 +101,7 @@ def test_cli_publish_command_posts_to_service(
     result = CliRunner().invoke(app, ["publish", str(png)])
     assert result.exit_code == 0, result.output
     assert posted == ["http://santa.test/api/publish"]
-    assert "cards/gift.png" in result.output
+    assert "cards/gift/card.png" in result.output
 
 
 def test_cli_publish_command_local_uses_storage(
@@ -114,8 +114,8 @@ def test_cli_publish_command_local_uses_storage(
     monkeypatch.delenv("SANTA_SERVICE_URL", raising=False)
     result = CliRunner().invoke(app, ["publish", str(mp4), "--local"])
     assert result.exit_code == 0, result.output
-    assert store.download("videos/clip.mp4") == b"mp4-bytes"
-    assert "videos/clip.mp4" in result.output
+    assert store.download("cards/clip/video.mp4") == b"mp4-bytes"
+    assert "cards/clip/video.mp4" in result.output
 
 
 def test_cli_publish_errors_when_service_url_missing(
@@ -175,8 +175,12 @@ def test_cli_card_publish_uploads_png_and_html_as_kid_id(
         app, ["card", "--name", "Mia", "--age", "7", "--wish", "trains", "--publish"]
     )
     assert result.exit_code == 0, result.output
-    assert posted == [f"{seen['id']}.png", f"{seen['id']}.html"]
-    assert f"cards/{seen['id']}.png" in result.output
+    assert posted == [
+        f"{seen['id']}/card.png",
+        f"{seen['id']}/card.html",
+        f"{seen['id']}/card.json",
+    ]
+    assert f"cards/{seen['id']}/card.png" in result.output
 
 
 def test_cli_card_publish_without_service_url_exits(
@@ -227,13 +231,13 @@ def test_cli_animate_publish_uploads_mp4(tmp_path: Path, monkeypatch: pytest.Mon
     def fake_post(url: str, files=None, timeout=None):
         name, data, _ctype = files["file"]
         posted.append((name, data))
-        return FakeResponse(f"videos/{name}")
+        return FakeResponse(f"cards/{name}")
 
     monkeypatch.setattr("santa.publish.requests.post", fake_post)
     result = CliRunner().invoke(app, ["animate", str(png), "--publish"])
     assert result.exit_code == 0, result.output
-    assert posted == [("card.mp4", b"mp4-bytes")]
-    assert "videos/card.mp4" in result.output
+    assert posted == [("card/video.mp4", b"mp4-bytes")]
+    assert "cards/card/video.mp4" in result.output
 
 
 def test_cli_animate_no_wait_does_not_publish(
@@ -271,13 +275,13 @@ def test_cli_animate_status_publish_uploads_when_done(
 
     def fake_post(url: str, files=None, timeout=None):
         posted.append(files["file"][0])
-        return FakeResponse(f"videos/{files['file'][0]}")
+        return FakeResponse(f"cards/{files['file'][0]}")
 
     monkeypatch.setattr("santa.publish.requests.post", fake_post)
     result = CliRunner().invoke(app, ["animate", "--status", str(ticket), "--publish"])
     assert result.exit_code == 0, result.output
-    assert posted == ["card.mp4"]
-    assert "videos/card.mp4" in result.output
+    assert posted == ["card/video.mp4"]
+    assert "cards/card/video.mp4" in result.output
 
 
 def test_cli_animate_publish_local(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -292,4 +296,4 @@ def test_cli_animate_publish_local(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr("santa.publish.Storage.from_env", lambda: store)
     result = CliRunner().invoke(app, ["animate", str(png), "--publish", "--local"])
     assert result.exit_code == 0, result.output
-    assert store.download("videos/card.mp4") == b"mp4-bytes"
+    assert store.download("cards/card/video.mp4") == b"mp4-bytes"

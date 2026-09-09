@@ -10,7 +10,13 @@ from typing import Any, Protocol
 
 import requests
 
-from santa.storage import Storage
+from santa.storage import (
+    CARD_HTML,
+    CARD_JSON,
+    CARD_PNG,
+    CARD_VIDEO,
+    Storage,
+)
 
 CONTENT_TYPES = {
     ".png": "image/png",
@@ -38,24 +44,43 @@ class StorageLike(Protocol):
 PostFn = Callable[..., Any]
 
 
-def wall_name(path: Path | str, *, object_id: str | None = None) -> str:
-    """``out/<id>/card.png`` → ``<id>.png`` so the bucket key is ``cards/{id}.png``."""
-    p = Path(path)
-    suffix = (p.suffix or "").lower()
+def _artifact_name(path: Path | str, *, content_type: str = "") -> str:
+    suffix = Path(path).suffix.lower()
+    if content_type.lower().startswith("video/") or suffix == ".mp4":
+        return CARD_VIDEO
+    if suffix == ".html":
+        return CARD_HTML
+    if suffix == ".json":
+        return CARD_JSON
+    if suffix == ".png":
+        return CARD_PNG
+    return Path(path).name or "upload"
+
+
+def folder_id(path: Path | str, *, object_id: str | None = None) -> str:
+    """Kid (or file-stem) folder under ``cards/``."""
     if object_id:
-        return f"{object_id}{suffix or '.bin'}"
+        return object_id
+    p = Path(path)
     parent = p.parent.name
-    if p.stem == "card" and parent and _KID_ID.match(parent):
-        return f"{parent}{suffix}"
-    return p.name or "upload"
+    if p.stem in {"card", "video"} and parent and parent not in {".", ""}:
+        if _KID_ID.match(parent) or not p.is_absolute():
+            return parent
+    stem = p.stem
+    return stem or "upload"
+
+
+def wall_name(path: Path | str, *, object_id: str | None = None, content_type: str = "") -> str:
+    """Multipart filename ``{id}/card.png`` (or ``video.mp4``) so the service can rebuild the key."""
+    kid = folder_id(path, object_id=object_id)
+    return f"{kid}/{_artifact_name(path, content_type=content_type)}"
 
 
 def object_key(path: Path | str, *, content_type: str = "", object_id: str | None = None) -> str:
-    """png/html/json → ``cards/``; mp4 or ``video/*`` → ``videos/``. Prefers ``{id}`` over ``card.*``."""
-    name = wall_name(path, object_id=object_id)
-    if content_type.lower().startswith("video/") or Path(name).suffix.lower() == ".mp4":
-        return f"videos/{name}"
-    return f"cards/{name}"
+    """All kid artefacts live under ``cards/{id}/``: card.png, card.html, card.json, video.mp4."""
+    kid = folder_id(path, object_id=object_id)
+    name = _artifact_name(path, content_type=content_type)
+    return f"cards/{kid}/{name}"
 
 
 def content_type_for(path: Path | str) -> str:

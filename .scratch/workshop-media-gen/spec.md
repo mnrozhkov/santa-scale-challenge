@@ -24,12 +24,12 @@ Everything below runs in **the participant's own Nebius account**: their endpoin
  │ santa-mcp (shim)     │                                                    │ reads/writes
  └──────────┬───────────┘                                                    ▼
             │ Nebius SDK                                     ┌─────────── Object Storage bucket ───────────┐
-            ▼                                                │ kids/ · cards/{id}.png|.html · videos/{id}.mp4│
+            ▼                                                │ kids/ · cards/{id}/card.png|html|json · cards/{id}/video.mp4│
  ┌──────────────────────────────┐    /data FUSE mount        │ audio/moods/*.mp3 · runs/{run_id}/summary.json│
  │ K × Serverless Jobs (GPU,    │◄──────────────────────────►│ models/ (pre-baked HF cache)                  │
  │ preemptible) santa-job image │                            └───────────────────────────────────────────────┘
  │  chunk → Wan I2V → +music →  │
- │  mux → videos/{id}.mp4       │──── audio role ──► ACE-Step endpoint (H100)    video role ──► Wan endpoint (H100, `animate`)
+ │  mux → cards/{id}/video.mp4  │──── audio role ──► ACE-Step endpoint (H100)    video role ──► Wan endpoint (H100, `animate`)
  └──────────────────────────────┘
 ```
 
@@ -43,11 +43,12 @@ One package, three runtimes: `santa` CLI on the laptop, `santa-service` on a CPU
 | 1–2 Deploy     | Console (template)                       | — (`AFTER_THE_WORKSHOP.md` documents BYOC `job/Dockerfile` as the container example)       | image · Sana on L40S                            |
 | 3 One card     | `santa card --form` · or service UI      | `card.py`: gift+wish (TF) → image (endpoint) → Pillow render → `card.png` + `card.html`   | llm · TF; image · Sana endpoint                 |
 | 4 Echo         | Console / `nebius echo`                  | — (skills vendored under `skills/` for their agent)                                        | —                                               |
-| 5 Agent        | `santa agent "…"`                        | `agent.py` (Pydantic AI, ≤40 lines) · `mcp.py` shim for Claude Code / Cursor              | llm · TF (tool-calling model); image · Sana     |
-| 6 Batch        | publish GiftCards (`santa card --publish`), then `santa batch --jobs 4` | `batch.py`: list `cards/*.png` → K GPU Jobs (`job.py`) → `videos/{id}.mp4` + `run_summary.json`. GiftCards are API-only (not this command). | video · Wan **in the Job**; audio · mood bank |
-| 7 Video card   | `santa animate out/card.png`             | `animate.py`: Wan endpoint `/v1/videos` (async) + ACE-Step → `mux.py` → `card.mp4`         | video · Wan on H100; audio · ACE-Step on H100   |
+| 5 Batch        | publish GiftCards (`santa card --publish`), then `santa batch --jobs 4` | `batch.py`: list `cards/{id}/card.png` → K GPU Jobs (`job.py`) → `cards/{id}/video.mp4` + `run_summary.json`. GiftCards are API-only (not this command). | video · Wan **in the Job**; audio · mood bank |
+| 6 Video card   | `santa animate out/card.png`             | `animate.py`: Wan endpoint `/v1/videos` (async) + ACE-Step → `mux.py` → `card.mp4`         | video · Wan on H100; audio · ACE-Step on H100   |
 | Wall           | `--publish`                              | `storage.py` uploads → `santa-service /wall` lists bucket                                  | —                                               |
-| 8 Keep building| —                                        | `WORKSHOP.md`, `AFTER_THE_WORKSHOP.md`, `notebooks/`                                       | —                                               |
+| 7 Keep building| —                                        | `WORKSHOP.md`, `AFTER_THE_WORKSHOP.md`, `notebooks/`                                       | —                                               |
+
+`santa agent` / `mcp.py` stay in the package (issue 06) but are **not** a workshop step.
 
 ## 3. Target layout
 
@@ -65,7 +66,7 @@ santa-scale-challenge/
 │   ├── card.py                # process_kid v2: TF → image → render
 │   ├── render.py              # Pillow renderer → PNG; Jinja → HTML with OG tags   (replaces html2image)
 │   ├── agent.py               # Pydantic AI, 4 tools, ≤40 lines                     (W7)
-│   ├── mcp.py                 # FastMCP shim: generate_card tool                     (Step 5 fallback)
+│   ├── mcp.py                 # FastMCP shim: generate_card tool (kept; not a workshop step)
 │   ├── animate.py             # Wan async submit/poll + ACE-Step + mux
 │   ├── mux.py                 # imageio-ffmpeg: mp4 + mp3 → mp4
 │   ├── batch.py               # chunk → K jobs → wait → run_summary.json            (W3)
@@ -97,7 +98,7 @@ santa-scale-challenge/
 | D3  | **Wan via multipart** `POST /v1/videos/sync` (`input_reference`, `size=832x480`, `num_frames`, `fps=16`, `flow_shift=12`, `boundary_ratio=0.875`, guidance 1.0) → raw MP4. `animate` uses async `POST /v1/videos` + poll when available, sync as fallback              | Current `VideoClient` (JSON `image` field, `/videos/generations`) is wrong per README                                    |
 | D4  | **ACE-Step via** `POST /v1/audio/generations` JSON (`task_type=text2music`, `thinking=false`, `audio_duration=8`, `inference_steps=8`, `audio_format=mp3`) → mp3 bytes                                                                                                | Verified shape; endpoint is single-worker (lock)                                                                        |
 | D5  | **Mood bank instead of per-card music in batch.** `scripts/make_mood_bank.py` generates ~8 instrumental tracks (mood tags) once → `audio/moods/`. Jobs pick by the wish's mood; `animate` may generate fresh (`--fresh-music`)                                            | 200 × 8 s on a single-worker endpoint = 25+ min; bank = seconds. Still "audio role via endpoint"                         |
-| D6  | **Batch = GPU Jobs run Wan inside the job** (diffusers `WanImageToVideoPipeline`), one chunk per job, `videos/{id}.mp4`, skip if exists (idempotent), `run_summary.json` with state transitions + cost. Preemptible                                                     | Your answer 2; W3; dubbing pattern                                                                                       |
+| D6  | **Batch = GPU Jobs run Wan inside the job** (diffusers `WanImageToVideoPipeline`), one chunk per job, `cards/{id}/video.mp4`, skip if exists (idempotent), `run_summary.json` with state transitions + cost. Preemptible                                                     | Your answer 2; W3; dubbing pattern                                                                                       |
 | D7  | **Job model default `Wan2.2-I2V-A14B`** on `gpu-h100-sxm 1gpu-16vcpu-200gb` preemptible (same model as the endpoint); `Wan2.2-TI2V-5B` on L40S as yaml alternative                                                                                                     | Decision Q1: H100 by default. Pre-baked weights (D8) absorb the 35 GB cold start                                          |
 | D8  | **Weights pre-baked to bucket** `models/` (`scripts/sync_models.py`, HF → bucket once); job sets `HF_HOME=/data/models`, downloads only if missing                                                                                                                       | Dubbing pattern; removes the per-job Hub pull. Approved                                                                  |
 | D9  | **Withdrawn (issue 16).** GiftCards are API inference (`santa card`, optional `--publish` → `cards/`). `santa batch` is Jobs-only video inference over existing `cards/*.png`. No `--kids`, no CPU-service card factory, no local thread pool inside `batch`.             | Mixes endpoint vs Job patterns; empty `job.image` left cards “succeeding” while Jobs never started                           |
@@ -129,14 +130,13 @@ job: {image: …/santa-job:<tag>, model: Wan-AI/Wan2.2-I2V-A14B-Diffusers, platf
 ```
 santa doctor
 santa card  --form | --profile me.json | --name --age --wish   [--publish] [--out out/]
-santa agent "<request>"
-santa batch [--jobs 4] [--run-id …] [--no-wait] [--status <run_id>]  → runs/<run_id>/summary.json  (Jobs over published `cards/*.png`; GiftCards are `santa card --publish`)
+santa batch [--jobs 4] [--run-id …] [--no-wait] [--status <run_id>]  → runs/<run_id>/summary.json  (Jobs over published `cards/{id}/card.png`; GiftCards are `santa card --publish`)
 santa animate out/card.png [--motion "…"] [--fresh-music] [--wait|--no-wait] [--publish]
 santa publish out/…                                            → bucket → /wall
 santa teardown [--dry-run]                                     (your endpoints + running jobs)
 ```
 
-**Job contract** (`python -m santa.job`): env `RUN_ID`, `CHUNK=/data/runs/<run_id>/chunks/<k>.json` (list of card ids + moods), `HF_HOME`. Reads `cards/{id}.png`, writes `videos/{id}.mp4` via `staged_write` (tmp → rename), skips existing, appends `runs/<run_id>/jobs/<k>.json` (per-id status + seconds). Exit 0 even with per-card failures; non-zero only on setup failure.
+**Job contract** (`python -m santa.job`): env `RUN_ID`, `CHUNK=/data/runs/<run_id>/chunks/<k>.json` (list of card ids + moods), `HF_HOME`. Reads `cards/{id}/card.png`, writes `cards/{id}/video.mp4` via `staged_write` (tmp → rename), skips existing, appends `runs/<run_id>/jobs/<k>.json` (per-id status + seconds). Exit 0 even with per-card failures; non-zero only on setup failure.
 
 **`run_summary.json`**: `run_id, kids, jobs[] {job_id, chunk, platform, preset, preemptible, state_transitions[], run_s, cost_usd, on_demand_cost_usd, done, skipped, failed}, totals, savings_usd`.
 
@@ -177,7 +177,7 @@ Critical path: 01 → 02 → 07 → 08 → 09 → 16 (batch Jobs-only). 05 and 0
 
 - Adapters: request-shape tests against recorded fixtures (Sana JSON, Wan multipart fields incl. `input_reference`, ACE-Step JSON); response parsing (b64, raw mp4, mp3).
 - `card.py`: GiftCard from fakes; image attributed to the configured endpoint; primary failure → fallback used and recorded in metrics.
-- `batch.py`: inventory `cards/*.png` → K chunks; idempotent skip when `videos/{id}.mp4` exists; empty `cards/` fails; one job ERROR → summary still has done + failed ids; cost math. CLI never generates GiftCards.
+- `batch.py`: inventory `cards/{id}/card.png` → K chunks; idempotent skip when `cards/{id}/video.mp4` exists; empty `cards/` fails; one job ERROR → summary still has done + failed ids; cost math. CLI never generates GiftCards.
 - `job.py`: run against a fake pipeline on 2 PNGs → 2 mp4 via staged write; mood pick deterministic.
 - `agent.py`: tool-call sequence with a scripted fake model.
 - Service: routes call the session (thin).

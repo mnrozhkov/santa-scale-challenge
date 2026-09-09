@@ -221,10 +221,10 @@ def test_api_batch_writes_cards_to_memory_storage(
     assert set(data["ids"]) == {"k1", "k2"}
     assert data["failures"] == []
     for kid_id in ("k1", "k2"):
-        assert session.storage.exists(f"cards/{kid_id}.png")
-        assert session.storage.exists(f"cards/{kid_id}.html")
-        assert session.storage.exists(f"cards/{kid_id}.json")
-    dumped = json.loads(session.storage.download("cards/k1.json"))
+        assert session.storage.exists(f"cards/{kid_id}/card.png")
+        assert session.storage.exists(f"cards/{kid_id}/card.html")
+        assert session.storage.exists(f"cards/{kid_id}/card.json")
+    dumped = json.loads(session.storage.download("cards/k1/card.json"))
     assert dumped["wish"]["mood"] == "warm"
 
 
@@ -254,9 +254,9 @@ def test_api_batch_records_failures_without_aborting(
     assert len(data["failures"]) == 1
     assert data["failures"][0]["id"] == "bad"
     assert "500" in data["failures"][0]["error"]
-    assert session.storage.exists("cards/ok.png")
-    assert session.storage.exists("cards/ok2.png")
-    assert not session.storage.exists("cards/bad.png")
+    assert session.storage.exists("cards/ok/card.png")
+    assert session.storage.exists("cards/ok2/card.png")
+    assert not session.storage.exists("cards/bad/card.png")
 
 
 def test_api_publish_uploads_bytes_by_content_type(
@@ -270,10 +270,10 @@ def test_api_publish_uploads_bytes_by_content_type(
     mp4 = client.post("/api/publish", files={"file": ("clip.mp4", b"mp4-bytes", "video/mp4")})
     assert png.status_code == 200
     assert mp4.status_code == 200
-    assert png.json()["key"] == "cards/gift.png"
-    assert mp4.json()["key"] == "videos/clip.mp4"
-    assert session.storage.download("cards/gift.png") == b"png-bytes"
-    assert session.storage.download("videos/clip.mp4") == b"mp4-bytes"
+    assert png.json()["key"] == "cards/gift/card.png"
+    assert mp4.json()["key"] == "cards/clip/video.mp4"
+    assert session.storage.download("cards/gift/card.png") == b"png-bytes"
+    assert session.storage.download("cards/clip/video.mp4") == b"mp4-bytes"
 
 
 def test_api_wall_lists_keys_from_fake_storage(
@@ -282,8 +282,8 @@ def test_api_wall_lists_keys_from_fake_storage(
     from fastapi.testclient import TestClient
 
     session = _session(tmp_path, monkeypatch)
-    session.storage.upload("cards/k1.png", b"png")
-    session.storage.upload("videos/k1.mp4", b"mp4")
+    session.storage.upload("cards/k1/card.png", b"png")
+    session.storage.upload("cards/k1/video.mp4", b"mp4")
     session.storage.upload(
         "runs/r2/summary.json",
         json.dumps({"run_id": "r2", "kids": 2}).encode(),
@@ -298,13 +298,13 @@ def test_api_wall_lists_keys_from_fake_storage(
     resp = client.get("/api/wall")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["cards"] == ["cards/k1.png"]
-    assert data["videos"] == ["videos/k1.mp4"]
+    assert data["cards"] == ["cards/k1/card.png"]
+    assert data["videos"] == ["cards/k1/video.mp4"]
     assert data["summary"] == {"run_id": "r1", "kids": 1}  # last uploaded, not lex max
     page = client.get("/wall")
     assert page.status_code == 200
     assert "Wall" in page.text
-    assert "/media/cards/k1.png" in page.text
+    assert "/media/cards/k1/card.png" in page.text
     assert "display: grid" in page.text
     assert "autoplay" in page.text
     assert "muted" in page.text

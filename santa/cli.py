@@ -3,7 +3,7 @@
 santa doctor
 santa card …      (issue 02) [--publish] [--offline]
 santa agent …     (issue 06)
-santa batch …     (issue 16: Jobs over published cards/*.png) [--offline]
+santa batch …     (issue 16: Jobs over published cards/{id}/card.png) [--offline]
 santa animate …   (issue 05) [--publish] [--offline]
 santa publish …   (issue 10)
 santa teardown …  (issue 13)
@@ -193,12 +193,17 @@ def _print_card_run(run: Any) -> None:
 
 def _card_artifact_paths(card: Any) -> list[Path]:
     paths: list[Path] = []
+    png = Path(card.png_path) if getattr(card, "png_path", None) else None
     for raw in (getattr(card, "png_path", None), getattr(card, "html_path", None)):
         if not raw:
             continue
         path = Path(raw)
         if path.is_file():
             paths.append(path)
+    if png is not None:
+        card_json = png.parent / "card.json"
+        if card_json.is_file():
+            paths.append(card_json)
     return paths
 
 
@@ -292,7 +297,7 @@ def batch(
         False, "--offline", help="Copy the bundled run summary; skip endpoints and jobs."
     ),
 ) -> None:
-    """K preemptible GPU Jobs over published ``cards/*.png`` → ``runs/<run_id>/summary.json``."""
+    """K preemptible GPU Jobs over published ``cards/{id}/card.png`` → ``runs/<run_id>/summary.json``."""
     import uuid
 
     from santa.batch import BatchError, require_card_ids, run_jobs_phase
