@@ -1,5 +1,9 @@
 ## Agent skills
 
+### Feedback parking lot
+
+Unplanned ideas and quality notes: `.scratch/feedback.md`. Append there. Do not split into specs or tickets until v1 (including batch) has been tested.
+
 ### Issue tracker
 
 Issues and specs live as markdown under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
