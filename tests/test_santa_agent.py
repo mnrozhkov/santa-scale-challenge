@@ -92,7 +92,7 @@ def test_run_agent_invokes_card_tools_in_order(tmp_path, capsys) -> None:
 
 
 def test_mcp_generate_card_returns_png_and_html_paths(tmp_path) -> None:
-    from santa.mcp import generate_card
+    from santa.agent.mcp import generate_card
 
     result = generate_card(
         "Alex",

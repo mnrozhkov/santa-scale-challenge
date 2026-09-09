@@ -1,8 +1,8 @@
-"""One-file MCP server: ``generate_card(name, age, wish)`` → PNG + HTML paths.
+"""MCP server: ``generate_card(name, age, wish)`` → PNG + HTML paths.
 
 Copy-paste for Claude Code::
 
-    claude mcp add santa -- python -m santa.mcp
+    claude mcp add santa -- python -m santa.agent.mcp
 
 Copy-paste for Cursor (``.cursor/mcp.json``)::
 
@@ -10,7 +10,7 @@ Copy-paste for Cursor (``.cursor/mcp.json``)::
       "mcpServers": {
         "santa": {
           "command": "python",
-          "args": ["-m", "santa.mcp"]
+          "args": ["-m", "santa.agent.mcp"]
         }
       }
     }

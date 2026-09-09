@@ -155,7 +155,7 @@ def _run_one(model_name: str, out_root: Path) -> dict[str, Any]:
     from pydantic_ai.models.openai import OpenAIChatModel
     from pydantic_ai.providers.openai import OpenAIProvider
 
-    from santa.card_tools import card_tools
+    from santa.agent.tools import card_tools
     from santa.config import Settings
 
     settings = Settings.load()

@@ -9,9 +9,11 @@ from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from santa.card_tools import card_tools
+from santa.agent.tools import card_tools
 from santa.config import ConfigError, Settings
 from santa.models import adapter_for
+
+__all__ = ["run_agent"]
 
 
 def run_agent(

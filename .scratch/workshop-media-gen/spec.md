@@ -48,7 +48,7 @@ One package, three runtimes: `santa` CLI on the laptop, `santa-service` on a CPU
 | Wall           | `--publish`                              | `storage.py` uploads → `santa-service /wall` lists bucket                                  | —                                               |
 | 7 Keep building| —                                        | `WORKSHOP.md`, `AFTER_THE_WORKSHOP.md`, `notebooks/`                                       | —                                               |
 
-`santa agent` / `mcp.py` stay in the package (issue 06) but are **not** a workshop step.
+`santa agent` / `santa/agent/` stay in the package (issue 06) but are **not** a workshop step.
 
 ## 3. Target layout
 
@@ -65,8 +65,7 @@ santa-scale-challenge/
 │   ├── prompts.py             # lifted from prototype/src/prompts.py
 │   ├── card.py                # process_kid v2: TF → image → render
 │   ├── render.py              # Pillow renderer → PNG; Jinja → HTML with OG tags   (replaces html2image)
-│   ├── agent.py               # Pydantic AI, 4 tools, ≤40 lines                     (W7)
-│   ├── mcp.py                 # FastMCP shim: generate_card tool (kept; not a workshop step)
+│   ├── agent/                 # Pydantic AI + MCP (not a workshop step)
 │   ├── animate.py             # Wan async submit/poll + ACE-Step + mux
 │   ├── mux.py                 # imageio-ffmpeg: mp4 + mp3 → mp4
 │   ├── batch.py               # chunk → K jobs → wait → run_summary.json            (W3)

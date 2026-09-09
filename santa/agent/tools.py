@@ -1,4 +1,4 @@
-"""Agent-native wrappers around ``card.py`` so ``santa/agent.py`` stays on a slide."""
+"""Agent-native wrappers around ``card.py`` so ``santa.agent`` stays small."""
 
 from __future__ import annotations
 

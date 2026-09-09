@@ -96,7 +96,7 @@ job = [
 [project.scripts]
 santa = "santa.cli:app"
 santa-service = "santa.service.app:main"
-santa-mcp = "santa.mcp:main"
+santa-mcp = "santa.agent.mcp:main"
 
 [project.urls]
 Homepage = "https://github.com/mnrozhkov/santa-scale-challenge"
