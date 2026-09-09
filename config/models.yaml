@@ -13,20 +13,20 @@ roles:
     model: openai/gpt-oss-120b        # placeholder until scripts/bench_tool_calling.py picks the winner
     # zai-org/GLM-5.3-Flash           # candidate — uncomment runners-up after a live bench
     # nvidia/Nemotron-3_5-Lightning
-    # deepseek-ai/DeepSeek-V4-Pro
-    options: {temperature: 0.8, max_tokens: 400}
+    # deepseek-ai/DeepSeek-V4-Flash-0731
+    options: {temperature: 0.8, max_tokens: 1024}
     fallback:
       adapter: openai_chat
       base_url: https://api.openai.com/v1
       api_key_env: OPENAI_API_KEY  # pragma: allowlist secret
       model: gpt-4o-mini
-      options: {temperature: 0.8, max_tokens: 400}
+      options: {temperature: 0.8, max_tokens: 1024}
 
   image:
     adapter: openai_images            # cookbook templates/endpoint-sana: POST /v1/images/generations -> b64_json
     url_env: IMAGE_ENDPOINT_URL
     token_env: IMAGE_ENDPOINT_TOKEN
-    model: sana
+    model: Efficient-Large-Model/Sana_1600M_1024px_diffusers  # pragma: allowlist secret — serve.py rejects any other id (incl. "sana")
     options: {size: 1024x1024}
     fallback:
       adapter: openai_images

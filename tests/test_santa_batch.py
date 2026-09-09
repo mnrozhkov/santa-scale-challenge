@@ -236,6 +236,72 @@ def test_storage_boto_upload_exists_list_download() -> None:
     assert s3.objects["cards/a.png"] == b"png"
 
 
+def test_storage_from_env_uses_path_style_on_nebius_endpoint(monkeypatch) -> None:
+    from santa.storage import Storage
+
+    captured: dict = {}
+
+    def fake_client(service, **kw):
+        captured["service"] = service
+        captured.update(kw)
+        return FakeS3()
+
+    monkeypatch.setenv("NEBIUS_BUCKET_NAME", "demo-bucket")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AKIATEST")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "secret")
+    monkeypatch.setenv("AWS_ENDPOINT_URL", "https://storage.eu-north1.nebius.cloud:443/")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "eu-north1")
+    monkeypatch.setattr("boto3.client", fake_client)
+    store = Storage.from_env()
+    assert store.bucket == "demo-bucket"
+    assert captured["aws_access_key_id"] == "AKIATEST"
+    assert captured["endpoint_url"] == "https://storage.eu-north1.nebius.cloud"
+    assert captured["config"].s3["addressing_style"] == "path"
+    assert captured["verify"]  # system CA bundle or True
+
+
+def test_storage_from_env_requires_access_keys(monkeypatch) -> None:
+    from santa.storage import Storage, StorageError
+
+    monkeypatch.setenv("NEBIUS_BUCKET_NAME", "demo-bucket")
+    monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
+    monkeypatch.delenv("AWS_SECRET_ACCESS_KEY", raising=False)
+    with pytest.raises(StorageError, match="AWS_ACCESS_KEY_ID"):
+        Storage.from_env()
+
+
+def test_storage_exists_403_names_access_keys() -> None:
+    from santa.storage import Storage, StorageError
+
+    class Deny:
+        def head_object(self, **kw):
+            err = Exception("Forbidden")
+            err.response = {  # type: ignore[attr-defined]
+                "Error": {"Code": "AccessDenied"},
+                "ResponseMetadata": {"HTTPStatusCode": 403},
+            }
+            raise err
+
+    with pytest.raises(StorageError, match="AWS_ACCESS_KEY"):
+        Storage(Deny(), "demo-bucket").exists("cards/k01.png")
+
+
+def test_storage_list_access_denied_names_bucket() -> None:
+    from santa.storage import Storage, StorageError
+
+    class Deny:
+        def list_objects_v2(self, **kw):
+            err = Exception("AccessDenied")
+            err.response = {  # type: ignore[attr-defined]
+                "Error": {"Code": "AccessDenied"},
+                "ResponseMetadata": {"HTTPStatusCode": 403},
+            }
+            raise err
+
+    with pytest.raises(StorageError, match="NEBIUS_BUCKET_NAME"):
+        Storage(Deny(), "demo-bucket").list("cards/")
+
+
 def test_to_sdk_spec_mounts_bucket_and_env() -> None:
     from santa.nebius_jobs import JobPayload, to_sdk_spec
 
@@ -356,6 +422,74 @@ def test_batch_cli_writes_chunks(tmp_path, monkeypatch) -> None:
     assert result.exit_code == 0, result.output
     assert "cli1" in result.output
     assert "made 2" in result.output
+
+
+def test_batch_cli_loads_dotenv_before_storage(tmp_path, monkeypatch) -> None:
+    """`.env` is only loaded in Settings.load(); storage must not run first (empty env)."""
+    from typer.testing import CliRunner
+
+    from santa.cli import app
+
+    csv_path = tmp_path / "kids.csv"
+    csv_path.write_text("id,name,age,wishlist\na,Emma,7,train\n", encoding="utf-8")
+    order: list[str] = []
+
+    def load():
+        order.append("load")
+        return object()
+
+    def store():
+        order.append("storage")
+        return MemoryStorage()
+
+    monkeypatch.setattr(
+        "santa.batch.run_cards_phase",
+        lambda **kw: SimpleNamespace(
+            run_id=kw["run_id"],
+            run_dir=kw["run_dir"],
+            kids=["a"],
+            made=["a"],
+            skipped=[],
+            chunks=[],
+        ),
+    )
+    monkeypatch.setattr(
+        "santa.batch.run_jobs_phase",
+        lambda **kw: {
+            "run_id": kw["run_id"],
+            "jobs": [],
+            "totals": {
+                "done": 0,
+                "skipped": 0,
+                "failed": 0,
+                "cost_usd": 0,
+                "on_demand_cost_usd": 0,
+            },
+            "savings_usd": 0,
+        },
+    )
+    monkeypatch.setattr("santa.cli.Settings.load", load)
+    monkeypatch.setattr("santa.storage.Storage.from_env", store)
+    monkeypatch.setattr("santa.nebius_jobs.SdkJobService.from_env", lambda: ScriptedJobService([]))
+    result = CliRunner().invoke(
+        app,
+        [
+            "batch",
+            "--kids",
+            "1",
+            "--jobs",
+            "1",
+            "--local",
+            "--kids-csv",
+            str(csv_path),
+            "--out",
+            str(tmp_path),
+            "--run-id",
+            "dotenv1",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert order[:2] == ["load", "storage"]
 
 
 def test_batch_cli_no_wait_prints_status_hint(tmp_path, monkeypatch) -> None:

@@ -6,7 +6,7 @@
 
 **Status:** ready-for-human
 
-- [x] `scripts/bench_tool_calling.py`: runs the 4-tool card task ×10 on `zai-org/GLM-5.3-Flash`, `nvidia/Nemotron-3_5-Lightning`, `DeepSeek-V4-Pro`, `openai/gpt-oss-120b`; reports success rate, tool-order correctness, p50 latency, cost; writes `data/bench/tool_calling.md`
+- [x] `scripts/bench_tool_calling.py`: runs the 4-tool card task ×10 on `zai-org/GLM-5.3-Flash`, `nvidia/Nemotron-3_5-Lightning`, `deepseek-ai/DeepSeek-V4-Flash-0731`, `openai/gpt-oss-120b`; reports success rate, tool-order correctness, p50 latency, cost; writes `data/bench/tool_calling.md`
 - [ ] Winner set as `roles.llm.model` in `config/models.yaml`; two runners-up commented in `.env.example`
 - [x] `santa/agent.py` ≤40 lines: `Agent(OpenAIModel(provider=TF), tools=[…from card.py])`, streaming tool trace printed
 - [x] `santa/mcp.py`: FastMCP server exposing `generate_card(name, age, wish)`; README snippets for Claude Code (`claude mcp add`) and Cursor (`.cursor/mcp.json`)

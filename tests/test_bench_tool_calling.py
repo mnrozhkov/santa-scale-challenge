@@ -35,6 +35,15 @@ def test_p50_and_cost_literals() -> None:
     assert b.cost_usd(1_000_000, 2_000_000) == 1.35
 
 
+def test_bench_models_match_public_tf_set() -> None:
+    assert _bench().MODELS == (
+        "zai-org/GLM-5.3-Flash",
+        "nvidia/Nemotron-3_5-Lightning",
+        "deepseek-ai/DeepSeek-V4-Flash-0731",
+        "openai/gpt-oss-120b",
+    )
+
+
 def test_main_without_key_writes_not_run(tmp_path, monkeypatch) -> None:
     monkeypatch.delenv("TOKEN_FACTORY_API_KEY", raising=False)
     b = _bench()

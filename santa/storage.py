@@ -23,6 +23,81 @@ def staged_write(dest: Path | str, data: bytes) -> Path:
     return path
 
 
+def _env(name: str) -> str:
+    return (os.environ.get(name) or "").strip()
+
+
+def _denied_hint(exc: BaseException) -> str:
+    text = str(exc)
+    status = None
+    error = getattr(exc, "response", None)
+    if isinstance(error, dict):
+        status = error.get("ResponseMetadata", {}).get("HTTPStatusCode")
+        code = str(error.get("Error", {}).get("Code", ""))
+        if not text:
+            text = code
+    if status == 403 or "403" in text or "Forbidden" in text or "AccessDenied" in text:
+        return (
+            " Check AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY "
+            "(Object Storage access keys for this bucket, not NEBIUS_IAM_TOKEN), "
+            "NEBIUS_BUCKET_NAME (the bucket name, not NEBIUS_BUCKET_ID), "
+            "and AWS_ENDPOINT_URL=https://storage.<region>.nebius.cloud"
+        )
+    if "CERTIFICATE_VERIFY_FAILED" in text or "SSL" in text:
+        return " TLS failed (laptop CA bundle). Retry with AWS_CA_BUNDLE=/etc/ssl/cert.pem"
+    return ""
+
+
+def _tls_verify() -> str | bool:
+    """CA bundle boto3 should use. certifi often misses macOS/corporate issuers."""
+    for name in ("AWS_CA_BUNDLE", "REQUESTS_CA_BUNDLE", "SSL_CERT_FILE"):
+        path = _env(name)
+        if path:
+            return path
+    mac = Path("/etc/ssl/cert.pem")
+    if mac.is_file():
+        return str(mac)
+    try:
+        import truststore
+
+        truststore.inject_into_ssl()
+    except Exception:
+        pass
+    return True
+
+
+def _boto_s3_client() -> Any:
+    """Nebius Object Storage client. Never fall through to ~/.aws or AWS_SESSION_TOKEN."""
+    import boto3
+    from botocore.config import Config
+
+    key = _env("AWS_ACCESS_KEY_ID")
+    secret = _env("AWS_SECRET_ACCESS_KEY")
+    if not key or not secret:
+        raise StorageError(
+            "Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in .env "
+            "(Object Storage access keys from the console, not NEBIUS_IAM_TOKEN)."
+        )
+    endpoint = _env("AWS_ENDPOINT_URL") or "https://storage.eu-north1.nebius.cloud"
+    endpoint = endpoint.rstrip("/")
+    if endpoint.endswith(":443"):
+        endpoint = endpoint[: -len(":443")]
+    return boto3.client(
+        "s3",
+        aws_access_key_id=key,
+        aws_secret_access_key=secret,
+        endpoint_url=endpoint,
+        region_name=_env("AWS_DEFAULT_REGION") or "eu-north1",
+        verify=_tls_verify(),
+        config=Config(
+            signature_version="s3v4",
+            s3={"addressing_style": "path"},
+            request_checksum_calculation="when_required",
+            response_checksum_validation="when_required",
+        ),
+    )
+
+
 class Storage:
     """Thin boto3 wrapper. Keys are POSIX paths in the bucket (``cards/{id}.png``)."""
 
@@ -34,19 +109,11 @@ class Storage:
 
     @classmethod
     def from_env(cls, client: Any | None = None) -> Storage:
-        import boto3
-
-        name = (
-            os.environ.get("NEBIUS_BUCKET_NAME") or os.environ.get("AWS_S3_BUCKET") or ""
-        ).strip()
+        name = _env("NEBIUS_BUCKET_NAME") or _env("AWS_S3_BUCKET")
         if not name:
             raise StorageError("Set NEBIUS_BUCKET_NAME (or AWS_S3_BUCKET) in .env.")
         if client is None:
-            client = boto3.client(
-                "s3",
-                endpoint_url=(os.environ.get("AWS_ENDPOINT_URL") or "").strip() or None,
-                region_name=(os.environ.get("AWS_DEFAULT_REGION") or "eu-north1").strip(),
-            )
+            client = _boto_s3_client()
         return cls(client, name)
 
     def upload(self, key: str, data: bytes, *, content_type: str | None = None) -> None:
@@ -56,7 +123,7 @@ class Storage:
         try:
             self.client.put_object(Bucket=self.bucket, Key=key, Body=data, **extra)
         except Exception as exc:
-            raise StorageError(f"upload {key} failed: {exc}") from exc
+            raise StorageError(f"upload {key} failed: {exc}.{_denied_hint(exc)}") from exc
 
     def exists(self, key: str) -> bool:
         try:
@@ -71,7 +138,7 @@ class Storage:
                     return False
             if "404" in str(exc) or "NoSuchKey" in str(exc):
                 return False
-            raise StorageError(f"exists {key} failed: {exc}") from exc
+            raise StorageError(f"exists {key} failed: {exc}.{_denied_hint(exc)}") from exc
 
     def list(self, prefix: str = "") -> list[str]:
         return [k for k, _ in self.list_with_mtime(prefix)]
@@ -94,7 +161,7 @@ class Storage:
                     break
                 token = resp.get("NextContinuationToken")
         except Exception as exc:
-            raise StorageError(f"list {prefix!r} failed: {exc}") from exc
+            raise StorageError(f"list {prefix!r} failed: {exc}.{_denied_hint(exc)}") from exc
         return items
 
     def download(self, key: str) -> bytes:

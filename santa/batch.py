@@ -33,6 +33,9 @@ class StorageLike(Protocol):
     def exists(self, key: str) -> bool:
         ...
 
+    def list(self, prefix: str = "") -> list[str]:
+        ...
+
     def upload(self, key: str, data: bytes, *, content_type: str | None = None) -> None:
         ...
 
@@ -90,9 +93,10 @@ def skip_existing(
     kids: list[KidProfile], storage: StorageLike
 ) -> tuple[list[KidProfile], list[str]]:
     """Kids whose ``cards/{id}.png`` already exists are skipped."""
+    existing = set(storage.list("cards/"))
     todo, skipped = [], []
     for kid in kids:
-        if storage.exists(f"cards/{kid.id}.png"):
+        if f"cards/{kid.id}.png" in existing:
             skipped.append(kid.id)
         else:
             todo.append(kid)
@@ -101,9 +105,10 @@ def skip_existing(
 
 def ids_missing_videos(ids: list[str], storage: StorageLike) -> tuple[list[str], list[str]]:
     """Ids whose ``videos/{id}.mp4`` is missing, plus those already on the bucket."""
+    existing = set(storage.list("videos/"))
     missing, have = [], []
     for kid_id in ids:
-        if storage.exists(f"videos/{kid_id}.mp4"):
+        if f"videos/{kid_id}.mp4" in existing:
             have.append(kid_id)
         else:
             missing.append(kid_id)

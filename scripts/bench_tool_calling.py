@@ -30,7 +30,7 @@ from santa.config import REPO_ROOT
 MODELS = (
     "zai-org/GLM-5.3-Flash",
     "nvidia/Nemotron-3_5-Lightning",
-    "deepseek-ai/DeepSeek-V4-Pro",
+    "deepseek-ai/DeepSeek-V4-Flash-0731",
     "openai/gpt-oss-120b",
 )
 EXPECTED_TOOLS = ("recommend_gift", "write_wish", "generate_image", "save_card")

@@ -308,7 +308,7 @@ def batch(
         run_jobs_phase,
     )
     from santa.nebius_jobs import NebiusJobError, SdkJobService
-    from santa.storage import Storage, local_run_dir
+    from santa.storage import Storage, StorageError, local_run_dir
 
     if status:
         _batch_status(status, out)
@@ -340,6 +340,7 @@ def batch(
         raise typer.Exit(code=1) from exc
     run_dir = local_run_dir(rid, root=out)
     run_dir.mkdir(parents=True, exist_ok=True)
+    settings = Settings.load()
     service_url = "" if local else (os.environ.get("SANTA_SERVICE_URL") or "").strip()
     try:
         store = Storage.from_env()
@@ -347,17 +348,20 @@ def batch(
         console.print(f"[red]Bucket is required for santa batch: {exc}[/red]")
         console.print("Set NEBIUS_BUCKET_NAME (and AWS_* keys) in .env.")
         raise typer.Exit(code=1) from exc
-    settings = Settings.load()
-    phase = run_cards_phase(
-        kids=selected,
-        n_jobs=jobs,
-        run_id=rid,
-        run_dir=run_dir,
-        storage=store,
-        settings=settings,
-        local=local or not service_url,
-        service_url=service_url,
-    )
+    try:
+        phase = run_cards_phase(
+            kids=selected,
+            n_jobs=jobs,
+            run_id=rid,
+            run_dir=run_dir,
+            storage=store,
+            settings=settings,
+            local=local or not service_url,
+            service_url=service_url,
+        )
+    except StorageError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
     console.print(
         f"[green]run {phase.run_id}[/green] made {len(phase.made)} skipped {len(phase.skipped)} "
         f"chunks {len(phase.chunks)} → {phase.run_dir}"
@@ -449,6 +453,7 @@ def _batch_status(run_id: str, out: Path) -> None:
 
     run_dir = local_run_dir(run_id, root=out)
     run_dir.mkdir(parents=True, exist_ok=True)
+    settings = Settings.load()
     ticket_path = run_dir / "ticket.json"
     if not ticket_path.is_file():
         try:
@@ -460,7 +465,6 @@ def _batch_status(run_id: str, out: Path) -> None:
     else:
         store = Storage.from_env()
     ticket = json.loads(ticket_path.read_text(encoding="utf-8"))
-    settings = Settings.load()
     try:
         svc = SdkJobService.from_env()
         summary = _wait_jobs_live(
