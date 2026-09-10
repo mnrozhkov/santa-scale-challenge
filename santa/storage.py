@@ -79,21 +79,32 @@ def _denied_hint(exc: BaseException) -> str:
     return ""
 
 
-def _tls_verify() -> str | bool:
-    """CA bundle boto3 should use. certifi often misses macOS/corporate issuers."""
-    for name in ("AWS_CA_BUNDLE", "REQUESTS_CA_BUNDLE", "SSL_CERT_FILE"):
-        path = _env(name)
-        if path:
-            return path
-    mac = Path("/etc/ssl/cert.pem")
-    if mac.is_file():
-        return str(mac)
+def use_system_certs() -> None:
+    """macOS/corporate laptops often fail TLS with certifi; trust the OS store."""
     try:
         import truststore
 
         truststore.inject_into_ssl()
     except Exception:
         pass
+
+
+def _tls_verify() -> str | bool:
+    """CA bundle boto3 should use. Prefer the OS store over a stale cert.pem."""
+    for name in ("AWS_CA_BUNDLE", "REQUESTS_CA_BUNDLE", "SSL_CERT_FILE"):
+        path = _env(name)
+        if path:
+            return path
+    try:
+        import truststore
+
+        truststore.inject_into_ssl()
+        return True
+    except Exception:
+        pass
+    mac = Path("/etc/ssl/cert.pem")
+    if mac.is_file():
+        return str(mac)
     return True
 
 

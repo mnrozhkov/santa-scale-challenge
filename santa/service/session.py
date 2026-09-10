@@ -161,14 +161,22 @@ class ServiceSession:
             out_root=root,
         )
 
-    def generate_card(self, kid: KidProfile) -> CardRun:
-        run = self._run_card(kid)
+    def generate_card(
+        self, kid: KidProfile, *, on_progress: Callable[[dict[str, Any]], None] | None = None
+    ) -> CardRun:
+        def emit(event: dict[str, Any]) -> None:
+            if on_progress is not None:
+                on_progress(event)
+
+        run = self._run_card(kid, on_progress=on_progress)
         self.last_run = run
         self.last_kid = kid
+        emit({"type": "active", "node": "bucket"})
         try:
             self._upload_card(kid.id, run, kid=kid)
+            emit({"type": "done", "node": "bucket"})
         except StorageError:
-            pass
+            emit({"type": "done", "node": "bucket", "status": "skipped", "meta": "local only"})
         return run
 
     def generate_batch(self, kids: list[KidProfile], *, max_workers: int = 4) -> BatchResult:
@@ -185,7 +193,12 @@ class ServiceSession:
                     failures.append({"id": kid.id, "error": str(exc)})
         return BatchResult(ids=ids, failures=failures)
 
-    def _run_card(self, kid: KidProfile) -> CardRun:
+    def _run_card(
+        self,
+        kid: KidProfile,
+        *,
+        on_progress: Callable[[dict[str, Any]], None] | None = None,
+    ) -> CardRun:
         if not (kid.name or "").strip():
             raise ProfileError("Name is required.")
         return self.card_runner(
@@ -194,6 +207,7 @@ class ServiceSession:
             out_root=self.out_root,
             llm=self.llm,
             image=self.image,
+            on_progress=on_progress,
         )
 
     def _run_and_upload(self, kid: KidProfile) -> str:
@@ -252,10 +266,13 @@ class ServiceSession:
             return DiskStorage(self.out_root).download(key)
 
     def wall(self) -> dict[str, Any]:
+        from santa.service.demo_gallery import merge_demo_wall
+
         try:
-            return self._wall_from(self.storage)
+            listing = self._wall_from(self.storage)
         except StorageError:
-            return self._wall_from(DiskStorage(self.out_root))
+            listing = self._wall_from(DiskStorage(self.out_root))
+        return merge_demo_wall(listing)
 
     def _wall_from(self, storage: StorageLike) -> dict[str, Any]:
         keys = storage.list("cards/")

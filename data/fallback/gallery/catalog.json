@@ -1,0 +1,177 @@
+[
+  {
+    "id": "g1",
+    "name": "Emma",
+    "age": 8,
+    "wish": "Dear Alex, my dear three‑year‑old explorer, I’ve heard about the wonderful wooden car that loves to pull you along sn…",
+    "tags": [
+      "books"
+    ],
+    "mood": "Dreamy",
+    "city": "Oslo",
+    "gift": "Wooden pull‑along car",
+    "has_video": true,
+    "src": "529c7874-03b6-45ce-b7c1-e11a30ec4259"
+  },
+  {
+    "id": "g2",
+    "name": "Lucas",
+    "age": 8,
+    "wish": "Dear Kid, being 8 is such a marvelous age for discovering new wonders, and I’ve heard you’ll be building fantastic cr…",
+    "tags": [
+      "lego"
+    ],
+    "mood": "Dreamy",
+    "city": "Stockholm",
+    "gift": "LEGO Creator 3‑in‑1 Building Set",
+    "has_video": false,
+    "src": "960bee0b-5f20-449d-9dfd-52e6186a8d0d"
+  },
+  {
+    "id": "g3",
+    "name": "Sofia",
+    "age": 8,
+    "wish": "Dear Kid, at the wonderful age of 8 your imagination is already as bright as the twinkling lights on my sleigh. I hea…",
+    "tags": [
+      "lego",
+      "robots"
+    ],
+    "mood": "Dreamy",
+    "city": "Helsinki",
+    "gift": "LEGO Boost Creative Toolbox (STEM building kit)",
+    "has_video": false,
+    "src": "a1a5482e-2307-48e5-bb17-0b93456b3411"
+  },
+  {
+    "id": "g4",
+    "name": "Noah",
+    "age": 8,
+    "wish": "Dear Kid, at 8 years old you’re already a brilliant explorer of imagination! I hear you’ve been crafting marvelous in…",
+    "tags": [
+      "robots",
+      "lego"
+    ],
+    "mood": "Dreamy",
+    "city": "Copenhagen",
+    "gift": "Interactive STEM building set (e.g., magnetic circuits or robot kit)",
+    "has_video": false,
+    "src": "bce91863-a224-45da-bbde-1bbaf002b05c"
+  },
+  {
+    "id": "g5",
+    "name": "Ingrid",
+    "age": 8,
+    "wish": "Dear Kid, at your wonderful age of 8 you’re already a master of building marvelous structures that snap together, a b…",
+    "tags": [
+      "lego"
+    ],
+    "mood": "Dreamy",
+    "city": "Bergen",
+    "gift": "Magnetic building tiles set",
+    "has_video": false,
+    "src": "588dcaa2-9be8-40fb-92d0-f983c449013d"
+  },
+  {
+    "id": "g6",
+    "name": "Felix",
+    "age": 8,
+    "wish": "Dear Kid, at eight years old you already shine with the curiosity of a thousand stars. I’ve placed a handful of wondr…",
+    "tags": [
+      "robots"
+    ],
+    "mood": "Dreamy",
+    "city": "Malmö",
+    "gift": "Interactive STEM building set",
+    "has_video": false,
+    "src": "9c958f6e-cd4c-45d0-80ec-0c34d3e3a7ff"
+  },
+  {
+    "id": "g7",
+    "name": "Astrid",
+    "age": 8,
+    "wish": "Dear Kid, I hear that being 8 years old fills your days with curiosity and wonder! This year the North Pole elves hav…",
+    "tags": [
+      "robots",
+      "lego"
+    ],
+    "mood": "Dreamy",
+    "city": "Gothenburg",
+    "gift": "STEM Building Kit (magnetic tiles or simple robotics set)",
+    "has_video": false,
+    "src": "074accab-87f2-44b8-a822-8a65d0700c67"
+  },
+  {
+    "id": "g8",
+    "name": "Oliver",
+    "age": 8,
+    "wish": "Hello Kid! At eight years old, your curiosity shines brighter than the North Star, and I hear the soft clink of magne…",
+    "tags": [
+      "robots",
+      "lego"
+    ],
+    "mood": "Dreamy",
+    "city": "Espoo",
+    "gift": "Magnetic STEM Building Kit",
+    "has_video": false,
+    "src": "b8a05dd0-965d-43d7-b223-4674ee4567b7"
+  },
+  {
+    "id": "g9",
+    "name": "Nick",
+    "age": 5,
+    "wish": "Lego and animals",
+    "tags": [
+      "dinosaurs",
+      "lego"
+    ],
+    "mood": "Dreamy",
+    "city": "Turku",
+    "gift": "LEGO Dino Adventure Building Set",
+    "has_video": false,
+    "src": "a7948bbc-746b-42d6-a3d0-c0b93863d0a3"
+  },
+  {
+    "id": "g10",
+    "name": "Elias",
+    "age": 8,
+    "wish": "Dear Kid, being eight is such a wonderful time when every question feels like a new adventure, and I’ve seen how your…",
+    "tags": [
+      "lego",
+      "robots"
+    ],
+    "mood": "Dreamy",
+    "city": "Aarhus",
+    "gift": "STEM Building Kit (e.g., LEGO Boost or similar)",
+    "has_video": false,
+    "src": "5896e399-960a-4f77-ba65-ea611665c10c"
+  },
+  {
+    "id": "g11",
+    "name": "Freya",
+    "age": 8,
+    "wish": "Dear Kid, at the wonderful age of 8 you’re already a true master of imagination. I’ve heard the North Pole elves have…",
+    "tags": [
+      "lego"
+    ],
+    "mood": "Dreamy",
+    "city": "Odense",
+    "gift": "LEGO Creator 3‑in‑1 Building Set",
+    "has_video": false,
+    "src": "28ade529-32a2-4ae7-a317-45cf4ddf1548"
+  },
+  {
+    "id": "g12",
+    "name": "Viktor",
+    "age": 8,
+    "wish": "Hello Kid, being eight means your imagination shines brighter than the twinkling lights on my sleigh. I’ve tucked a c…",
+    "tags": [
+      "robots",
+      "lego"
+    ],
+    "mood": "Dreamy",
+    "city": "Tampere",
+    "gift": "Magnetic STEM Building Tiles",
+    "has_video": false,
+    "src": "e281897f-82b8-4c3d-baf8-866bed7cf169"
+  }
+]

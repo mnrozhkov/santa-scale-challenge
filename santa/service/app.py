@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
@@ -19,8 +19,11 @@ from santa.card import ProfileError, validate_profile
 from santa.config import ConfigError
 from santa.nebius_jobs import NebiusJobError
 from santa.schemas import KidProfile
+from santa.service.demo_gallery import GALLERY_DIR
 from santa.service.session import ServiceSession
-from santa.storage import StorageError
+from santa.storage import StorageError, use_system_certs
+
+use_system_certs()
 
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -82,7 +85,10 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
     @application.get("/", response_class=HTMLResponse)
     def index(request: Request) -> Any:
         if UI_INDEX.is_file():
-            return FileResponse(UI_INDEX)
+            return FileResponse(
+                UI_INDEX,
+                headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+            )
         try:
             return _page(request, current())
         except (ConfigError, StorageError, RuntimeError) as exc:
@@ -168,6 +174,47 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
             run = current().generate_card(kid)
         except (ProfileError, ConfigError, StorageError, RuntimeError) as exc:
             raise _http_error(exc, status=400) from exc
+        return _card_response(run, kid)
+
+    @application.post("/api/cards/stream")
+    def api_cards_stream(kid: KidProfile) -> StreamingResponse:
+        from concurrent.futures import ThreadPoolExecutor
+        from queue import Queue
+
+        q: Queue[dict[str, Any] | None] = Queue()
+
+        def worker() -> None:
+            try:
+                run = current().generate_card(kid, on_progress=q.put)
+                q.put({"type": "complete", **_card_response(run, kid)})
+            except (ProfileError, ConfigError, StorageError, RuntimeError) as exc:
+                q.put({"type": "error", "detail": str(exc)})
+            except Exception as exc:
+                q.put({"type": "error", "detail": str(exc)})
+            finally:
+                q.put(None)
+
+        def generate() -> Any:
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                pool.submit(worker)
+                while True:
+                    item = q.get()
+                    if item is None:
+                        break
+                    # SSE comment padding — some proxies buffer small chunks until ~2 KB.
+                    yield f"data: {json.dumps(item)}\n\n: pad {' ' * 2048}\n\n"
+
+        return StreamingResponse(
+            generate(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
+    def _card_response(run: Any, kid: KidProfile) -> dict[str, Any]:
         kid_id = run.card.kid_id
         return {
             "card": json.loads(run.card.model_dump_json()),
@@ -260,6 +307,8 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
     assets = STATIC_DIR / "assets"
     if assets.is_dir():
         application.mount("/assets", StaticFiles(directory=assets), name="ui-assets")
+    if GALLERY_DIR.is_dir():
+        application.mount("/demo", StaticFiles(directory=GALLERY_DIR), name="demo-gallery")
 
     return application
 

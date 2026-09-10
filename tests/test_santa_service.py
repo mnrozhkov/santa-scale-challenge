@@ -131,7 +131,28 @@ def _session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, runner=None) -> Se
     _env(monkeypatch)
     if runner is None:
 
-        def runner(kid, settings, *, out_root=None, llm=None, image=None, **kw):
+        def runner(kid, settings, *, out_root=None, llm=None, image=None, on_progress=None, **kw):
+            if on_progress is not None:
+                on_progress({"type": "active", "node": "token"})
+                on_progress(
+                    {
+                        "type": "step",
+                        "step": {"role": "llm", "model": "gpt-oss", "fallback": False, "ms": 10},
+                    }
+                )
+                on_progress({"type": "done", "node": "token", "meta": "0.0 s · gpt-oss"})
+                on_progress({"type": "active", "node": "sana"})
+                on_progress(
+                    {
+                        "type": "step",
+                        "step": {"role": "image", "model": "sana", "fallback": True, "ms": 40},
+                    }
+                )
+                on_progress(
+                    {"type": "done", "node": "sana", "status": "failed", "meta": "fallback"}
+                )
+                on_progress({"type": "active", "node": "openai"})
+                on_progress({"type": "done", "node": "openai", "meta": "0.0 s · sana"})
             return CardRun(
                 card=_gift_card(kid, tmp_path),
                 out_dir=tmp_path,
@@ -167,6 +188,30 @@ def test_api_cards_returns_card_json_with_model_fallback(
     assert steps["llm"]["fallback"] is False
     assert "png_url" in data and "html_url" in data
     assert data["png_url"] == f"/cards/{data['card']['kid_id']}.png"
+
+
+def test_api_cards_stream_emits_progress_then_complete(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import json
+
+    from fastapi.testclient import TestClient
+
+    kid = KidProfile(name="Emma", age=7, wishlist=["stars"])
+    client = TestClient(create_app(_session(tmp_path, monkeypatch)))
+    with client.stream("POST", "/api/cards/stream", json=kid.model_dump()) as resp:
+        assert resp.status_code == 200
+        events: list[dict] = []
+        for line in resp.iter_lines():
+            if not line.startswith("data: "):
+                continue
+            events.append(json.loads(line[6:]))
+    types = [e["type"] for e in events]
+    assert types[0] == "active" and events[0]["node"] == "token"
+    assert "step" in types
+    assert "done" in types
+    assert types[-1] == "complete"
+    assert events[-1]["card"]["recommendation"]["gifts"] == ["telescope"]
 
 
 def test_api_cards_urls_are_per_kid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -320,8 +365,19 @@ def test_api_wall_lists_keys_from_fake_storage(
     assert form.status_code == 200
     assert "GiftCard" in form.text or "Generate" in form.text
     wall_json = client.get("/api/wall").json()
-    assert wall_json["items"][0]["id"] == "k1"
-    assert wall_json["items"][0]["png_url"] == "/media/cards/k1/card.png"
+    by_id = {item["id"]: item for item in wall_json["items"]}
+    assert "k1" in by_id
+    assert by_id["k1"]["png_url"] == "/media/cards/k1/card.png"
+    assert by_id["g1"]["png_url"] == "/demo/g1/card.png"
+    assert by_id["g1"]["model"] == "demo"
+    assert len(wall_json["items"]) >= 13  # 12 demo + k1
+    demo = client.get("/demo/g1/card.png")
+    assert demo.status_code == 200
+    assert demo.headers["content-type"].startswith("image/")
+    video = client.get("/demo/g1/video.mp4")
+    assert video.status_code == 200
+    no_video = client.get("/demo/g2/video.mp4")
+    assert no_video.status_code == 404
 
 
 def test_wall_counter_prefers_totals_done(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -397,8 +453,9 @@ def test_generate_card_uploads_png_json_and_profile(
     profile = json.loads(session.storage.download("cards/emma/profile.json"))
     assert profile["name"] == "Emma"
     wall = client.get("/api/wall").json()
-    assert wall["items"][0]["name"] == "Emma"
-    assert wall["items"][0]["gift"] == "telescope"
+    by_id = {item["id"]: item for item in wall["items"]}
+    assert by_id["emma"]["name"] == "Emma"
+    assert by_id["emma"]["gift"] == "telescope"
 
 
 def test_api_kids_reads_workshop_csv() -> None:
@@ -410,6 +467,18 @@ def test_api_kids_reads_workshop_csv() -> None:
     kids = resp.json()["kids"]
     assert len(kids) == 3
     assert kids[0]["name"] == "Emma"
+
+
+def test_tls_verify_prefers_explicit_bundle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from santa.storage import _tls_verify, use_system_certs
+
+    bundle = tmp_path / "ca.pem"
+    bundle.write_text("dummy", encoding="utf-8")
+    monkeypatch.setenv("AWS_CA_BUNDLE", str(bundle))
+    assert _tls_verify() == str(bundle)
+    use_system_certs()
 
 
 def test_disk_storage_maps_local_out_tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

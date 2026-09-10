@@ -13,7 +13,7 @@ santa-service          # HOST=0.0.0.0 PORT=8000
 
 Vite-only during UI work: `npm run dev --prefix santa/service/ui` (proxies `/api` to port 8000).
 
-- `GET /` — prototype UI (Create gift card · Batch · Gallery). Right-hand **Sim / Real** toggle: Sim is the original graph + log simulation; Real calls this process.
+- `GET /` — prototype UI (Create gift card · Animate · Gallery). Right-hand **Sim / Real** toggle: Sim is the original graph + log simulation; Real calls this process. On Gallery, the right pane is a GiftCard preview (not the DAG); Sim/Real stays in that header. Both modes include 12 bundled demo GiftCards from `data/fallback/gallery/` (`/demo/{id}/…`); published wall items with the same id replace a demo.
 - `GET /form` — original one-KidProfile HTML form
 - `POST /api/cards` — one `KidProfile` → card JSON + file URLs (also writes the GiftCard to storage, or local `out/` when bucket creds are missing)
 - `POST /api/cards/{id}/animate` — mood-bank `santa animate` → `cards/{id}/video.mp4`

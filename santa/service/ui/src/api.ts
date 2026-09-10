@@ -41,6 +41,13 @@ export type CardResponse = {
   kid?: { id: string; name: string; age: number; wishlist: string[] };
 };
 
+export type CardProgressEvent =
+  | { type: "active"; node: string }
+  | { type: "step"; step: Step }
+  | { type: "done"; node: string; status?: string; meta?: string }
+  | ({ type: "complete" } & CardResponse)
+  | { type: "error"; detail: string };
+
 export type KidRow = {
   id: string;
   name: string;
@@ -72,6 +79,12 @@ export type RunResponse = {
     savings_usd?: number;
   } | null;
 };
+
+function yieldFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+}
 
 async function readError(resp: Response): Promise<string> {
   const text = await resp.text();
@@ -107,6 +120,47 @@ export async function createCard(body: {
   });
   if (!resp.ok) throw new Error(await readError(resp));
   return resp.json() as Promise<CardResponse>;
+}
+
+export async function createCardStream(
+  body: { name: string; age: number; wishlist: string[] },
+  onEvent: (event: CardProgressEvent) => void,
+): Promise<CardResponse> {
+  const resp = await fetch("/api/cards/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) throw new Error(await readError(resp));
+  if (!resp.body) throw new Error("Empty stream body");
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let complete: CardResponse | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const chunks = buffer.split("\n\n");
+    buffer = chunks.pop() ?? "";
+    for (const chunk of chunks) {
+      const line = chunk.split("\n").find((l) => l.startsWith("data: "));
+      if (!line) continue;
+      const event = JSON.parse(line.slice(6)) as CardProgressEvent;
+      if (event.type === "error") throw new Error(event.detail);
+      if (event.type === "complete") {
+        complete = event;
+        continue;
+      }
+      onEvent(event);
+      await yieldFrame();
+    }
+  }
+
+  if (!complete) throw new Error("Stream ended without a complete event");
+  return complete;
 }
 
 export async function animateCard(kidId: string): Promise<{ id: string; video_url: string }> {

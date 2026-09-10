@@ -9,7 +9,7 @@ A reference implementation for orchestrating LLMs and image, video, and audio mo
 ```
 santa-scale-challenge/
 ├── santa/                 # One package: CLI, CPU service, GPU job
-│   ├── cli.py             # santa doctor | card | batch | animate | teardown
+│   ├── cli.py             # santa doctor | card | animate | animate_batch | teardown
 │   ├── card.py            # Gift rec + wish + illustration → PNG/HTML
 │   ├── animate.py         # Wan I2V + music → card.mp4
 │   ├── batch.py           # Inventory cards/{id}/card.png → K GPU Jobs
@@ -62,59 +62,21 @@ uv sync
 uv sync --group service    # FastAPI CPU UI (santa-service)
 uv sync --group dev        # Jupyter, pytest, linters
 uv sync --group research   # MLflow eval notebooks
+
+# Keys you already have — not GPU endpoints
+cp .env.example .env
+# TOKEN_FACTORY_API_KEY=…     # llm role (required for a live card)
+# OPENAI_API_KEY=…            # optional fallback for llm / image / video
+# SANTA_FALLBACK=auto         # auto | off | only
 ```
 
 `uv sync` with no groups is the laptop core: `santa doctor`, `santa card`.
 
-## ⚙️ Configuration
-
-### Environment Variables
-
-Create a `.env` file in the repository root (copy `.env.example` and fill in your keys). Roles are named in `config/models.yaml`; secrets and URLs live in `.env`.
-
-```bash
-# Token Factory (llm role) — at least one LLM key required
-TOKEN_FACTORY_API_KEY=your_token_factory_key
-
-# Fallback for llm / image / video when a primary endpoint is missing or fails
-OPENAI_API_KEY=your_openai_key
-SANTA_FALLBACK=auto          # auto | off | only
-
-# Image endpoint (Sana) — required for a live card
-IMAGE_ENDPOINT_URL=https://your-sana-endpoint
-IMAGE_ENDPOINT_TOKEN=your_endpoint_token
-
-# Video endpoint (Wan I2V) — santa animate
-VIDEO_ENDPOINT_URL=https://your-wan-endpoint
-VIDEO_ENDPOINT_TOKEN=your_endpoint_token
-
-# Audio endpoint (ACE-Step) — or use --mood-bank
-AUDIO_ENDPOINT_URL=https://your-acestep-endpoint
-AUDIO_ENDPOINT_TOKEN=your_endpoint_token
-
-# CPU service (optional; santa publish without --local)
-SANTA_SERVICE_URL=https://your-cpu-service
-
-# Object Storage (publish + santa batch)
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-AWS_ENDPOINT_URL=https://storage.eu-north1.nebius.cloud
-NEBIUS_BUCKET_NAME=your-bucket-name
-
-# GPU Jobs (santa batch)
-NEBIUS_IAM_TOKEN=your_iam_token
-NEBIUS_PROJECT_ID=your_project_id
-NEBIUS_BUCKET_ID=your_bucket_id
-NEBIUS_SUBNET_ID=your_subnet_id
-```
-
-The CLI loads `.env` from the repository root automatically.
-
-Swap a model in `config/models.yaml` only — code never names a model. Then re-run `santa doctor`.
+GPU endpoint URLs go in `.env` after you deploy them (step 1 below). Nebius bucket / Jobs IDs go in when you create those resources (step 3). The CLI loads `.env` from the repository root automatically. Roles are named in `config/models.yaml`; secrets and URLs live in `.env`. Swap a model in the yaml only — then re-run `santa doctor`.
 
 ## 🧪 Running Locally (test/debug)
 
-Check that `.env`, Token Factory, and endpoints resolve:
+Check that `.env` and Token Factory resolve (image / video / audio may SKIP until you deploy them):
 
 ```bash
 santa doctor
@@ -132,7 +94,7 @@ Expected: `out/<id>/card.png` and `out/<id>/card.html`. Stuck? Set `OPENAI_API_K
 ```bash
 santa card --offline
 santa animate --offline
-santa batch --offline
+santa animate_batch --offline
 ```
 
 CPU UI on the laptop:
@@ -153,9 +115,23 @@ uv sync --group dev && uv run jupyter lab
 
 ## ☁️ Running with Serverless AI
 
-Everything below runs in **your** Nebius project. Workshop walkthrough: [WORKSHOP.md](WORKSHOP.md) (steps 0–7). After the session: [_DEV/AFTER_THE_WORKSHOP.md](_DEV/AFTER_THE_WORKSHOP.md).
+Everything below runs in **your** Nebius project. Workshop walkthrough: [WORKSHOP.md](WORKSHOP.md) (steps 0–6). After the session: [_DEV/AFTER_THE_WORKSHOP.md](_DEV/AFTER_THE_WORKSHOP.md).
 
-**1. Deploy endpoints** from the console templates (Create Endpoint), then paste URL + token into `.env`:
+**1. Deploy endpoints** from the console templates (Create Endpoint). When each one is ready, paste its URL and token into `.env`:
+
+```bash
+# Image (Sana) — required for a live card
+IMAGE_ENDPOINT_URL=https://your-sana-endpoint
+IMAGE_ENDPOINT_TOKEN=your_endpoint_token
+
+# Video (Wan I2V) — santa animate
+VIDEO_ENDPOINT_URL=https://your-wan-endpoint
+VIDEO_ENDPOINT_TOKEN=your_endpoint_token
+
+# Audio (ACE-Step) — or skip and use --mood-bank
+AUDIO_ENDPOINT_URL=https://your-acestep-endpoint
+AUDIO_ENDPOINT_TOKEN=your_endpoint_token
+```
 
 - Image — [Sana (L40S)](https://console.nebius.com/serverless/endpoint/create?image=cr.eu-north1.nebius.cloud%2Fe00gw2b7v3pxetvpy7%2Fsana-serve%3Ad315ae1&targetPort=8000&platform=gpu-l40s-a&preset=1gpu-8vcpu-32gb&diskSize=500GiB&preemptible=true) → `IMAGE_ENDPOINT_*`
 - Video — [Wan 2.2 I2V A14B (H100)](https://console.nebius.com/serverless/endpoint/create?image=vllm%2Fvllm-omni%3Av0.24.0&command=vllm%20serve%20Wan-AI%2FWan2.2-I2V-A14B-Diffusers%20--omni%20--host%200.0.0.0%20--port%208000&targetPort=8000&platform=gpu-h100-sxm&preset=1gpu-16vcpu-200gb&diskSize=500GiB&preemptible=true) → `VIDEO_ENDPOINT_*`
@@ -169,14 +145,30 @@ Catalog: [serverless-ai-cookbook/templates](https://github.com/nebius/serverless
 santa animate out/<id>/card.png --mood-bank
 ```
 
-**3. Batch** — publish GiftCards via the API, then K preemptible GPU Jobs over `cards/{id}/card.png`. Needs bucket + IAM and `job.image` in `config/models.yaml`:
+**3. Animate batch** — publish GiftCards via the API, then K preemptible GPU Jobs over `cards/{id}/card.png`. Add bucket + IAM to `.env` (create these in the console if you have not yet) and set `job.image` in `config/models.yaml`:
+
+```bash
+# Object Storage (publish + santa animate_batch)
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_ENDPOINT_URL=https://storage.eu-north1.nebius.cloud
+NEBIUS_BUCKET_NAME=your-bucket-name
+
+# GPU Jobs
+NEBIUS_IAM_TOKEN=your_iam_token          # nebius iam get-access-token
+NEBIUS_PROJECT_ID=your_project_id
+NEBIUS_BUCKET_ID=your_bucket_id
+NEBIUS_SUBNET_ID=your_subnet_id
+```
+
+Then:
 
 ```bash
 santa card --name Emma --age 7 --wish "a telescope" --publish
-santa batch --jobs 4
+santa animate_batch --jobs 4
 ```
 
-`--no-wait` + `santa batch --status <run_id>` to poll later. Existing `cards/{id}/video.mp4` are skipped.
+`--no-wait` + `santa animate_batch --status <run_id>` to poll later. Existing `cards/{id}/video.mp4` are skipped.
 
 **4. Publish** to the wall (`GET /wall` on the CPU service):
 
@@ -201,9 +193,9 @@ Echo prompts for listing/stopping endpoints: [skills/README.md](skills/README.md
 | `santa doctor` red on **llm** or **image** | Paste `TOKEN_FACTORY_API_KEY` and `IMAGE_ENDPOINT_URL` / `IMAGE_ENDPOINT_TOKEN`. Or set `OPENAI_API_KEY` so the fallback covers the role (row becomes WARN). |
 | Endpoint is RUNNING in the console, doctor still fails | RUNNING ≠ ready. Wait and re-run `santa doctor` until it pings `/v1/models`. |
 | TLS / `SSLError` on a corporate laptop | The CLI injects the OS cert store (`truststore`). Persist with `export SSL_CERT_FILE=/path/to/corp-ca.pem`. S3: `AWS_CA_BUNDLE=/etc/ssl/cert.pem`. |
-| No GPU endpoints yet | `SANTA_FALLBACK=only` skips primaries. Or `santa card --offline` / `santa animate --offline` / `santa batch --offline` (copies `data/fallback/`, calls no models). |
-| `santa batch` / publish 403 | Use Object Storage access keys (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`), not `NEBIUS_IAM_TOKEN`. Bucket **name** is `NEBIUS_BUCKET_NAME`; bucket **id** (`NEBIUS_BUCKET_ID`) is only for Job FUSE mounts. |
-| `santa batch` empty `cards/` | Publish GiftCards first (`santa card … --publish`), then `santa batch --jobs 4`. Batch is Jobs only — it does not make GiftCards. |
+| No GPU endpoints yet | `SANTA_FALLBACK=only` skips primaries. Or `santa card --offline` / `santa animate --offline` / `santa animate_batch --offline` (copies `data/fallback/`, calls no models). |
+| `santa animate_batch` / publish 403 | Use Object Storage access keys (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`), not `NEBIUS_IAM_TOKEN`. Bucket **name** is `NEBIUS_BUCKET_NAME`; bucket **id** (`NEBIUS_BUCKET_ID`) is only for Job FUSE mounts. |
+| `santa animate_batch` empty `cards/` | Publish GiftCards first (`santa card … --publish`), then `santa animate_batch --jobs 4`. Animate batch is Jobs only — it does not make GiftCards. |
 | Jobs never submit | Publish GiftCards, then set `NEBIUS_IAM_TOKEN` (`nebius iam get-access-token`), `NEBIUS_PROJECT_ID`, `NEBIUS_BUCKET_ID`, `NEBIUS_SUBNET_ID`, and a non-empty `job.image` in `config/models.yaml` (`docker build --platform linux/amd64 -f docker/job.Dockerfile`). |
 
 `santa doctor` does not stop anything. `santa teardown` does.

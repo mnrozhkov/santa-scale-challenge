@@ -175,7 +175,7 @@ def run_checks(settings: Settings | None = None, *, probe: Probe = _http_get) ->
                     )
                 )
 
-    # batch / publish plumbing (presence only; verified live by `santa batch`)
+    # batch / publish plumbing (presence only; verified live by `santa animate_batch`)
     service = os.environ.get("SANTA_SERVICE_URL", "").strip()
     checks.append(
         Check(
@@ -189,10 +189,10 @@ def run_checks(settings: Settings | None = None, *, probe: Probe = _http_get) ->
     for var, fix in (
         (
             "NEBIUS_IAM_TOKEN",
-            "nebius iam get-access-token → NEBIUS_IAM_TOKEN in .env (only for `santa batch`)",
+            "nebius iam get-access-token → NEBIUS_IAM_TOKEN in .env (only for `santa animate_batch`)",
         ),
-        ("NEBIUS_PROJECT_ID", "Set NEBIUS_PROJECT_ID in .env (only for `santa batch`)"),
-        ("NEBIUS_BUCKET_ID", "Set NEBIUS_BUCKET_ID in .env (only for `santa batch`)"),
+        ("NEBIUS_PROJECT_ID", "Set NEBIUS_PROJECT_ID in .env (only for `santa animate_batch`)"),
+        ("NEBIUS_BUCKET_ID", "Set NEBIUS_BUCKET_ID in .env (only for `santa animate_batch`)"),
     ):
         val = os.environ.get(var, "").strip()
         checks.append(

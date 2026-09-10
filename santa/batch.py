@@ -1,4 +1,4 @@
-"""``santa batch``: inventory published GiftCards, then K GPU Jobs → ``run_summary.json``."""
+"""``santa animate_batch``: inventory published GiftCards, then K GPU Jobs → ``run_summary.json``."""
 
 from __future__ import annotations
 

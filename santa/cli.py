@@ -3,8 +3,8 @@
 santa doctor
 santa card …      (issue 02) [--publish] [--offline]
 santa agent …     (issue 06)
-santa batch …     (issue 16: Jobs over published cards/{id}/card.png) [--offline]
 santa animate …   (issue 05) [--publish] [--offline]
+santa animate_batch … (issue 16: Jobs over published cards/{id}/card.png) [--offline]
 santa publish …   (issue 10)
 santa teardown …  (issue 13)
 """
@@ -57,7 +57,7 @@ def _root(version: bool = typer.Option(False, "--version", is_eager=True)) -> No
 
 @app.command()
 def doctor() -> None:
-    """Check .env, Token Factory, your endpoints, fallbacks and batch plumbing. Prints what to fix."""
+    """Check .env, Token Factory, your endpoints, fallbacks and Jobs plumbing. Prints what to fix."""
     checks = run_checks()
     table = Table(show_lines=False, header_style="bold")
     table.add_column("")
@@ -286,8 +286,8 @@ def animate(
         _publish_outputs([Path(result)], local=local)
 
 
-@app.command()
-def batch(
+@app.command("animate_batch")
+def animate_batch(
     jobs: int = typer.Option(4, "--jobs", help="How many GPU job chunks to submit."),
     run_id: str | None = typer.Option(None, "--run-id"),
     no_wait: bool = typer.Option(False, "--no-wait", help="Submit jobs and return the run id."),
@@ -330,7 +330,7 @@ def batch(
     try:
         store = Storage.from_env()
     except Exception as exc:
-        console.print(f"[red]Bucket is required for santa batch: {exc}[/red]")
+        console.print(f"[red]Bucket is required for santa animate_batch: {exc}[/red]")
         console.print("Set NEBIUS_BUCKET_NAME (and AWS_* keys) in .env.")
         raise typer.Exit(code=1) from exc
     try:
@@ -359,7 +359,7 @@ def batch(
             )
             console.print(
                 f"[green]submitted {len(result.get('jobs') or [])} jobs[/green] "
-                f"— santa batch --status {rid}"
+                f"— santa animate_batch --status {rid}"
             )
             return
         summary = _wait_jobs_live(

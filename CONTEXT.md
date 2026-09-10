@@ -33,8 +33,8 @@ A CLI mode that copies bundled fallback files and does not call endpoints or Job
 _Avoid_: fallback, dry-run
 
 **run**:
-One `santa batch` execution: K GPU Jobs over published GiftCard illustrations already in `cards/`, one summary.
-_Avoid_: job, batch (batch is the command), kids (a run is not “N kids from the CSV”)
+One `santa animate_batch` execution: K GPU Jobs over published GiftCard illustrations already in `cards/`, one summary.
+_Avoid_: job, batch (the command is `santa animate_batch`), kids (a run is not “N kids from the CSV”)
 
 **chunk**:
 The list of card ids one GPU Job processes inside a run.

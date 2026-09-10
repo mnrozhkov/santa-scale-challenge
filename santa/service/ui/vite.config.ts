@@ -23,6 +23,7 @@ export default defineConfig({
       "/api": api,
       "/cards": api,
       "/media": api,
+      "/demo": api,
       "/wall": api,
     },
   },

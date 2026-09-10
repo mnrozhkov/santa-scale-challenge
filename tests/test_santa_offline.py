@@ -107,7 +107,9 @@ def test_batch_offline_writes_summary_without_sdk(tmp_path, monkeypatch) -> None
 
     monkeypatch.setattr("santa.storage.Storage.from_env", boom_store)
     monkeypatch.setattr("santa.nebius_jobs.SdkJobService.from_env", boom_jobs)
-    result = CliRunner().invoke(app, ["batch", "--offline", "--jobs", "4", "--out", str(tmp_path)])
+    result = CliRunner().invoke(
+        app, ["animate_batch", "--offline", "--jobs", "4", "--out", str(tmp_path)]
+    )
     assert result.exit_code == 0, result.output
     assert calls == []
     summaries = list(tmp_path.rglob("summary.json"))

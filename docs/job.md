@@ -8,8 +8,8 @@ Env: `RUN_ID`, `CHUNK=/data/runs/<run_id>/chunks/<k>.json`, `HF_HOME=/data/model
 
 Reads `cards/{id}/card.png`. Writes `cards/{id}/video.mp4` via staged rename; skips if the object exists. Appends `runs/<run_id>/jobs/<k>.json`. Exit 0 even with per-card failures; non-zero only on setup failure.
 
-`santa batch` inventories `cards/{id}/card.png`, submits K jobs, and writes `runs/<run_id>/summary.json` (timelines, cost, savings vs on-demand). GiftCards are published first with `santa card … --publish`.
+`santa animate_batch` inventories `cards/{id}/card.png`, submits K jobs, and writes `runs/<run_id>/summary.json` (timelines, cost, savings vs on-demand). GiftCards are published first with `santa card … --publish`.
 
 ## Build / push
 
-See `docker/job.Dockerfile` (BYOC example) and [AFTER_THE_WORKSHOP.md](../AFTER_THE_WORKSHOP.md). Tag must be set in `job.image` before `santa batch`.
+See `docker/job.Dockerfile` (BYOC example) and [AFTER_THE_WORKSHOP.md](../AFTER_THE_WORKSHOP.md). Tag must be set in `job.image` before `santa animate_batch`.

@@ -19,7 +19,7 @@ Everything below runs in **the participant's own Nebius account**: their endpoin
  ┌──────────────────────┐          │                          ┌────────────────────────────┴───┐
  │ santa CLI            │──────────┘                          │ santa-service  (CPU endpoint)  │
  │  doctor · card ·     │                                     │  FastAPI UI + /api + /wall     │
- │  agent · batch ·     │───── image role ──► Sana endpoint ◄─│  same `santa` package          │
+ │  agent · animate_batch ·───── image role ──► Sana endpoint ◄─│  same `santa` package          │
  │  animate · publish   │                     (L40S)          └──────────────┬─────────────────┘
  │ santa-mcp (shim)     │                                                    │ reads/writes
  └──────────┬───────────┘                                                    ▼
@@ -43,7 +43,7 @@ One package, three runtimes: `santa` CLI on the laptop, `santa-service` on a CPU
 | 1–2 Deploy     | Console (template)                       | — (`AFTER_THE_WORKSHOP.md` documents BYOC `job/Dockerfile` as the container example)       | image · Sana on L40S                            |
 | 3 One card     | `santa card --form` · or service UI      | `card.py`: gift+wish (TF) → image (endpoint) → Pillow render → `card.png` + `card.html`   | llm · TF; image · Sana endpoint                 |
 | 4 Echo         | Console / `nebius echo`                  | — (skills vendored under `skills/` for their agent)                                        | —                                               |
-| 5 Batch        | publish GiftCards (`santa card --publish`), then `santa batch --jobs 4` | `batch.py`: list `cards/{id}/card.png` → K GPU Jobs (`job.py`) → `cards/{id}/video.mp4` + `run_summary.json`. GiftCards are API-only (not this command). | video · Wan **in the Job**; audio · mood bank |
+| 5 Animate batch | publish GiftCards (`santa card --publish`), then `santa animate_batch --jobs 4` | `batch.py`: list `cards/{id}/card.png` → K GPU Jobs (`job.py`) → `cards/{id}/video.mp4` + `run_summary.json`. GiftCards are API-only (not the animate_batch command). | video · Wan **in the Job**; audio · mood bank |
 | 6 Video card   | `santa animate out/card.png`             | `animate.py`: Wan endpoint `/v1/videos` (async) + ACE-Step → `mux.py` → `card.mp4`         | video · Wan on H100; audio · ACE-Step on H100   |
 | Wall           | `--publish`                              | `storage.py` uploads → `santa-service /wall` lists bucket                                  | —                                               |
 | 7 Keep building| —                                        | `WORKSHOP.md`, `AFTER_THE_WORKSHOP.md`, `notebooks/`                                       | —                                               |
@@ -100,7 +100,7 @@ santa-scale-challenge/
 | D6  | **Batch = GPU Jobs run Wan inside the job** (diffusers `WanImageToVideoPipeline`), one chunk per job, `cards/{id}/video.mp4`, skip if exists (idempotent), `run_summary.json` with state transitions + cost. Preemptible                                                     | Your answer 2; W3; dubbing pattern                                                                                       |
 | D7  | **Job model default `Wan2.2-I2V-A14B`** on `gpu-h100-sxm 1gpu-16vcpu-200gb` preemptible (same model as the endpoint); `Wan2.2-TI2V-5B` on L40S as yaml alternative                                                                                                     | Decision Q1: H100 by default. Pre-baked weights (D8) absorb the 35 GB cold start                                          |
 | D8  | **Weights pre-baked to bucket** `models/` (`scripts/sync_models.py`, HF → bucket once); job sets `HF_HOME=/data/models`, downloads only if missing                                                                                                                       | Dubbing pattern; removes the per-job Hub pull. Approved                                                                  |
-| D9  | **Withdrawn (issue 16).** GiftCards are API inference (`santa card`, optional `--publish` → `cards/`). `santa batch` is Jobs-only video inference over existing `cards/*.png`. No `--kids`, no CPU-service card factory, no local thread pool inside `batch`.             | Mixes endpoint vs Job patterns; empty `job.image` left cards “succeeding” while Jobs never started                           |
+| D9  | **Withdrawn (issue 16).** GiftCards are API inference (`santa card`, optional `--publish` → `cards/`). `santa animate_batch` is Jobs-only video inference over existing `cards/*.png`. No `--kids`, no CPU-service card factory, no local thread pool inside `batch.py`.             | Mixes endpoint vs Job patterns; empty `job.image` left cards “succeeding” while Jobs never started                           |
 | D10 | **Job submission via Nebius Python SDK** (`nebius` pkg), port `create_and_wait`; auth from `NEBIUS_IAM_TOKEN` (`nebius iam get-access-token`) with `doctor` check; CLI shell-out removed                                                                              | Typed states, timeline, cancel-on-exit; no stdout grepping. Approved; bucket mounted by `NEBIUS_BUCKET_ID`, our bucket   |
 | D11 | **Pillow renderer** replaces html2image everywhere (CLI, service, job). HTML card keeps OG tags for sharing                                                                                                                                                             | Your answer 8; one renderer, no Chrome                                                                                  |
 | D12 | **Agent:** Pydantic AI `OpenAIModel(provider=TF)`; tools bound to roles; `scripts/bench_tool_calling.py` runs the 4-tool card task ×10 on GLM-5.3-Flash, Nemotron-3.5-Lightning, DeepSeek-V4-Flash-0731, gpt-oss-120b → success rate + p50 latency → winner into `models.yaml` | Your answer 7                                                                                                           |
@@ -129,7 +129,7 @@ job: {image: …/santa-job:<tag>, model: Wan-AI/Wan2.2-I2V-A14B-Diffusers, platf
 ```
 santa doctor
 santa card  --form | --profile me.json | --name --age --wish   [--publish] [--out out/]
-santa batch [--jobs 4] [--run-id …] [--no-wait] [--status <run_id>]  → runs/<run_id>/summary.json  (Jobs over published `cards/{id}/card.png`; GiftCards are `santa card --publish`)
+santa animate_batch [--jobs 4] [--run-id …] [--no-wait] [--status <run_id>]  → runs/<run_id>/summary.json  (Jobs over published `cards/{id}/card.png`; GiftCards are `santa card --publish`)
 santa animate out/card.png [--motion "…"] [--fresh-music] [--wait|--no-wait] [--publish]
 santa publish out/…                                            → bucket → /wall
 santa teardown [--dry-run]                                     (your endpoints + running jobs)
@@ -168,7 +168,7 @@ santa teardown [--dry-run]                                     (your endpoints +
 | 13  | `skills/` vendored + `scripts/teardown.sh` + `santa teardown`                                        | 07         | S    |
 | 14  | `WORKSHOP.md`, `AFTER_THE_WORKSHOP.md`, README rewrite, `AGENTS.md`/`CONTEXT.md` update              | 01–13      | S    |
 | 15  | **Last:** `prototype/` → `notebooks/`; research notebooks re-pointed at `santa`; `prototype/src/`, `prototype/data/` removed | 12, 14 | M |
-| 16  | `santa batch` Jobs-only: inventory `cards/*.png` → K Jobs → `videos/`; drop GiftCard factory from CLI; Step 6 workshop copy-paste | 07, 08, 09, 14 | M |
+| 16  | `santa animate_batch` Jobs-only: inventory `cards/*.png` → K Jobs → `videos/`; drop GiftCard factory from CLI; Step 6 workshop copy-paste | 07, 08, 09, 14 | M |
 
 Critical path: 01 → 02 → 07 → 08 → 09 → 16 (batch Jobs-only). 05 and 06 parallel. 08 needs a live GPU to validate the pipeline in-container. 15 is last on purpose — it deletes the code the old notebooks import.
 
@@ -187,7 +187,7 @@ Critical path: 01 → 02 → 07 → 08 → 09 → 16 (batch Jobs-only). 05 and 0
 | --- | ------------------------------------------ | ------------------------------------------------------------------ |
 | Q1  | Job video model                            | `Wan2.2-I2V-A14B` on H100 preemptible by default; 5B/L40S in yaml  |
 | Q2  | Pre-bake weights to bucket                 | Yes — `scripts/sync_models.py`, `HF_HOME=/data/models`             |
-| Q3  | Batch cards: CLI or service                | **Withdrawn (issue 16).** GiftCards are not batched. API: `santa card --publish`. Jobs: `santa batch --jobs 4` over `cards/` |
+| Q3  | Batch cards: CLI or service                | **Withdrawn (issue 16).** GiftCards are not batched. API: `santa card --publish`. Jobs: `santa animate_batch --jobs 4` over `cards/` |
 | Q4  | Jobs auth                                  | `NEBIUS_IAM_TOKEN` via `nebius iam get-access-token`; `doctor` checks TTL |
 | Q5  | Bucket mount                               | `NEBIUS_BUCKET_ID` volume at `/data`; our bucket for the demo      |
 | Q6  | Music in batch                             | Mood bank (default if unanswered)                                  |

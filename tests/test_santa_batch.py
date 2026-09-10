@@ -321,12 +321,12 @@ def test_batch_cli_rejects_kids_option() -> None:
 
     from santa.cli import app
 
-    result = CliRunner().invoke(app, ["batch", "--kids", "20"])
+    result = CliRunner().invoke(app, ["animate_batch", "--kids", "20"])
     assert result.exit_code != 0
     assert "no such option" in result.output.lower()
     assert "--kids" in result.output
     for flag in ("--kids-csv", "--local"):
-        denied = CliRunner().invoke(app, ["batch", flag])
+        denied = CliRunner().invoke(app, ["animate_batch", flag])
         assert denied.exit_code != 0
         assert "no such option" in denied.output.lower()
 
@@ -338,7 +338,7 @@ def test_batch_cli_empty_cards_exits_before_jobs(tmp_path, monkeypatch) -> None:
 
     svc = ScriptedJobService([])
     _, order = _wire_batch_cli(tmp_path, monkeypatch, MemoryStorage(), svc)
-    result = CliRunner().invoke(app, ["batch", "--jobs", "4", "--out", str(tmp_path)])
+    result = CliRunner().invoke(app, ["animate_batch", "--jobs", "4", "--out", str(tmp_path)])
     assert result.exit_code != 0, result.output
     assert "santa card" in result.output
     assert "--publish" in result.output
@@ -357,14 +357,14 @@ def test_batch_cli_three_pngs_submits_jobs_covering_ids(tmp_path, monkeypatch) -
     svc = ScriptedJobService([["PENDING"], ["PENDING"]])
 
     def boom_make(*args, **kwargs):
-        raise AssertionError("santa batch must not manufacture GiftCards")
+        raise AssertionError("santa animate_batch must not manufacture GiftCards")
 
     monkeypatch.setattr("santa.card.make_card", boom_make)
     monkeypatch.setenv("SANTA_SERVICE_URL", "https://santa.example")
     _wire_batch_cli(tmp_path, monkeypatch, store, svc)
     result = CliRunner().invoke(
         app,
-        ["batch", "--jobs", "4", "--no-wait", "--out", str(tmp_path), "--run-id", "cli1"],
+        ["animate_batch", "--jobs", "4", "--no-wait", "--out", str(tmp_path), "--run-id", "cli1"],
     )
     assert result.exit_code == 0, result.output
     assert "submitted" in result.output
@@ -393,7 +393,7 @@ def test_batch_cli_three_pngs_no_videos_covers_all_ids(tmp_path, monkeypatch) ->
     _wire_batch_cli(tmp_path, monkeypatch, store, svc)
     result = CliRunner().invoke(
         app,
-        ["batch", "--jobs", "4", "--no-wait", "--out", str(tmp_path), "--run-id", "all3"],
+        ["animate_batch", "--jobs", "4", "--no-wait", "--out", str(tmp_path), "--run-id", "all3"],
     )
     assert result.exit_code == 0, result.output
     submitted: list[str] = []
@@ -415,7 +415,16 @@ def test_batch_cli_loads_dotenv_before_storage(tmp_path, monkeypatch) -> None:
     _, order = _wire_batch_cli(tmp_path, monkeypatch, store, svc)
     result = CliRunner().invoke(
         app,
-        ["batch", "--jobs", "1", "--no-wait", "--out", str(tmp_path), "--run-id", "dotenv1"],
+        [
+            "animate_batch",
+            "--jobs",
+            "1",
+            "--no-wait",
+            "--out",
+            str(tmp_path),
+            "--run-id",
+            "dotenv1",
+        ],
     )
     assert result.exit_code == 0, result.output
     assert order[:2] == ["load", "storage"]
@@ -449,7 +458,7 @@ def test_batch_cli_status_resumes(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("santa.cli.Settings.load", lambda: object())
     monkeypatch.setattr("santa.storage.Storage.from_env", lambda: MemoryStorage())
     monkeypatch.setattr("santa.nebius_jobs.SdkJobService.from_env", lambda: object())
-    result = CliRunner().invoke(app, ["batch", "--status", "st1", "--out", str(tmp_path)])
+    result = CliRunner().invoke(app, ["animate_batch", "--status", "st1", "--out", str(tmp_path)])
     assert result.exit_code == 0, result.output
     assert "done 1" in result.output
 

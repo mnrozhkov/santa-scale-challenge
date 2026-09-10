@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type CSSProperties } from 'react'
+import { flushSync } from 'react-dom'
 import {
   animateCard,
-  createCard,
-  fetchKids,
+  createCardStream,
   fetchRun,
   fetchWall,
   submitRun,
-  type Step,
+  type CardProgressEvent,
   type WallItem,
 } from './api'
 
@@ -50,18 +50,18 @@ const MOODS = ['Dreamy', 'Playful', 'Cozy', 'Epic']
 const BGS = ['rgb(255,230,180)', 'rgb(200,235,200)', 'rgb(210,225,255)', 'rgb(255,210,210)', 'rgb(220,245,235)', 'rgb(255,240,200)']
 
 const GALLERY_SEED: Kid[] = [
-  { id:'g1', name:'Emma', age:7, wish:'A telescope to see the stars', tags:['space','books'], mood:'Dreamy', city:'Oslo', bg:BGS[0], hasVideo:true, gift:'StargazerKit Pro' },
-  { id:'g2', name:'Lucas', age:9, wish:'T-rex Lego set for my bedroom', tags:['dinosaurs','lego'], mood:'Playful', city:'Stockholm', bg:BGS[1], hasVideo:false, gift:'Dino Builder XL' },
-  { id:'g3', name:'Sofia', age:6, wish:'Watercolour art set and canvas', tags:['art','music'], mood:'Dreamy', city:'Helsinki', bg:BGS[2], hasVideo:true, gift:'Aquarelle Studio' },
-  { id:'g4', name:'Noah', age:11, wish:'Robot building kit with sensors', tags:['robots','lego'], mood:'Epic', city:'Copenhagen', bg:BGS[3], hasVideo:true, gift:'RoboMaster Mini' },
-  { id:'g5', name:'Ingrid', age:8, wish:'Ocean explorer encyclopedia', tags:['ocean','animals'], mood:'Cozy', city:'Bergen', bg:BGS[4], hasVideo:false, gift:'Deep Sea Atlas' },
-  { id:'g6', name:'Felix', age:10, wish:'Football signed by my hero', tags:['football'], mood:'Epic', city:'Malmö', bg:BGS[5], hasVideo:true, gift:'Match Day Ball' },
-  { id:'g7', name:'Astrid', age:5, wish:'Stuffed bunny and story books', tags:['animals','books'], mood:'Cozy', city:'Gothenburg', bg:BGS[0], hasVideo:false, gift:'Velveteen Buddy' },
-  { id:'g8', name:'Oliver', age:12, wish:'Mechanical keyboard for coding', tags:['robots','space'], mood:'Epic', city:'Espoo', bg:BGS[1], hasVideo:true, gift:'TypeMaster 65%' },
-  { id:'g9', name:'Maja', age:7, wish:'Ukulele and song book', tags:['music','art'], mood:'Playful', city:'Turku', bg:BGS[2], hasVideo:false, gift:'Soprano Uke Kit' },
-  { id:'g10', name:'Elias', age:9, wish:'Lego Space Station set', tags:['space','lego'], mood:'Epic', city:'Aarhus', bg:BGS[3], hasVideo:true, gift:'ISS Builder Set' },
-  { id:'g11', name:'Freya', age:6, wish:'Dinosaur fossil excavation kit', tags:['dinosaurs','books'], mood:'Dreamy', city:'Odense', bg:BGS[4], hasVideo:false, gift:'PaleoKit Junior' },
-  { id:'g12', name:'Viktor', age:11, wish:'Underwater drone camera', tags:['ocean','robots'], mood:'Epic', city:'Tampere', bg:BGS[5], hasVideo:true, gift:'AquaBot Explorer' },
+  { id:'g1', name:"Emma", age:8, wish:"Dear Alex, my dear three‑year‑old explorer, I’ve heard about the wonderful wooden car that loves to pull you along sn…", tags:["books"], mood:"Dreamy", city:"Oslo", bg:BGS[0], hasVideo:true, gift:"Wooden pull‑along car", pngUrl:'/demo/g1/card.png', videoUrl:'/demo/g1/video.mp4' },
+  { id:'g2', name:"Lucas", age:8, wish:"Dear Kid, being 8 is such a marvelous age for discovering new wonders, and I’ve heard you’ll be building fantastic cr…", tags:["lego"], mood:"Dreamy", city:"Stockholm", bg:BGS[1], hasVideo:false, gift:"LEGO Creator 3‑in‑1 Building Set", pngUrl:'/demo/g2/card.png' },
+  { id:'g3', name:"Sofia", age:8, wish:"Dear Kid, at the wonderful age of 8 your imagination is already as bright as the twinkling lights on my sleigh. I hea…", tags:["lego", "robots"], mood:"Dreamy", city:"Helsinki", bg:BGS[2], hasVideo:false, gift:"LEGO Boost Creative Toolbox (STEM building kit)", pngUrl:'/demo/g3/card.png' },
+  { id:'g4', name:"Noah", age:8, wish:"Dear Kid, at 8 years old you’re already a brilliant explorer of imagination! I hear you’ve been crafting marvelous in…", tags:["robots", "lego"], mood:"Dreamy", city:"Copenhagen", bg:BGS[3], hasVideo:false, gift:"Interactive STEM building set (e.g., magnetic circuits or robot kit)", pngUrl:'/demo/g4/card.png' },
+  { id:'g5', name:"Ingrid", age:8, wish:"Dear Kid, at your wonderful age of 8 you’re already a master of building marvelous structures that snap together, a b…", tags:["lego"], mood:"Dreamy", city:"Bergen", bg:BGS[4], hasVideo:false, gift:"Magnetic building tiles set", pngUrl:'/demo/g5/card.png' },
+  { id:'g6', name:"Felix", age:8, wish:"Dear Kid, at eight years old you already shine with the curiosity of a thousand stars. I’ve placed a handful of wondr…", tags:["robots"], mood:"Dreamy", city:"Malmö", bg:BGS[5], hasVideo:false, gift:"Interactive STEM building set", pngUrl:'/demo/g6/card.png' },
+  { id:'g7', name:"Astrid", age:8, wish:"Dear Kid, I hear that being 8 years old fills your days with curiosity and wonder! This year the North Pole elves hav…", tags:["robots", "lego"], mood:"Dreamy", city:"Gothenburg", bg:BGS[0], hasVideo:false, gift:"STEM Building Kit (magnetic tiles or simple robotics set)", pngUrl:'/demo/g7/card.png' },
+  { id:'g8', name:"Oliver", age:8, wish:"Hello Kid! At eight years old, your curiosity shines brighter than the North Star, and I hear the soft clink of magne…", tags:["robots", "lego"], mood:"Dreamy", city:"Espoo", bg:BGS[1], hasVideo:false, gift:"Magnetic STEM Building Kit", pngUrl:'/demo/g8/card.png' },
+  { id:'g9', name:"Nick", age:5, wish:"Lego and animals", tags:["dinosaurs", "lego"], mood:"Dreamy", city:"Turku", bg:BGS[2], hasVideo:false, gift:"LEGO Dino Adventure Building Set", pngUrl:'/demo/g9/card.png' },
+  { id:'g10', name:"Elias", age:8, wish:"Dear Kid, being eight is such a wonderful time when every question feels like a new adventure, and I’ve seen how your…", tags:["lego", "robots"], mood:"Dreamy", city:"Aarhus", bg:BGS[3], hasVideo:false, gift:"STEM Building Kit (e.g., LEGO Boost or similar)", pngUrl:'/demo/g10/card.png' },
+  { id:'g11', name:"Freya", age:8, wish:"Dear Kid, at the wonderful age of 8 you’re already a true master of imagination. I’ve heard the North Pole elves have…", tags:["lego"], mood:"Dreamy", city:"Odense", bg:BGS[4], hasVideo:false, gift:"LEGO Creator 3‑in‑1 Building Set", pngUrl:'/demo/g11/card.png' },
+  { id:'g12', name:"Viktor", age:8, wish:"Hello Kid, being eight means your imagination shines brighter than the twinkling lights on my sleigh. I’ve tucked a c…", tags:["robots", "lego"], mood:"Dreamy", city:"Tampere", bg:BGS[5], hasVideo:false, gift:"Magnetic STEM Building Tiles", pngUrl:'/demo/g12/card.png' },
 ]
 
 const BATCH_SEED: Kid[] = [
@@ -177,39 +177,152 @@ function jobNodeStatus(state: string): NodeStatus {
   return 'pending'
 }
 
-function stepsToNodes(steps: Step[]): { nodes: Record<string, RNode>; levels: string[][] } {
-  const llm = steps.find(s => s.role === 'llm')
-  const image = steps.find(s => s.role === 'image')
-  const imageFallback = Boolean(image?.fallback)
+function shortError(err: unknown): string {
+  const text = String(err instanceof Error ? err.message : err).replace(/^Error:\s*/, '')
+  if (/CERTIFICATE_VERIFY_FAILED|TLS failed|SSL validation/i.test(text)) {
+    return 'TLS failed (laptop CA). Retry with AWS_CA_BUNDLE=/etc/ssl/cert.pem'
+  }
+  return text.length > 90 ? `${text.slice(0, 87)}…` : text
+}
+
+const ANIMATE_JOBS = 4
+
+function animateBatchNodes(jobCount = ANIMATE_JOBS): Record<string, RNode> {
   const nodes: Record<string, RNode> = {
-    santa: { id: 'santa', label: 'santa-service', kind: 'service', sub: 'POST /api/cards', status: 'done' },
-    token: {
-      id: 'token', label: 'Token Factory', kind: 'llm',
-      sub: llm ? `chat.completions · ${llm.model}` : 'chat.completions',
-      status: 'done',
-      meta: llm ? `${(llm.ms / 1000).toFixed(1)} s` : undefined,
-    },
-    sana: {
-      id: 'sana', label: 'Sana endpoint', kind: 'endpoint',
-      sub: 'images.generate · L40S · 1024×1024',
-      status: imageFallback ? 'failed' : 'done',
-      meta: image && !imageFallback ? `${(image.ms / 1000).toFixed(1)} s · ${image.model}` : (imageFallback ? 'fallback' : undefined),
-    },
-    bucket: { id: 'bucket', label: 'Object Storage', kind: 'bucket', sub: 'PUT cards/{id}/card.png', status: 'done' },
+    santa: nodeWithStatus('santa', 'idle', { sub: 'POST /api/runs · animate_batch' }),
+    storecards: nodeWithStatus('storecards', 'idle', { sub: 'list cards/{id}/card.png' }),
+    storevideos: nodeWithStatus('storevideos', 'idle'),
   }
-  if (imageFallback) {
-    nodes.openai = {
-      id: 'openai', label: 'OpenAI fallback', kind: 'fallback',
-      sub: image?.model || 'gpt-image-1 · images.generate',
-      status: 'done',
-      meta: image ? `${(image.ms / 1000).toFixed(1)} s` : undefined,
+  for (let i = 0; i < jobCount; i++) {
+    nodes[`job${i}`] = {
+      id: `job${i}`, label: `Job ${i}`, kind: 'job',
+      sub: 'santa-job · H100 preemptible',
+      status: 'pending',
     }
-    return { nodes, levels: [['santa'], ['token'], ['sana', 'openai'], ['bucket']] }
   }
-  return { nodes, levels: [['santa'], ['token'], ['sana'], ['bucket']] }
+  return nodes
+}
+
+function animateBatchLevels(jobCount = ANIMATE_JOBS): string[][] {
+  return [['santa'], ['storecards'], Array.from({ length: jobCount }, (_, i) => `job${i}`), ['storevideos']]
+}
+
+function initialAnimateBatchRun(status: RunState['status'] = 'idle'): RunState {
+  return {
+    title: 'Let it snow · GPU jobs',
+    status,
+    nodes: animateBatchNodes(),
+    levels: animateBatchLevels(),
+    log: [],
+    elapsed: 0,
+  }
+}
+
+const MAGIC_LEVELS: Record<string, string[][]> = {
+  default: [['santa'], ['token'], ['sana'], ['bucket']],
+  fallback: [['santa'], ['token'], ['sana', 'openai'], ['bucket']],
+}
+
+/** Graph node labels — role first; model name only in meta (never URLs). */
+const GRAPH_NODE: Record<string, Omit<RNode, 'status'>> = {
+  santa: { id: 'santa', label: 'santa-service', kind: 'service', sub: 'POST /api/cards' },
+  token: { id: 'token', label: 'LLM (Token Factory)', kind: 'llm', sub: 'chat.completions' },
+  sana: { id: 'sana', label: 'Image gen endpoint (Serverless AI)', kind: 'endpoint', sub: 'images.generate' },
+  openai: { id: 'openai', label: 'Image gen (OpenAI fallback)', kind: 'fallback', sub: 'images.generate' },
+  wan: { id: 'wan', label: 'Video gen endpoint (Serverless AI)', kind: 'endpoint', sub: 'POST /v1/videos' },
+  ace: { id: 'ace', label: 'Audio gen endpoint (Serverless AI)', kind: 'endpoint', sub: 'text2music' },
+  mux: { id: 'mux', label: 'mux.py', kind: 'file', sub: 'ffmpeg -i mp4 -i mp3 -shortest' },
+  bucket: { id: 'bucket', label: 'Object Storage', kind: 'bucket', sub: 'PUT cards/{id}/card.png' },
+  storecards: { id: 'storecards', label: 'Object Storage', kind: 'bucket', sub: 'cards/ · chunks/ · runs/' },
+  storevideos: { id: 'storevideos', label: 'Object Storage', kind: 'bucket', sub: 'videos/ · summary.json' },
+}
+
+const MAGIC_NODE_DEFAULTS = GRAPH_NODE
+
+function nodeWithStatus(id: string, status: NodeStatus, patch?: Partial<RNode>): RNode {
+  const base = GRAPH_NODE[id] ?? { id, label: id, kind: 'service', sub: '' }
+  return { ...base, status, ...patch }
+}
+
+function shortModelName(raw: string): string {
+  const text = (raw || '').trim()
+  if (!text) return text
+  const at = text.indexOf('@')
+  if (at > 0) return text.slice(0, at).trim()
+  return text
+}
+
+function compactNodeMeta(meta?: string): string | undefined {
+  if (!meta) return meta
+  const parts = meta.split(' · ')
+  if (parts.length < 2) return meta
+  const last = parts[parts.length - 1]
+  if (last.includes('@') || last.startsWith('http')) {
+    parts[parts.length - 1] = shortModelName(last)
+    return parts.join(' · ')
+  }
+  return meta
+}
+
+function initialMagicRun(): RunState {
+  return {
+    title: 'Magic · single card',
+    status: 'running',
+    nodes: {
+      santa: { ...MAGIC_NODE_DEFAULTS.santa, status: 'active' },
+      token: { ...MAGIC_NODE_DEFAULTS.token, status: 'idle' },
+      sana: { ...MAGIC_NODE_DEFAULTS.sana, status: 'idle' },
+      bucket: { ...MAGIC_NODE_DEFAULTS.bucket, status: 'idle' },
+    },
+    levels: MAGIC_LEVELS.default,
+    log: [],
+    elapsed: 0,
+  }
+}
+
+function applyCardProgress(run: RunState, event: CardProgressEvent): RunState {
+  if (event.type === 'step') return run
+  const nodes = { ...run.nodes }
+  let levels = run.levels
+
+  if (event.type === 'active') {
+    const base = MAGIC_NODE_DEFAULTS[event.node]
+    if (!base) return run
+    if (event.node === 'openai') levels = MAGIC_LEVELS.fallback
+    nodes[event.node] = { ...base, status: 'active' }
+    return { ...run, nodes, levels }
+  }
+
+  if (event.type === 'done') {
+    const base = nodes[event.node] ?? MAGIC_NODE_DEFAULTS[event.node]
+    if (!base) return run
+    const status = (event.status ?? 'done') as NodeStatus
+    nodes[event.node] = { ...base, status, meta: compactNodeMeta(event.meta) }
+    return { ...run, nodes, levels }
+  }
+
+  return run
 }
 
 // ── Node Card ─────────────────────────────────────────────────────────────────
+
+const NODE_LINE: CSSProperties = {
+  fontFamily: 'JetBrains Mono,Menlo,monospace',
+  fontSize: 12,
+  lineHeight: '17px',
+  minWidth: 0,
+  maxWidth: '100%',
+  overflowWrap: 'anywhere',
+  wordBreak: 'break-word',
+}
+
+function NodeLine({ text, color, marginTop }: { text: string; color: string; marginTop?: number }) {
+  return (
+    <div style={{ ...NODE_LINE, color, marginTop }} title={text}>
+      {text}
+    </div>
+  )
+}
 
 function NodeCard({ node }: { node: RNode }) {
   const col = nodeColors(node.status)
@@ -223,24 +336,30 @@ function NodeCard({ node }: { node: RNode }) {
       background: col.bg,
       borderRadius: 6,
       padding: '10px 12px',
-      flex: 1,
+      flex: '1 1 140px',
       minWidth: 0,
       maxWidth: 310,
+      width: '100%',
+      boxSizing: 'border-box',
+      overflow: 'hidden',
       position: 'relative',
       animation: pulse || pulsePurple ? `${pulse ? 'pulse-ring' : 'pulse-purple'} 1.8s ease-out infinite` : undefined,
       transition: 'border-color 0.3s, background 0.3s',
     }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 3 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'rgba(0,0,0,.85)', lineHeight: '20px' }}>{node.label}</div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 3, minWidth: 0 }}>
+        <div style={{
+          fontSize: 14, fontWeight: 600, color: 'rgba(0,0,0,.85)', lineHeight: '20px',
+          minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }} title={node.label}>{node.label}</div>
         <div style={{
           fontSize: 10, fontWeight: 600, letterSpacing: '0.06em',
           background: badge.bg, color: badge.text,
           borderRadius: 3, padding: '2px 6px', whiteSpace: 'nowrap', flexShrink: 0,
         }}>{badge.label}</div>
       </div>
-      <div style={{ fontFamily: 'JetBrains Mono,Menlo,monospace', fontSize: 12, color: 'rgba(0,0,0,.5)', lineHeight: '17px' }}>{node.sub}</div>
+      <NodeLine text={node.sub} color="rgba(0,0,0,.5)" />
       {node.meta && (
-        <div style={{ fontFamily: 'JetBrains Mono,Menlo,monospace', fontSize: 12, color: node.metaColor ?? 'rgba(0,0,0,.45)', lineHeight: '17px', marginTop: 2 }}>{node.meta}</div>
+        <NodeLine text={node.meta} color={node.metaColor ?? 'rgba(0,0,0,.45)'} marginTop={2} />
       )}
       {node.progress !== undefined && (
         <div style={{ height: 3, borderRadius: 2, background: 'rgba(0,0,0,.08)', marginTop: 6 }}>
@@ -271,8 +390,8 @@ function DAGGraph({ run }: { run: RunState }) {
         const allDone = nodes.length > 0 && nodes.every(n => ['done','failed','skipped','preempted'].includes(n.status))
         const connColor = isActive ? 'rgb(54,151,241)' : allDone ? 'rgb(48,170,110)' : 'rgba(0,0,0,.15)'
         return (
-          <div key={li} style={{ width: '100%', maxWidth: 620 }}>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div key={li} style={{ width: '100%', maxWidth: 620, minWidth: 0, padding: '0 4px', boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', minWidth: 0 }}>
               {nodes.map(node => <NodeCard key={node.id} node={node} />)}
             </div>
             {li < run.levels.length - 1 && (
@@ -663,11 +782,12 @@ function BatchStatusPill({ status }: { status: string }) {
   return <span style={{ background: c.bg, color: c.text, borderRadius: 4, padding: '2px 8px', fontSize: 12, fontWeight: 500 }}>{c.label}</span>
 }
 
-function BatchTab({ batchKids, batchLoaded, onLoad, onRun, batchRunning, batchDone, batchSummary, metrics }: {
+function BatchTab({ batchKids, batchLoaded, onLoad, onRun, batchRunning, batchDone, batchSummary, metrics, realMode }: {
   batchKids: Kid[]; batchLoaded: boolean; onLoad: () => void; onRun: () => void
   batchRunning: boolean; batchDone: boolean
   batchSummary: { done: number; failed: number; skipped: number; gpuTime: string; cost: string; onDemand: string; saved: string; savedPct: string } | null
   metrics?: { kids: string; jobs: string; perJob: string; kidsSub: string; jobsSub: string; perJobSub: string }
+  realMode?: boolean
 }) {
   const sectionCard: React.CSSProperties = { background: 'white', border: '1px solid rgba(0,0,0,.15)', borderRadius: 8, boxShadow: '0 4px 12px -2px rgba(0,0,0,.12)', padding: '16px 20px 20px', marginBottom: 20 }
   const visibleKids = batchKids.slice(0, 6)
@@ -678,7 +798,7 @@ function BatchTab({ batchKids, batchLoaded, onLoad, onRun, batchRunning, batchDo
       <div style={sectionCard}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <div style={{ width: 4, height: 16, background: 'rgb(45,139,93)', borderRadius: 2 }} />
-          <span style={{ fontSize: 17, fontWeight: 600 }}>Kids List</span>
+          <span style={{ fontSize: 17, fontWeight: 600 }}>{realMode ? 'Published GiftCards' : 'Kids List'}</span>
         </div>
         {!batchLoaded ? (
           <div
@@ -688,9 +808,11 @@ function BatchTab({ batchKids, batchLoaded, onLoad, onRun, batchRunning, batchDo
               cursor: 'pointer', color: 'rgba(0,0,0,.45)', fontSize: 14, transition: 'all 0.15s',
             }}
           >
-            <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
-            <div style={{ fontWeight: 500, marginBottom: 4 }}>Drop kids.csv here</div>
-            <div style={{ fontSize: 12.5, fontFamily: 'JetBrains Mono,Menlo,monospace' }}>or click to load 20 sample kids</div>
+            <div style={{ fontSize: 28, marginBottom: 8 }}>{realMode ? '🎁' : '📂'}</div>
+            <div style={{ fontWeight: 500, marginBottom: 4 }}>{realMode ? 'Load published GiftCards' : 'Drop kids.csv here'}</div>
+            <div style={{ fontSize: 12.5, fontFamily: 'JetBrains Mono,Menlo,monospace' }}>
+              {realMode ? 'GET /api/wall · cards/{id}/card.png' : 'or click to load 20 sample kids'}
+            </div>
           </div>
         ) : (
           <>
@@ -725,7 +847,7 @@ function BatchTab({ batchKids, batchLoaded, onLoad, onRun, batchRunning, batchDo
             {/* Metric tiles */}
             <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
               {[
-                { label: 'Kids', value: metrics?.kids ?? '20', sub: metrics?.kidsSub ?? 'sample CSV' },
+                { label: realMode ? 'Cards' : 'Kids', value: metrics?.kids ?? '20', sub: metrics?.kidsSub ?? 'sample CSV' },
                 { label: 'GPU jobs', value: metrics?.jobs ?? '4', sub: metrics?.jobsSub ?? 'H100 · preemptible' },
                 { label: 'Per job', value: metrics?.perJob ?? '5 kids', sub: metrics?.perJobSub ?? '~13 s · $0.09' },
               ].map(tile => (
@@ -744,7 +866,7 @@ function BatchTab({ batchKids, batchLoaded, onLoad, onRun, batchRunning, batchDo
                 cursor: batchRunning ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
                 display: 'flex', alignItems: 'center', gap: 8, opacity: batchRunning ? 0.6 : 1,
               }}>❄️ Let it snow</button>
-              <span style={{ fontFamily: 'JetBrains Mono,Menlo,monospace', fontSize: 12, color: 'rgba(0,0,0,.4)' }}>santa batch --kids 20 --jobs 4</span>
+              <span style={{ fontFamily: 'JetBrains Mono,Menlo,monospace', fontSize: 12, color: 'rgba(0,0,0,.4)' }}>santa animate_batch --jobs 4</span>
             </div>
           </>
         )}
@@ -781,7 +903,7 @@ function BatchTab({ batchKids, batchLoaded, onLoad, onRun, batchRunning, batchDo
 
 // ── Gallery Tab ───────────────────────────────────────────────────────────────
 
-function GalleryTile({ kid, onClick }: { kid: Kid; onClick: () => void }) {
+function GalleryTile({ kid, selected, onClick }: { kid: Kid; selected: boolean; onClick: () => void }) {
   const [hovered, setHovered] = useState(false)
   return (
     <div
@@ -789,8 +911,8 @@ function GalleryTile({ kid, onClick }: { kid: Kid; onClick: () => void }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        border: '1px solid rgba(0,0,0,.12)', borderRadius: 8, overflow: 'hidden', cursor: 'pointer',
-        background: 'white', boxShadow: hovered ? '0 6px 18px -4px rgba(0,0,0,.18)' : '0 2px 8px -2px rgba(0,0,0,.1)',
+        border: selected ? '2px solid rgb(45,139,93)' : '1px solid rgba(0,0,0,.12)', borderRadius: 8, overflow: 'hidden', cursor: 'pointer',
+        background: 'white', boxShadow: hovered || selected ? '0 6px 18px -4px rgba(0,0,0,.18)' : '0 2px 8px -2px rgba(0,0,0,.1)',
         transform: hovered ? 'translateY(-2px)' : undefined,
         transition: 'all 0.18s ease',
       }}
@@ -834,74 +956,122 @@ function GalleryTile({ kid, onClick }: { kid: Kid; onClick: () => void }) {
   )
 }
 
-function GalleryPopup({ kid, onClose }: { kid: Kid; onClose: () => void }) {
+function GalleryPreview({ kid, realMode, onRealMode }: {
+  kid: Kid | null
+  realMode: boolean
+  onRealMode: (v: boolean) => void
+}) {
   const [playing, setPlaying] = useState(false)
+
+  useEffect(() => {
+    setPlaying(false)
+  }, [kid?.id])
+
   return (
-    <div className="fadein" onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: 12, boxShadow: '0 24px 48px -8px rgba(0,0,0,.3)', maxWidth: 720, width: '100%', overflow: 'hidden', display: 'flex' }}>
-        {/* Image side */}
-        <div style={{ width: 280, flexShrink: 0, background: kid.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 24, position: 'relative' }}>
-          {playing && kid.videoUrl ? (
-            <video src={kid.videoUrl} autoPlay controls playsInline style={{ width: '100%', borderRadius: 6 }} />
-          ) : kid.pngUrl ? (
-            <img src={kid.pngUrl} alt="" style={{ width: '100%', borderRadius: 6 }} />
-          ) : (
-            <>
-          <div style={{ fontSize: 48 }}>🎁</div>
-          <div style={{ fontFamily: 'JetBrains Mono,Menlo,monospace', fontSize: 10, color: 'rgba(0,0,0,.3)', textAlign: 'center', lineHeight: '15px' }}>image placeholder<br />1024×1024</div>
-            </>
+    <aside style={{ width: 720, display: 'flex', flexDirection: 'column', borderLeft: '2px solid rgba(0,0,0,.15)', background: 'rgb(242,237,228)', flexShrink: 0 }}>
+      <div style={{ background: 'white', borderBottom: '1px solid rgba(0,0,0,.1)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        <div style={{ width: 8, height: 8, borderRadius: '50%', background: kid ? 'rgb(45,139,93)' : 'rgba(0,0,0,.2)', flexShrink: 0 }} />
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(0,0,0,.7)' }}>GiftCard · preview</span>
+        <div style={{ display: 'flex', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, overflow: 'hidden' }}>
+          {([['Sim', false], ['Real', true]] as const).map(([label, value]) => {
+            const active = realMode === value
+            return (
+              <button key={label} onClick={() => onRealMode(value)} style={{
+                border: 'none', padding: '3px 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em',
+                cursor: 'pointer', fontFamily: 'inherit',
+                background: active ? (value ? 'rgb(45,139,93)' : 'rgb(233,174,86)') : 'white',
+                color: active ? (value ? 'white' : 'rgba(0,0,0,.8)') : 'rgba(0,0,0,.45)',
+              }}>{label}</button>
+            )
+          })}
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 11, background: 'rgba(0,0,0,.07)', borderRadius: 4, padding: '2px 7px', color: 'rgba(0,0,0,.5)', fontWeight: 500 }}>Gallery</span>
+          {kid && (
+            <span style={{ fontFamily: 'JetBrains Mono,Menlo,monospace', fontSize: 12, color: 'rgba(0,0,0,.4)' }}>{kid.id}</span>
           )}
         </div>
-        {/* Details side */}
-        <div style={{ flex: 1, padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto', background: 'white', padding: 20 }}>
+        {!kid ? (
+          <div style={{ border: '1.5px dashed rgba(0,0,0,.15)', borderRadius: 8, padding: '48px 24px', textAlign: 'center', color: 'rgba(0,0,0,.35)', fontFamily: 'JetBrains Mono,Menlo,monospace', fontSize: 13 }}>
+            Select a GiftCard from the Gallery
+          </div>
+        ) : (
+          <div className="fadein" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{
+              width: '100%', aspectRatio: '1', borderRadius: 8, overflow: 'hidden', position: 'relative',
+              background: kid.bg, borderTop: '4px solid rgb(45,139,93)',
+            }}>
+              {playing && kid.videoUrl ? (
+                <video src={kid.videoUrl} autoPlay controls playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : kid.pngUrl ? (
+                <img src={kid.pngUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <div style={{ fontSize: 48 }}>🎁</div>
+                  <div style={{ fontFamily: 'JetBrains Mono,Menlo,monospace', fontSize: 11, color: 'rgba(0,0,0,.3)', textAlign: 'center', lineHeight: '16px' }}>
+                    image placeholder<br />1024×1024
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div>
               <div style={{ fontSize: 22, fontWeight: 700 }}>Merry Christmas, {kid.name}! 🎄</div>
-              <div style={{ fontSize: 13, color: 'rgba(0,0,0,.45)', marginTop: 2 }}>Age {kid.age} · {kid.city} · {kid.mood}</div>
+              <div style={{ fontSize: 13, color: 'rgba(0,0,0,.45)', marginTop: 4 }}>
+                Age {kid.age}{kid.city ? ` · ${kid.city}` : ''}{kid.mood ? ` · ${kid.mood}` : ''}
+              </div>
             </div>
-            <button onClick={onClose} style={{ border: 'none', background: 'rgba(0,0,0,.08)', borderRadius: 6, width: 28, height: 28, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-          </div>
-          <div style={{ fontSize: 14, color: 'rgba(0,0,0,.65)', lineHeight: '21px' }}>"{kid.wish}"</div>
-          {kid.gift && (
+
+            <div style={{ fontSize: 14, color: 'rgba(0,0,0,.65)', lineHeight: '21px' }}>"{kid.wish}"</div>
+
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              <span style={{ background: 'rgba(45,139,93,.12)', color: 'rgb(45,139,93)', borderRadius: 4, padding: '4px 10px', fontSize: 13, fontWeight: 500 }}>🎁 Gift: {kid.gift}</span>
+              {kid.gift && (
+                <span style={{ background: 'rgba(45,139,93,.12)', color: 'rgb(45,139,93)', borderRadius: 4, padding: '4px 10px', fontSize: 13, fontWeight: 500 }}>🎁 Gift: {kid.gift}</span>
+              )}
               {kid.tags.map(tid => {
                 const t = tagById(tid)
                 return t ? <span key={tid} style={{ background: t.light, color: t.color, borderRadius: 4, padding: '4px 10px', fontSize: 13, fontWeight: 500 }}>{t.label}</span> : null
               })}
             </div>
-          )}
-          <div style={{ marginTop: 'auto', paddingTop: 12, borderTop: '1px solid rgba(0,0,0,.08)' }}>
-            {kid.hasVideo ? (
-              <button onClick={() => setPlaying(v => !v)} style={{
-                border: 'none', background: 'rgb(45,139,93)', color: 'white', borderRadius: 6, padding: '10px 20px',
-                fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-              }}>{playing ? '⏹ Stop' : '▶ Play video gift card'}</button>
-            ) : (
-              <div style={{ fontFamily: 'JetBrains Mono,Menlo,monospace', fontSize: 12.5, color: 'rgba(0,0,0,.4)' }}>Image card only. Run Animate to add a video.</div>
-            )}
+
+            <div style={{ paddingTop: 12, borderTop: '1px solid rgba(0,0,0,.08)' }}>
+              {kid.hasVideo ? (
+                <button onClick={() => setPlaying(v => !v)} style={{
+                  border: 'none', background: 'rgb(45,139,93)', color: 'white', borderRadius: 6, padding: '10px 20px',
+                  fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                }}>{playing ? '⏹ Stop' : '▶ Play video gift card'}</button>
+              ) : (
+                <div style={{ fontFamily: 'JetBrains Mono,Menlo,monospace', fontSize: 12.5, color: 'rgba(0,0,0,.4)' }}>Image card only. Run Animate to add a video.</div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
-    </div>
+    </aside>
   )
 }
 
-function GalleryTab({ gallery, popup, setPopup }: {
+function GalleryTab({ gallery, selectedId, onSelect }: {
   gallery: Kid[]
-  popup: Kid | null
-  setPopup: (k: Kid | null) => void
+  selectedId: string | null
+  onSelect: (id: string | null) => void
 }) {
   const [ageFilter, setAgeFilter] = useState('all')
   const [tagFilter, setTagFilter] = useState('all')
 
-  const filtered = gallery.filter(k => {
-    if (ageFilter === '3-5' && !(k.age >= 3 && k.age <= 5)) return false
-    if (ageFilter === '6-8' && !(k.age >= 6 && k.age <= 8)) return false
-    if (ageFilter === '9-12' && !(k.age >= 9 && k.age <= 12)) return false
-    if (tagFilter !== 'all' && !k.tags.includes(tagFilter)) return false
-    return true
-  })
+  const filtered = gallery
+    .filter(k => {
+      if (ageFilter === '3-5' && !(k.age >= 3 && k.age <= 5)) return false
+      if (ageFilter === '6-8' && !(k.age >= 6 && k.age <= 8)) return false
+      if (ageFilter === '9-12' && !(k.age >= 9 && k.age <= 12)) return false
+      if (tagFilter !== 'all' && !k.tags.includes(tagFilter)) return false
+      return true
+    })
+    .slice()
+    .sort((a, b) => Number(b.hasVideo) - Number(a.hasVideo))
 
   const filterBtn = (label: string, value: string, current: string, onClick: () => void) => (
     <button key={value} onClick={onClick} style={{
@@ -942,9 +1112,15 @@ function GalleryTab({ gallery, popup, setPopup }: {
       </div>
       {/* Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
-        {filtered.map(kid => <GalleryTile key={kid.id} kid={kid} onClick={() => setPopup(kid)} />)}
+        {filtered.map(kid => (
+          <GalleryTile
+            key={kid.id}
+            kid={kid}
+            selected={selectedId === kid.id}
+            onClick={() => onSelect(selectedId === kid.id ? null : kid.id)}
+          />
+        ))}
       </div>
-      {popup && <GalleryPopup kid={popup} onClose={() => setPopup(null)} />}
     </div>
   )
 }
@@ -956,7 +1132,7 @@ export default function App() {
   const [coldSana, setColdSana] = useState(false)
   const [speed, setSpeed] = useState(1)
   const [gallery, setGallery] = useState<Kid[]>(GALLERY_SEED)
-  const [galleryPopup, setGalleryPopup] = useState<Kid | null>(null)
+  const [gallerySelectedId, setGallerySelectedId] = useState<string | null>(null)
   const [realMode, setRealMode] = useState(false)
 
   // Create tab state
@@ -970,6 +1146,7 @@ export default function App() {
   const [videoPlaying, setVideoPlaying] = useState(false)
   const lastKidId = useRef<string | null>(null)
   const simGallery = useRef<Kid[]>(GALLERY_SEED)
+  const createRunRef = useRef<RunState>(emptyRun())
 
   // Batch tab state
   const [batchKids, setBatchKids] = useState<Kid[]>([])
@@ -1007,7 +1184,7 @@ export default function App() {
   // Card stage label cycling
   useEffect(() => {
     if (cardStage !== 'generating') return
-    const labels = ['llm: gift + wish', 'sana: images.generate', 'pillow render → card.png']
+    const labels = ['LLM: gift + wish', 'image gen: images.generate', 'pillow render → card.png']
     let i = 0
     setCardStageLabel(labels[0])
     const id = window.setInterval(() => { i = (i + 1) % labels.length; setCardStageLabel(labels[i]) }, 1600)
@@ -1020,14 +1197,32 @@ export default function App() {
     return wall
   }
 
+  const applyWallToAnimate = (items: WallItem[]) => {
+    setBatchKids(items.map(wallToKid))
+    setBatchLoaded(true)
+    const n = items.length
+    const pending = items.filter(i => !i.has_video).length
+    setBatchMetrics({
+      kids: String(n), kidsSub: 'GET /api/wall',
+      jobs: String(ANIMATE_JOBS), jobsSub: 'H100 · preemptible',
+      perJob: n ? `${Math.ceil(n / ANIMATE_JOBS)} cards` : '—',
+      perJobSub: pending ? `${pending} need video` : n ? 'all have video' : 'publish a GiftCard first',
+    })
+    setBatchRun(initialAnimateBatchRun('idle'))
+  }
+
   const setMode = async (real: boolean) => {
     setRealMode(real)
     if (real) {
       simGallery.current = gallery
       try {
-        await refreshWall()
+        const wall = await refreshWall()
+        applyWallToAnimate(wall.items || [])
       } catch {
-        setGallery([])
+        setGallery(GALLERY_SEED)
+        setBatchKids([])
+        setBatchLoaded(false)
+        setBatchRun(initialAnimateBatchRun('idle'))
       }
     } else {
       setGallery(simGallery.current.length ? simGallery.current : GALLERY_SEED)
@@ -1046,26 +1241,25 @@ export default function App() {
       form.tags.length ? `Interests: ${form.tags.join(', ')}` : '',
       form.city ? `City: ${form.city}` : '',
     ].filter(Boolean).join('. ')
-    setCreateRun({
-      title: 'Magic · single card', status: 'running',
-      nodes: {
-        santa: { id: 'santa', label: 'santa-service', kind: 'service', sub: 'POST /api/cards', status: 'active' },
-        token: { id: 'token', label: 'Token Factory', kind: 'llm', sub: 'chat.completions', status: 'pending' },
-        sana: { id: 'sana', label: 'Sana endpoint', kind: 'endpoint', sub: 'images.generate · L40S · 1024×1024', status: 'pending' },
-        bucket: { id: 'bucket', label: 'Object Storage', kind: 'bucket', sub: 'PUT cards/{id}/card.png', status: 'idle' },
-      },
-      levels: [['santa'], ['token'], ['sana'], ['bucket']],
-      log: [], elapsed: 0,
-    })
+    const initial = initialMagicRun()
+    createRunRef.current = initial
+    setCreateRun(initial)
     try {
-      const data = await createCard({ name: form.name || 'Kid', age: form.age, wishlist: extras ? [extras] : [] })
-      const built = stepsToNodes(data.steps)
-      const elapsed = Date.now() - createT0.current
-      setCreateRun({
-        title: 'Magic · single card', status: 'done',
-        nodes: { ...built.nodes, santa: { ...built.nodes.santa, meta: `200 · ${(elapsed / 1000).toFixed(1)} s` } },
-        levels: built.levels, log: [], elapsed,
+      const body = { name: form.name || 'Kid', age: form.age, wishlist: extras ? [extras] : [] }
+      const data = await createCardStream(body, (event) => {
+        createRunRef.current = applyCardProgress(createRunRef.current, event)
+        flushSync(() => setCreateRun({ ...createRunRef.current, nodes: { ...createRunRef.current.nodes } }))
       })
+      const elapsed = Date.now() - createT0.current
+      setCreateRun(r => ({
+        ...r,
+        status: 'done',
+        elapsed,
+        nodes: {
+          ...r.nodes,
+          santa: { ...r.nodes.santa, status: 'done', meta: `200 · ${(elapsed / 1000).toFixed(1)} s` },
+        },
+      }))
       const gift = data.card.recommendation.gifts[0] || 'Gift'
       const pngUrl = data.png_url || undefined
       lastKidId.current = data.card.kid_id
@@ -1100,10 +1294,10 @@ export default function App() {
     setCreateRun({
       title: 'Animate · video card', status: 'running',
       nodes: {
-        santa: { id: 'santa', label: 'santa-service', kind: 'service', sub: 'POST /api/cards/{id}/animate', status: 'active' },
-        wan: { id: 'wan', label: 'Wan endpoint', kind: 'endpoint', sub: 'video role · mood-bank', status: 'active' },
-        mux: { id: 'mux', label: 'mux.py', kind: 'file', sub: 'ffmpeg -i mp4 -i mp3 -shortest', status: 'pending' },
-        bucket: { id: 'bucket', label: 'Object Storage', kind: 'bucket', sub: 'PUT cards/{id}/video.mp4', status: 'idle' },
+        santa: nodeWithStatus('santa', 'active', { sub: 'POST /api/cards/{id}/animate' }),
+        wan: nodeWithStatus('wan', 'active', { sub: 'video · mood-bank' }),
+        mux: nodeWithStatus('mux', 'pending'),
+        bucket: nodeWithStatus('bucket', 'idle', { sub: 'PUT cards/{id}/video.mp4' }),
       },
       levels: [['santa'], ['wan'], ['mux'], ['bucket']],
       log: [], elapsed: 0,
@@ -1114,10 +1308,10 @@ export default function App() {
       setCreateRun({
         title: 'Animate · video card', status: 'done',
         nodes: {
-          santa: { id: 'santa', label: 'santa-service', kind: 'service', sub: 'POST /api/cards/{id}/animate', status: 'done', meta: `${(elapsed / 1000).toFixed(1)} s` },
-          wan: { id: 'wan', label: 'Wan endpoint', kind: 'endpoint', sub: 'video role · mood-bank', status: 'done' },
-          mux: { id: 'mux', label: 'mux.py', kind: 'file', sub: 'ffmpeg -i mp4 -i mp3 -shortest', status: 'done' },
-          bucket: { id: 'bucket', label: 'Object Storage', kind: 'bucket', sub: 'PUT cards/{id}/video.mp4', status: 'done' },
+          santa: nodeWithStatus('santa', 'done', { sub: 'POST /api/cards/{id}/animate', meta: `${(elapsed / 1000).toFixed(1)} s` }),
+          wan: nodeWithStatus('wan', 'done', { sub: 'video · mood-bank' }),
+          mux: nodeWithStatus('mux', 'done'),
+          bucket: nodeWithStatus('bucket', 'done', { sub: 'PUT cards/{id}/video.mp4' }),
         },
         levels: [['santa'], ['wan'], ['mux'], ['bucket']],
         log: [], elapsed,
@@ -1137,32 +1331,16 @@ export default function App() {
 
   const loadKidsReal = async () => {
     try {
-      const rows = await fetchKids(20)
-      const wall = await fetchWall().catch(() => null)
-      const byId = new Map((wall?.items || []).map(i => [i.id, i]))
-      setBatchKids(rows.map(row => {
-        const item = byId.get(row.id)
-        const wish = row.wishlist[0] || ''
-        return {
-          id: row.id, name: row.name, age: row.age, wish,
-          tags: item?.tags || [], mood: item?.mood || 'Playful', city: '',
-          bg: bgForId(row.id), hasVideo: Boolean(item?.has_video),
-          gift: item?.gift, pngUrl: item?.png_url || undefined, videoUrl: item?.video_url || undefined,
-          batchStatus: item?.has_video ? 'video' : item ? 'card' : 'queued',
-        } as Kid
-      }))
-      setBatchLoaded(true)
-      const n = rows.length
-      setBatchMetrics({
-        kids: String(n), kidsSub: 'data/kids.csv',
-        jobs: '4', jobsSub: 'H100 · preemptible',
-        perJob: n ? `${Math.ceil(n / 4)} kids` : '—', perJobSub: 'published cards',
-      })
+      const wall = await fetchWall()
+      applyWallToAnimate(wall.items || [])
     } catch (err) {
+      const hint = shortError(err)
+      const nodes = animateBatchNodes()
+      nodes.santa = { ...nodes.santa, status: 'failed', meta: hint }
+      nodes.storecards = { ...nodes.storecards, status: 'failed', meta: hint }
       setBatchRun({
-        title: 'Kids list', status: 'done',
-        nodes: { santa: { id: 'santa', label: 'santa-service', kind: 'service', sub: 'GET /api/kids', status: 'failed', meta: String(err) } },
-        levels: [['santa']], log: [], elapsed: 0,
+        title: 'Published GiftCards', status: 'done',
+        nodes, levels: animateBatchLevels(), log: [], elapsed: 0,
       })
     }
   }
@@ -1171,49 +1349,61 @@ export default function App() {
     if (batchRun.status === 'running') return
     batchT0.current = Date.now()
     setBatchRunning(true); setBatchDone(false); setBatchSummary(null)
-    setBatchRun({
-      title: 'Let it snow · GPU jobs', status: 'running',
-      nodes: { santa: { id: 'santa', label: 'santa-service', kind: 'service', sub: 'POST /api/runs', status: 'active' } },
-      levels: [['santa']], log: [], elapsed: 0,
-    })
+    const starting = initialAnimateBatchRun('running')
+    starting.nodes.santa = { ...starting.nodes.santa, status: 'active' }
+    starting.nodes.storecards = { ...starting.nodes.storecards, status: 'active' }
+    setBatchRun(starting)
     try {
-      const submitted = await submitRun(4)
-      const jobNodes: Record<string, RNode> = {
-        santa: { id: 'santa', label: 'santa-service', kind: 'service', sub: `run ${submitted.run_id}`, status: 'active' },
-      }
-      const jobLevel: string[] = []
+      const submitted = await submitRun(ANIMATE_JOBS)
+      const nJobs = Math.max(submitted.jobs.length, 1)
+      const nodes = animateBatchNodes(nJobs)
+      nodes.santa = { ...nodes.santa, status: 'active', sub: `run ${submitted.run_id}`, meta: `${submitted.kids.length} cards` }
+      nodes.storecards = { ...nodes.storecards, status: 'done', meta: `${submitted.kids.length} cards inventoried` }
       submitted.jobs.forEach((j, i) => {
         const id = `job${i}`
-        jobLevel.push(id)
-        jobNodes[id] = {
+        nodes[id] = {
           id, label: `Job ${i}`, kind: 'job',
           sub: `${(j.ids || []).length} cards · ${(j.job_id || '').slice(0, 12)}`,
-          status: 'pending',
+          status: jobNodeStatus(j.state || 'PENDING'),
+          meta: j.state,
         }
       })
+      if (submitted.jobs.length === 0) {
+        nodes.job0 = { ...nodes.job0, status: 'skipped', meta: 'nothing to submit · videos exist' }
+        nodes.storevideos = { ...nodes.storevideos, status: 'done', meta: 'all skipped' }
+        nodes.santa = { ...nodes.santa, status: 'done' }
+      }
       setBatchKids(kids => kids.map(k => ({
         ...k,
         batchStatus: (submitted.kids || []).includes(k.id) ? (k.hasVideo ? 'video' : 'card') : (k.batchStatus ?? 'queued'),
       })))
       setBatchRun({
         title: `Let it snow · ${submitted.kids.length} cards · ${submitted.jobs.length} jobs`,
-        status: 'running', nodes: jobNodes,
-        levels: jobLevel.length ? [['santa'], jobLevel] : [['santa']],
+        status: submitted.jobs.length === 0 ? 'done' : 'running',
+        nodes, levels: animateBatchLevels(nJobs),
         log: [], elapsed: Date.now() - batchT0.current,
       })
+      if (submitted.jobs.length === 0) {
+        setBatchRunning(false)
+        setBatchDone(true)
+        return
+      }
       const poll = async () => {
         const status = await fetchRun(submitted.run_id)
         const mapped = status.jobs.map(j => jobNodeStatus(j.state || ''))
         const allDone = status.jobs.length > 0 && mapped.every(s => ['done', 'failed', 'preempted', 'skipped'].includes(s))
         setBatchRun(r => {
-          const nodes = { ...r.nodes }
+          const next = { ...r.nodes }
           status.jobs.forEach((j, i) => {
             const id = `job${i}`
-            if (nodes[id]) nodes[id] = { ...nodes[id], status: jobNodeStatus(j.state || ''), meta: j.state }
+            if (next[id]) next[id] = { ...next[id], status: jobNodeStatus(j.state || ''), meta: j.state }
           })
+          if (allDone) {
+            next.storevideos = { ...next.storevideos, status: mapped.some(s => s === 'done') ? 'done' : 'failed', meta: 'cards/{id}/video.mp4' }
+          }
           return {
             ...r,
-            nodes: { ...nodes, santa: { ...nodes.santa, status: allDone ? 'done' : 'active' } },
+            nodes: { ...next, santa: { ...next.santa, status: allDone ? 'done' : 'active' } },
             status: allDone ? 'done' : 'running',
             elapsed: Date.now() - batchT0.current,
           }
@@ -1245,10 +1435,19 @@ export default function App() {
       }
       void poll()
     } catch (err) {
-      setBatchRun(r => ({
-        ...r, status: 'done',
-        nodes: { ...r.nodes, santa: { ...r.nodes.santa, status: 'failed', meta: String(err) } },
-      }))
+      const hint = shortError(err)
+      const tls = /TLS failed|CERTIFICATE_VERIFY_FAILED|SSL/i.test(hint)
+      const empty = /cards\//i.test(hint) && /publish/i.test(hint)
+      setBatchRun(r => {
+        const nodes = { ...r.nodes }
+        nodes.santa = { ...nodes.santa, status: 'failed', meta: hint }
+        nodes.storecards = {
+          ...nodes.storecards,
+          status: 'failed',
+          meta: tls ? hint : empty ? 'No GiftCards in cards/' : hint,
+        }
+        return { ...r, status: 'done', nodes }
+      })
       setBatchRunning(false)
     }
   }
@@ -1272,11 +1471,11 @@ export default function App() {
     const isCold = coldSana
 
     const nodes: Record<string, RNode> = {
-      santa: { id: 'santa', label: 'santa-service', kind: 'service', sub: 'POST /api/cards', status: 'active' },
-      token: { id: 'token', label: 'Token Factory', kind: 'llm', sub: 'chat.completions · gpt-oss-120b', status: 'idle' },
-      sana: { id: 'sana', label: 'Sana endpoint', kind: 'endpoint', sub: 'images.generate · L40S · 1024×1024', status: 'idle' },
-      ...(isCold ? { openai: { id: 'openai', label: 'OpenAI fallback', kind: 'fallback', sub: 'gpt-image-1 · images.generate', status: 'idle' as NodeStatus } } : {}),
-      bucket: { id: 'bucket', label: 'Object Storage', kind: 'bucket', sub: 'PUT cards/{id}.png', status: 'idle' },
+      santa: nodeWithStatus('santa', 'active'),
+      token: nodeWithStatus('token', 'idle'),
+      sana: nodeWithStatus('sana', 'idle'),
+      ...(isCold ? { openai: nodeWithStatus('openai', 'idle') } : {}),
+      bucket: nodeWithStatus('bucket', 'idle', { sub: 'PUT cards/{id}.png' }),
     }
 
     setCreateRun({
@@ -1287,11 +1486,11 @@ export default function App() {
     })
 
     at(500, () => setCreateRun(r => ({ ...r, nodes: { ...r.nodes, token: { ...r.nodes.token, status: 'active' } }, log: [...r.log, { t: 500, mark: '→', text: 'chat.completions model=gpt-oss-120b (gift_rec, wish)', tone: 'blue' }] })))
-    at(2400, () => setCreateRun(r => ({ ...r, nodes: { ...r.nodes, token: { ...r.nodes.token, status: 'done', meta: '1.9 s · gift: Cosmic Explorer Kit' }, sana: { ...r.nodes.sana, status: 'active' } }, log: [...r.log, { t: 2400, mark: '←', text: 'chat.completions → "Cosmic Explorer Kit" · 1.9 s', tone: 'green' }, { t: 2400, mark: '→', text: 'images.generate size=1024x1024 seed=42', tone: 'blue' }] })))
+    at(2400, () => setCreateRun(r => ({ ...r, nodes: { ...r.nodes, token: { ...r.nodes.token, status: 'done', meta: '1.9 s · openai/gpt-oss-120b' }, sana: { ...r.nodes.sana, status: 'active' } }, log: [...r.log, { t: 2400, mark: '←', text: 'chat.completions → "Cosmic Explorer Kit" · 1.9 s', tone: 'green' }, { t: 2400, mark: '→', text: 'images.generate size=1024x1024 seed=42', tone: 'blue' }] })))
 
     if (isCold) {
       at(4200, () => setCreateRun(r => ({ ...r, nodes: { ...r.nodes, sana: { ...r.nodes.sana, status: 'failed', meta: '503 · endpoint cold (scaling 0→1)' }, openai: { ...r.nodes.openai!, status: 'active' } }, log: [...r.log, { t: 4200, mark: '×', text: 'Sana 503 · endpoint cold (scaling 0→1)', tone: 'red' }, { t: 4200, mark: '!', text: 'Resilient: primary failed → fallback gpt-image-1 (SANTA_FALLBACK=auto)', tone: 'amber' }, { t: 4200, mark: '→', text: 'gpt-image-1 images.generate (fallback)', tone: 'blue' }] })))
-      at(8200, () => setCreateRun(r => ({ ...r, nodes: { ...r.nodes, openai: { ...r.nodes.openai!, status: 'done', meta: '4.0 s · b64_json 1.2 MB' }, bucket: { ...r.nodes.bucket, status: 'active' } }, log: [...r.log, { t: 8200, mark: '←', text: 'gpt-image-1 → b64_json 1.2 MB · 4.0 s', tone: 'green' }, { t: 8200, mark: '·', text: 'render.py: Pillow → card.png + card.html · 0.3 s', tone: 'muted' }, { t: 8200, mark: '→', text: 'PUT cards/c_8f2a.png', tone: 'blue' }] })))
+      at(8200, () => setCreateRun(r => ({ ...r, nodes: { ...r.nodes, openai: { ...r.nodes.openai!, status: 'done', meta: '4.0 s · gpt-image-1' }, bucket: { ...r.nodes.bucket, status: 'active' } }, log: [...r.log, { t: 8200, mark: '←', text: 'gpt-image-1 → b64_json 1.2 MB · 4.0 s', tone: 'green' }, { t: 8200, mark: '·', text: 'render.py: Pillow → card.png + card.html · 0.3 s', tone: 'muted' }, { t: 8200, mark: '→', text: 'PUT cards/c_8f2a.png', tone: 'blue' }] })))
       at(9600, () => {
         setCreateRun(r => ({ ...r, status: 'done', nodes: { ...r.nodes, bucket: { ...r.nodes.bucket, status: 'done', meta: '1.3 s · cards/c_8f2a.png' }, santa: { ...r.nodes.santa, status: 'done', meta: '200 {id, card_url} · 9.6 s total' } }, log: [...r.log, { t: 9600, mark: '✓', text: 'PUT cards/c_8f2a.png → 200 OK', tone: 'green' }, { t: 9600, mark: '✓', text: 'santa-service → 200 · attribution: gpt-image-1 (fallback) · 9.6 s', tone: 'green' }] }))
         const cd = { gift: 'Cosmic Explorer Kit', model: 'gpt-image-1 (fallback)', bg: tagBg }
@@ -1299,10 +1498,10 @@ export default function App() {
         setGallery(prev => [{ id: 'c_8f2a', name: kidName, age: form.age, wish: form.wish, tags: form.tags, mood: form.mood, city: form.city, bg: tagBg, hasVideo: false, gift: 'Cosmic Explorer Kit' }, ...prev.filter(k => k.id !== 'c_8f2a')])
       })
     } else {
-      at(5100, () => setCreateRun(r => ({ ...r, nodes: { ...r.nodes, sana: { ...r.nodes.sana, status: 'done', meta: '2.7 s · b64_json 1.2 MB' }, bucket: { ...r.nodes.bucket, status: 'active' } }, log: [...r.log, { t: 5100, mark: '←', text: 'Sana → b64_json 1.2 MB · 2.7 s', tone: 'green' }, { t: 5100, mark: '·', text: 'render.py: Pillow → card.png + card.html · 0.3 s', tone: 'muted' }, { t: 5100, mark: '→', text: 'PUT cards/c_8f2a.png', tone: 'blue' }] })))
+      at(5100, () => setCreateRun(r => ({ ...r, nodes: { ...r.nodes, sana: { ...r.nodes.sana, status: 'done', meta: '2.7 s · Sana_1600M_1024px_diffusers' }, bucket: { ...r.nodes.bucket, status: 'active' } }, log: [...r.log, { t: 5100, mark: '←', text: 'Sana → b64_json 1.2 MB · 2.7 s', tone: 'green' }, { t: 5100, mark: '·', text: 'render.py: Pillow → card.png + card.html · 0.3 s', tone: 'muted' }, { t: 5100, mark: '→', text: 'PUT cards/c_8f2a.png', tone: 'blue' }] })))
       at(6400, () => {
         setCreateRun(r => ({ ...r, status: 'done', nodes: { ...r.nodes, bucket: { ...r.nodes.bucket, status: 'done', meta: '1.3 s · cards/c_8f2a.png' }, santa: { ...r.nodes.santa, status: 'done', meta: '200 {id, card_url} · 6.4 s' } }, log: [...r.log, { t: 6400, mark: '✓', text: 'PUT cards/c_8f2a.png → 200 OK', tone: 'green' }, { t: 6400, mark: '✓', text: 'santa-service → 200 {id:"c_8f2a", card_url} · 6.4 s', tone: 'green' }] }))
-        setCardData({ gift: 'Cosmic Explorer Kit', model: 'sana · L40S', bg: tagBg }); setCardStage('ready')
+        setCardData({ gift: 'Cosmic Explorer Kit', model: 'Sana_1600M_1024px_diffusers', bg: tagBg }); setCardStage('ready')
         setGallery(prev => [{ id: 'c_8f2a', name: kidName, age: form.age, wish: form.wish, tags: form.tags, mood: form.mood, city: form.city, bg: tagBg, hasVideo: false, gift: 'Cosmic Explorer Kit' }, ...prev.filter(k => k.id !== 'c_8f2a')])
       })
     }
@@ -1319,11 +1518,11 @@ export default function App() {
     const at = (ms: number, fn: () => void) => { const id = window.setTimeout(fn, S(ms)); animTimers.current.push(id) }
 
     const animNodes: Record<string, RNode> = {
-      santa: { id: 'santa', label: 'santa-service', kind: 'service', sub: 'santa animate', status: 'active' },
-      wan: { id: 'wan', label: 'Wan endpoint', kind: 'endpoint', sub: 'POST /v1/videos (async) · H100 · 832×480', status: 'idle', progress: 0 },
-      ace: { id: 'ace', label: 'ACE-Step endpoint', kind: 'endpoint', sub: `text2music mood=${form.mood} duration=8`, status: 'idle' },
-      mux: { id: 'mux', label: 'mux.py', kind: 'file', sub: 'ffmpeg -i mp4 -i mp3 -shortest', status: 'idle' },
-      bucket: { id: 'bucket', label: 'Object Storage', kind: 'bucket', sub: 'PUT videos/{id}.mp4', status: 'idle' },
+      santa: nodeWithStatus('santa', 'active', { sub: 'santa animate' }),
+      wan: nodeWithStatus('wan', 'idle', { sub: 'POST /v1/videos · async', progress: 0 }),
+      ace: nodeWithStatus('ace', 'idle', { sub: `text2music · mood=${form.mood}` }),
+      mux: nodeWithStatus('mux', 'idle'),
+      bucket: nodeWithStatus('bucket', 'idle', { sub: 'PUT videos/{id}.mp4' }),
     }
 
     setCreateRun({ title: 'Animate · video card', status: 'running', nodes: animNodes, levels: [['santa'],['wan','ace'],['mux'],['bucket']], log: [{ t: 0, mark: '→', text: `santa animate (mood=${form.mood}) → Wan + ACE-Step`, tone: 'blue' }], elapsed: 0 })
@@ -1356,7 +1555,7 @@ export default function App() {
 
     const bn: Record<string, RNode> = {
       santa: { id: 'santa', label: 'santa-service', kind: 'service', sub: 'POST /api/cards/batch · 20 kids', status: 'active' },
-      sana: { id: 'sana', label: 'Sana endpoint', kind: 'endpoint', sub: 'images.generate · L40S · ×20', status: 'idle', progress: 0 },
+      sana: nodeWithStatus('sana', 'idle', { sub: 'images.generate · ×20', progress: 0 }),
       storecards: { id: 'storecards', label: 'Object Storage', kind: 'bucket', sub: 'cards/ · chunks/ · runs/', status: 'idle' },
       job0: { id: 'job0', label: 'Job 0', kind: 'job', sub: 'santa-job:v2 · 5 kids · H100 preemptible', status: 'pending' },
       job1: { id: 'job1', label: 'Job 1', kind: 'job', sub: 'santa-job:v2 · 5 kids · H100 preemptible', status: 'pending' },
@@ -1445,7 +1644,7 @@ export default function App() {
 
   // Panel: show create run on create/gallery tab, batch on batch tab
   const panelRun = tab === 'batch' ? batchRun : createRun
-  const panelScope = tab === 'batch' ? 'Batch' : 'Create gift card'
+  const panelScope = tab === 'batch' ? 'Animate' : 'Create gift card'
 
   // Snow effect active during batch
   const snowActive = batchRunning
@@ -1481,7 +1680,7 @@ export default function App() {
         {/* Tabs */}
         <div style={{ display: 'flex', alignItems: 'center', height: '100%', marginLeft: 8 }}>
           {(['create', 'batch', 'gallery'] as Tab[]).map(t => {
-            const labels: Record<Tab, string> = { create: 'Create gift card', batch: 'Batch', gallery: 'Gallery' }
+            const labels: Record<Tab, string> = { create: 'Create gift card', batch: 'Animate', gallery: 'Gallery' }
             const active = tab === t
             return (
               <button key={t} onClick={() => setTab(t)} style={{
@@ -1530,7 +1729,7 @@ export default function App() {
           )}
           {realMode && (
             <div style={{ fontSize: 13, color: 'rgba(0,0,0,.5)', fontFamily: 'JetBrains Mono,Menlo,monospace' }}>
-              GET /api/wall · POST /api/cards
+              {tab === 'batch' ? 'GET /api/wall · POST /api/runs' : 'GET /api/wall · POST /api/cards/stream'}
             </div>
           )}
         </div>
@@ -1559,16 +1758,29 @@ export default function App() {
                 onLoad={realMode ? () => { void loadKidsReal() } : () => { setBatchLoaded(true); setBatchKids(BATCH_SEED.map(k => ({ ...k, batchStatus: 'queued' as const }))) }}
                 onRun={realMode ? () => { void runBatchReal() } : runBatch} batchRunning={batchRunning} batchDone={batchDone} batchSummary={batchSummary}
                 metrics={realMode ? batchMetrics : undefined}
+                realMode={realMode}
               />
             )}
             {tab === 'gallery' && (
-              <GalleryTab gallery={gallery} popup={galleryPopup} setPopup={setGalleryPopup} />
+              <GalleryTab
+                gallery={gallery}
+                selectedId={gallerySelectedId}
+                onSelect={setGallerySelectedId}
+              />
             )}
           </div>
         </main>
 
-        {/* ── Live panel ── */}
-        <LivePanel run={panelRun} scope={panelScope} realMode={realMode} onRealMode={v => { void setMode(v) }} />
+        {/* ── Right panel: GiftCard preview on Gallery; LivePanel elsewhere ── */}
+        {tab === 'gallery' ? (
+          <GalleryPreview
+            kid={gallerySelectedId ? (gallery.find(k => k.id === gallerySelectedId) ?? null) : null}
+            realMode={realMode}
+            onRealMode={v => { void setMode(v) }}
+          />
+        ) : (
+          <LivePanel run={panelRun} scope={panelScope} realMode={realMode} onRealMode={v => { void setMode(v) }} />
+        )}
       </div>
     </div>
   )

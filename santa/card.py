@@ -7,6 +7,7 @@ in order and records which model answered each role.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -46,16 +47,27 @@ def validate_profile(name: str, age: int | str, wish: str = "") -> KidProfile:
     return KidProfile(name=cleaned, age=age_int, wishlist=wishlist)
 
 
+def _model_label(adapter: Any) -> str:
+    """Model id for UI/logs — never include endpoint URLs."""
+    cfg = getattr(adapter, "cfg", None)
+    if cfg is not None:
+        configured = (getattr(cfg, "model", None) or "").strip()
+        if configured:
+            return configured
+        adapter_name = (getattr(cfg, "adapter", None) or "").strip()
+        if adapter_name:
+            return adapter_name
+    raw = str(getattr(adapter, "model_version", None) or "")
+    if "@" in raw:
+        return raw.split("@", 1)[0].strip()
+    return raw or "unknown"
+
+
 def _step(role: str, adapter: Any) -> dict[str, Any]:
     metrics = dict(getattr(adapter, "last_metrics", None) or {})
-    model = (
-        getattr(adapter, "model_version", None)
-        or getattr(getattr(adapter, "cfg", None), "model", "")
-        or ""
-    )
     return {
         "role": role,
-        "model": model,
+        "model": _model_label(adapter),
         "fallback": bool(metrics.get("fallback", getattr(adapter, "used_fallback", False))),
         "ms": int(metrics.get("latency_ms") or 0),
     }
@@ -98,7 +110,7 @@ def generate_image(
     return png, CardImage(
         kid_id=kid.id,
         path="",
-        model_version=getattr(image, "model_version", "unknown"),
+        model_version=_model_label(image),
         prompt=prompt,
         endpoint=endpoint,
     )
@@ -136,16 +148,55 @@ def make_card(
     seed: int | None = None,
     llm: Any = None,
     image: Any = None,
+    on_progress: Callable[[dict[str, Any]], None] | None = None,
 ) -> CardRun:
     """Gift rec → wish → image → render. Inject ``llm`` / ``image`` in tests."""
+
+    def emit(event: dict[str, Any]) -> None:
+        if on_progress is not None:
+            on_progress(event)
+
     llm = llm or adapter_for("llm", settings)
     image = image or adapter_for("image", settings)
+    emit({"type": "active", "node": "token"})
     rec = recommend_gift(kid, llm)
-    steps = [_step("llm", llm)]
+    step_gift = _step("llm", llm)
+    emit({"type": "step", "step": step_gift})
     wish = write_wish(kid, rec, llm)
-    steps.append(_step("llm", llm))
+    step_wish = _step("llm", llm)
+    emit({"type": "step", "step": step_wish})
+    llm_ms = step_gift["ms"] + step_wish["ms"]
+    emit(
+        {
+            "type": "done",
+            "node": "token",
+            "meta": f"{llm_ms / 1000:.1f} s · {step_wish['model']}",
+        }
+    )
+    steps = [step_gift, step_wish]
+    emit({"type": "active", "node": "sana"})
     png, meta = generate_image(kid, rec, image, seed=seed)
-    steps.append(_step("image", image))
+    step_image = _step("image", image)
+    emit({"type": "step", "step": step_image})
+    steps.append(step_image)
+    if step_image["fallback"]:
+        emit({"type": "done", "node": "sana", "status": "failed", "meta": "fallback"})
+        emit({"type": "active", "node": "openai"})
+        emit(
+            {
+                "type": "done",
+                "node": "openai",
+                "meta": f"{step_image['ms'] / 1000:.1f} s · {step_image['model']}",
+            }
+        )
+    else:
+        emit(
+            {
+                "type": "done",
+                "node": "sana",
+                "meta": f"{step_image['ms'] / 1000:.1f} s · {step_image['model']}",
+            }
+        )
     out_dir = Path(out_root) / kid.id if out_root is not None else REPO_ROOT / "out" / kid.id
     card = save_card(kid, rec, wish, png, meta, out_dir)
     return CardRun(card=card, out_dir=out_dir, steps=steps)
