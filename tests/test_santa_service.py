@@ -438,6 +438,19 @@ def test_root_serves_spa_when_ui_is_built() -> None:
     assert "/assets/" in resp.text
 
 
+def test_ui_moods_match_mood_bank() -> None:
+    import re
+
+    from santa.config import REPO_ROOT
+    from santa.prompts import MOODS
+
+    src = (REPO_ROOT / "santa" / "service" / "ui" / "src" / "App.tsx").read_text(encoding="utf-8")
+    match = re.search(r"const MOODS = \[([^\]]+)\]", src)
+    assert match, "MOODS list missing from App.tsx"
+    labels = [part.strip().strip("'\"") for part in match.group(1).split(",") if part.strip()]
+    assert [label.lower() for label in labels] == list(MOODS)
+
+
 def test_generate_card_uploads_png_json_and_profile(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

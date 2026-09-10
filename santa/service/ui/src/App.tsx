@@ -46,7 +46,7 @@ const ITAGS = [
   { id: 'lego', label: '🧱 Lego', color: '#DC2626', light: 'rgba(220,38,38,.15)' },
   { id: 'ocean', label: '🌊 Ocean', color: '#0EA5E9', light: 'rgba(14,165,233,.15)' },
 ]
-const MOODS = ['Dreamy', 'Playful', 'Cozy', 'Epic']
+const MOODS = ['Warm', 'Playful', 'Dreamy', 'Adventurous', 'Cozy', 'Magical', 'Joyful', 'Calm']
 const BGS = ['rgb(255,230,180)', 'rgb(200,235,200)', 'rgb(210,225,255)', 'rgb(255,210,210)', 'rgb(220,245,235)', 'rgb(255,240,200)']
 
 const GALLERY_SEED: Kid[] = [
@@ -66,25 +66,25 @@ const GALLERY_SEED: Kid[] = [
 
 const BATCH_SEED: Kid[] = [
   { id:'k1', name:'Thea', age:8, wish:'Fairy tale collection', tags:['books'], mood:'Cozy', city:'Oslo', bg:BGS[0], hasVideo:false },
-  { id:'k2', name:'Mikkel', age:10, wish:'RC racing car', tags:['robots'], mood:'Epic', city:'Copenhagen', bg:BGS[1], hasVideo:false },
+  { id:'k2', name:'Mikkel', age:10, wish:'RC racing car', tags:['robots'], mood:'Adventurous', city:'Copenhagen', bg:BGS[1], hasVideo:false },
   { id:'k3', name:'Lena', age:7, wish:'Art supply mega kit', tags:['art'], mood:'Dreamy', city:'Stockholm', bg:BGS[2], hasVideo:false },
-  { id:'k4', name:'Oscar', age:12, wish:'Reflecting telescope', tags:['space'], mood:'Epic', city:'Helsinki', bg:BGS[3], hasVideo:false },
+  { id:'k4', name:'Oscar', age:12, wish:'Reflecting telescope', tags:['space'], mood:'Adventurous', city:'Helsinki', bg:BGS[3], hasVideo:false },
   { id:'k5', name:'Nora', age:6, wish:'Stuffed elephant family', tags:['animals'], mood:'Cozy', city:'Bergen', bg:BGS[4], hasVideo:false },
   { id:'k6', name:'Emil', age:9, wish:'Football boots and ball', tags:['football'], mood:'Playful', city:'Malmö', bg:BGS[5], hasVideo:false },
   { id:'k7', name:'Hanna', age:8, wish:'Mini piano keyboard', tags:['music'], mood:'Dreamy', city:'Gothenburg', bg:BGS[0], hasVideo:false },
-  { id:'k8', name:'Lars', age:11, wish:'Lego Technic supercar', tags:['lego','robots'], mood:'Epic', city:'Aarhus', bg:BGS[1], hasVideo:false },
+  { id:'k8', name:'Lars', age:11, wish:'Lego Technic supercar', tags:['lego','robots'], mood:'Adventurous', city:'Aarhus', bg:BGS[1], hasVideo:false },
   { id:'k9', name:'Sigrid', age:5, wish:'Ocean animals puzzle', tags:['ocean'], mood:'Cozy', city:'Turku', bg:BGS[2], hasVideo:false },
   { id:'k10', name:'Bjorn', age:13, wish:'Dinosaur encyclopedia set', tags:['dinosaurs','books'], mood:'Cozy', city:'Espoo', bg:BGS[3], hasVideo:false },
   { id:'k11', name:'Ida', age:7, wish:'Watercolour brush set', tags:['art'], mood:'Playful', city:'Odense', bg:BGS[4], hasVideo:false },
-  { id:'k12', name:'Kristian', age:10, wish:'Programmable robot kit', tags:['robots'], mood:'Epic', city:'Tampere', bg:BGS[5], hasVideo:false },
+  { id:'k12', name:'Kristian', age:10, wish:'Programmable robot kit', tags:['robots'], mood:'Adventurous', city:'Tampere', bg:BGS[5], hasVideo:false },
   { id:'k13', name:'Elin', age:8, wish:'Star projector nightlight', tags:['space'], mood:'Dreamy', city:'Oslo', bg:BGS[0], hasVideo:false },
   { id:'k14', name:'Tor', age:9, wish:'Football training goal', tags:['football'], mood:'Playful', city:'Stockholm', bg:BGS[1], hasVideo:false },
   { id:'k15', name:'Maria', age:6, wish:'Animal plushie collection', tags:['animals'], mood:'Cozy', city:'Helsinki', bg:BGS[2], hasVideo:false },
-  { id:'k16', name:'Gunnar', age:11, wish:'Coding board game', tags:['robots','space'], mood:'Epic', city:'Copenhagen', bg:BGS[3], hasVideo:false },
+  { id:'k16', name:'Gunnar', age:11, wish:'Coding board game', tags:['robots','space'], mood:'Adventurous', city:'Copenhagen', bg:BGS[3], hasVideo:false },
   { id:'k17', name:'Ragna', age:7, wish:'Junior drum kit', tags:['music'], mood:'Playful', city:'Bergen', bg:BGS[4], hasVideo:false },
   { id:'k18', name:'Sven', age:12, wish:'Sailing ship model kit', tags:['ocean'], mood:'Cozy', city:'Malmö', bg:BGS[5], hasVideo:false },
   { id:'k19', name:'Klara', age:8, wish:'Lego Harry Potter castle', tags:['lego','books'], mood:'Dreamy', city:'Gothenburg', bg:BGS[0], hasVideo:false },
-  { id:'k20', name:'Viggo', age:10, wish:'Paleontology excavation kit', tags:['dinosaurs'], mood:'Epic', city:'Aarhus', bg:BGS[1], hasVideo:false },
+  { id:'k20', name:'Viggo', age:10, wish:'Paleontology excavation kit', tags:['dinosaurs'], mood:'Adventurous', city:'Aarhus', bg:BGS[1], hasVideo:false },
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -141,6 +141,12 @@ function tagById(id: string) {
   return ITAGS.find(t => t.id === id)
 }
 
+function moodLabel(mood: string): string {
+  const raw = (mood || '').trim()
+  if (!raw) return 'Warm'
+  return raw.charAt(0).toUpperCase() + raw.slice(1)
+}
+
 function bgForId(id: string): string {
   let n = 0
   for (let i = 0; i < id.length; i++) n = (n + id.charCodeAt(i) * (i + 1)) % 997
@@ -154,7 +160,7 @@ function wallToKid(item: WallItem): Kid {
     age: item.age,
     wish: item.wish,
     tags: item.tags,
-    mood: item.mood,
+    mood: moodLabel(item.mood),
     city: item.city || '',
     bg: bgForId(item.id),
     hasVideo: item.has_video,
@@ -1307,6 +1313,7 @@ export default function App() {
       form.wish,
       form.tags.length ? `Interests: ${form.tags.join(', ')}` : '',
       form.city ? `City: ${form.city}` : '',
+      form.mood ? `Mood: ${form.mood.toLowerCase()}` : '',
     ].filter(Boolean).join('. ')
     const initial = initialMagicRun()
     createRunRef.current = initial
@@ -1330,6 +1337,8 @@ export default function App() {
       const gift = data.card.recommendation.gifts[0] || 'Gift'
       const pngUrl = data.png_url || undefined
       lastKidId.current = data.card.kid_id
+      const mood = moodLabel(data.card.wish?.mood || form.mood)
+      setForm(f => f.mood === mood ? f : { ...f, mood })
       const tagBg = form.tags[0] ? (tagById(form.tags[0])?.light ?? BGS[0]) : bgForId(data.card.kid_id)
       const imageStep = data.steps.find(s => s.role === 'image')
       setCardData({
@@ -1341,7 +1350,7 @@ export default function App() {
       setCardStage('ready')
       const kid: Kid = {
         id: data.card.kid_id, name: form.name || 'Kid', age: form.age, wish: form.wish,
-        tags: form.tags, mood: form.mood, city: form.city, bg: tagBg, hasVideo: false, gift, pngUrl,
+        tags: form.tags, mood, city: form.city, bg: tagBg, hasVideo: false, gift, pngUrl,
       }
       setGallery(prev => [kid, ...prev.filter(k => k.id !== kid.id)])
       setGallerySelectedId(kid.id)
