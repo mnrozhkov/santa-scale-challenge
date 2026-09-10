@@ -316,7 +316,12 @@ def test_api_wall_lists_keys_from_fake_storage(
     assert data.get("counter") == 1
     home = client.get("/")
     assert home.status_code == 200
-    assert "GiftCard" in home.text or "Generate" in home.text
+    form = client.get("/form")
+    assert form.status_code == 200
+    assert "GiftCard" in form.text or "Generate" in form.text
+    wall_json = client.get("/api/wall").json()
+    assert wall_json["items"][0]["id"] == "k1"
+    assert wall_json["items"][0]["png_url"] == "/media/cards/k1/card.png"
 
 
 def test_wall_counter_prefers_totals_done(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -331,3 +336,170 @@ def test_wall_counter_prefers_totals_done(tmp_path: Path, monkeypatch: pytest.Mo
     listing = session.wall()
     assert listing["counter"] == 7
     assert listing["summary"]["kids"] == 20
+
+
+def test_wall_falls_back_to_local_out_when_bucket_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from santa.storage import MemoryStorage, StorageError
+
+    class BoomStorage(MemoryStorage):
+        def list(self, prefix: str = "") -> list[str]:
+            raise StorageError("tls")
+
+        def list_with_mtime(self, prefix: str = "") -> list[tuple[str, float]]:
+            raise StorageError("tls")
+
+    _env(monkeypatch)
+    kid_dir = tmp_path / "local1"
+    kid_dir.mkdir()
+    (kid_dir / "card.png").write_bytes(b"png")
+    (kid_dir / "profile.json").write_text(
+        json.dumps({"name": "Mia", "age": 6, "wishlist": ["train"]}), encoding="utf-8"
+    )
+    session = ServiceSession(
+        settings=Settings.load(env_file=NOENV),
+        storage=BoomStorage(),
+        out_root=tmp_path,
+    )
+    listing = session.wall()
+    assert listing["items"][0]["name"] == "Mia"
+    assert listing["items"][0]["png_url"] == "/media/cards/local1/card.png"
+
+
+def test_root_serves_spa_when_ui_is_built() -> None:
+    from fastapi.testclient import TestClient
+
+    from santa.service.app import UI_INDEX
+
+    if not UI_INDEX.is_file():
+        pytest.skip("UI not built")
+    client = TestClient(create_app())
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert "Santa Scale Challenge" in resp.text
+    assert "/assets/" in resp.text
+
+
+def test_generate_card_uploads_png_json_and_profile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fastapi.testclient import TestClient
+
+    session = _session(tmp_path, monkeypatch, runner=_writing_runner(tmp_path))
+    kid = KidProfile(id="emma", name="Emma", age=7, wishlist=["stars"])
+    client = TestClient(create_app(session))
+    resp = client.post("/api/cards", json=kid.model_dump())
+    assert resp.status_code == 200
+    assert session.storage.exists("cards/emma/card.png")
+    assert session.storage.exists("cards/emma/card.json")
+    assert session.storage.exists("cards/emma/profile.json")
+    profile = json.loads(session.storage.download("cards/emma/profile.json"))
+    assert profile["name"] == "Emma"
+    wall = client.get("/api/wall").json()
+    assert wall["items"][0]["name"] == "Emma"
+    assert wall["items"][0]["gift"] == "telescope"
+
+
+def test_api_kids_reads_workshop_csv() -> None:
+    from fastapi.testclient import TestClient
+
+    client = TestClient(create_app())
+    resp = client.get("/api/kids?limit=3")
+    assert resp.status_code == 200
+    kids = resp.json()["kids"]
+    assert len(kids) == 3
+    assert kids[0]["name"] == "Emma"
+
+
+def test_disk_storage_maps_local_out_tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from santa.storage import DiskStorage, storage_for_service
+
+    monkeypatch.delenv("NEBIUS_BUCKET_NAME", raising=False)
+    monkeypatch.delenv("AWS_S3_BUCKET", raising=False)
+    monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
+    kid = tmp_path / "k-local"
+    kid.mkdir()
+    (kid / "card.png").write_bytes(b"png")
+    (kid / "card.mp4").write_bytes(b"mp4")
+    (kid / "card.json").write_text("{}", encoding="utf-8")
+    store = DiskStorage(tmp_path)
+    assert store.exists("cards/k-local/card.png")
+    assert store.exists("cards/k-local/video.mp4")
+    assert "cards/k-local/card.png" in store.list("cards/")
+    assert "cards/k-local/video.mp4" in store.list("cards/")
+    assert store.download("cards/k-local/video.mp4") == b"mp4"
+    fallback = storage_for_service(tmp_path)
+    assert isinstance(fallback, DiskStorage)
+    monkeypatch.setenv("SANTA_LOCAL_STORAGE", "1")
+    monkeypatch.setenv("NEBIUS_BUCKET_NAME", "bucket")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "key")
+    forced = storage_for_service(tmp_path)
+    assert isinstance(forced, DiskStorage)
+
+
+def test_api_animate_writes_video(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from fastapi.testclient import TestClient
+
+    def fake_animate(png, **_kw):
+        dest = Path(png).with_name("card.mp4")
+        dest.write_bytes(b"mp4-bytes")
+        return dest
+
+    monkeypatch.setattr("santa.animate.run", fake_animate)
+    session = _session(tmp_path, monkeypatch, runner=_writing_runner(tmp_path))
+    client = TestClient(create_app(session))
+    kid = KidProfile(id="k-anim", name="Emma", age=7, wishlist=["stars"])
+    client.post("/api/cards", json=kid.model_dump())
+    resp = client.post("/api/cards/k-anim/animate", json={"mood_bank": True})
+    assert resp.status_code == 200
+    assert resp.json()["video_url"] == "/media/cards/k-anim/video.mp4"
+    assert session.storage.download("cards/k-anim/video.mp4") == b"mp4-bytes"
+
+
+def test_api_runs_submits_jobs_without_waiting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fastapi.testclient import TestClient
+
+    class Jobs:
+        def __init__(self) -> None:
+            self.created: list[str] = []
+
+        def create(self, payload) -> str:
+            jid = f"job-{len(self.created)}"
+            self.created.append(jid)
+            return jid
+
+        def get(self, job_id: str) -> str:
+            return "RUNNING"
+
+        def cancel(self, job_id: str) -> None:
+            return None
+
+    monkeypatch.setenv("NEBIUS_BUCKET_ID", "bucket-id")
+    monkeypatch.setenv("NEBIUS_PROJECT_ID", "proj")
+    session = _session(tmp_path, monkeypatch, runner=_writing_runner(tmp_path))
+    session.settings.models.job.image = "santa-job:test"
+    session.job_service = Jobs()
+    session.storage.upload("cards/k1/card.png", b"png")
+    session.storage.upload("cards/k2/card.png", b"png")
+    client = TestClient(create_app(session))
+    resp = client.post("/api/runs", json={"jobs": 2})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["waiting"] is True
+    assert len(data["jobs"]) == 2
+    status = client.get(f"/api/runs/{data['run_id']}")
+    assert status.status_code == 200
+    assert status.json()["jobs"][0]["state"] == "RUNNING"
+
+
+def test_api_runs_empty_inventory_is_400(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from fastapi.testclient import TestClient
+
+    session = _session(tmp_path, monkeypatch)
+    client = TestClient(create_app(session))
+    resp = client.post("/api/runs", json={"jobs": 2})
+    assert resp.status_code == 400
+    assert "cards/" in resp.json()["detail"]

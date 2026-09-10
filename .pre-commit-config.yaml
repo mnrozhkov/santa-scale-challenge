@@ -19,7 +19,8 @@ repos:
             .*secrets\.baseline$|
             .*\.ipynb$|
             pyproject\.toml$|
-            README\.md$
+            README\.md$|
+            santa/service/static/.*
           )
 
   # Check for large files

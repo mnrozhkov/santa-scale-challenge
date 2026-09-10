@@ -204,6 +204,98 @@ class Storage:
             raise StorageError(f"download {key} failed: {exc}") from exc
 
 
+def card_profile_key(kid_id: str) -> str:
+    return f"cards/{kid_id}/profile.json"
+
+
+class DiskStorage:
+    """StorageLike over a local ``out/{id}/`` tree. Keys stay ``cards/{id}/card.png``."""
+
+    def __init__(self, root: Path | str) -> None:
+        self.root = Path(root)
+
+    def _path_for(self, key: str) -> Path:
+        parts = [p for p in Path(key).parts if p not in (".", "..")]
+        if len(parts) >= 3 and parts[0] == "cards":
+            kid_id, name = parts[1], parts[-1]
+            folder = self.root / kid_id
+            if name == CARD_VIDEO:
+                local = folder / "card.mp4"
+                if local.is_file():
+                    return local
+                return folder / CARD_VIDEO
+            return folder / name
+        return self.root.joinpath(*parts)
+
+    def upload(self, key: str, data: bytes, *, content_type: str | None = None) -> None:
+        path = self._path_for(key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+
+    def exists(self, key: str) -> bool:
+        return self._path_for(key).is_file()
+
+    def list(self, prefix: str = "") -> list[str]:
+        return [k for k, _ in self.list_with_mtime(prefix)]
+
+    def list_with_mtime(self, prefix: str = "") -> list[tuple[str, float]]:
+        items: list[tuple[str, float]] = []
+        if not self.root.is_dir():
+            return items
+        for folder in sorted(self.root.iterdir()):
+            if not folder.is_dir() or folder.name in {"mlruns", "runs"}:
+                continue
+            mapping = (
+                (folder / CARD_PNG, card_png_key(folder.name)),
+                (folder / CARD_HTML, card_html_key(folder.name)),
+                (folder / CARD_JSON, card_json_key(folder.name)),
+                (folder / "profile.json", card_profile_key(folder.name)),
+                (folder / "card.mp4", card_video_key(folder.name)),
+                (folder / CARD_VIDEO, card_video_key(folder.name)),
+            )
+            seen: set[str] = set()
+            for path, object_key in mapping:
+                if not path.is_file() or object_key in seen:
+                    continue
+                if prefix and not object_key.startswith(prefix):
+                    continue
+                seen.add(object_key)
+                items.append((object_key, path.stat().st_mtime))
+        runs = self.root / "runs"
+        if runs.is_dir() and (
+            not prefix or prefix.startswith("runs") or "runs/".startswith(prefix)
+        ):
+            for path in runs.rglob("*"):
+                if not path.is_file():
+                    continue
+                object_key = path.relative_to(self.root).as_posix()
+                if prefix and not object_key.startswith(prefix):
+                    continue
+                items.append((object_key, path.stat().st_mtime))
+        return items
+
+    def download(self, key: str) -> bytes:
+        path = self._path_for(key)
+        if not path.is_file():
+            raise StorageError(f"missing {key}")
+        return path.read_bytes()
+
+
+def storage_for_service(out_root: Path | None = None) -> Any:
+    """S3 when bucket creds are set; otherwise local ``out/`` so the CPU UI runs on a laptop.
+
+    ``SANTA_LOCAL_STORAGE=1`` forces disk even if AWS keys are present (laptop TLS / no bucket).
+    """
+    root = out_root or REPO_ROOT / "out"
+    if _env("SANTA_LOCAL_STORAGE").lower() in {"1", "true", "yes"}:
+        return DiskStorage(root)
+    name = _env("NEBIUS_BUCKET_NAME") or _env("AWS_S3_BUCKET")
+    key = _env("AWS_ACCESS_KEY_ID")
+    if not name or not key:
+        return DiskStorage(root)
+    return Storage.from_env()
+
+
 class MemoryStorage:
     """In-memory StorageLike for tests (no boto3)."""
 

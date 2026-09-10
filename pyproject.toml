@@ -116,6 +116,7 @@ packages = ["santa"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "santa/service/templates" = "santa/service/templates"
+"santa/service/static" = "santa/service/static"
 
 [tool.black]
 line-length = 100

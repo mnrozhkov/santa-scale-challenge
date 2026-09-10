@@ -139,8 +139,11 @@ CPU UI on the laptop:
 
 ```bash
 uv sync --group service
-santa-service          # HOST=0.0.0.0 PORT=8000  →  GET /  and  GET /wall
+npm install --prefix santa/service/ui && npm run build --prefix santa/service/ui
+santa-service          # HOST=0.0.0.0 PORT=8000  →  GET /  (Sim/Real UI) and  GET /wall
 ```
+
+Set `SANTA_LOCAL_STORAGE=1` to use local `out/` even if AWS keys are in `.env`.
 
 Playground notebooks: [notebooks/README.md](notebooks/README.md).
 

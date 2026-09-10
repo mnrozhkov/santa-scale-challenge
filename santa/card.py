@@ -124,6 +124,7 @@ def save_card(
         status="completed",
     )
     (out_dir / "card.json").write_text(card.model_dump_json(indent=2), encoding="utf-8")
+    (out_dir / "profile.json").write_text(kid.model_dump_json(indent=2), encoding="utf-8")
     return card
 
 

@@ -9,6 +9,12 @@ data/evaluation/
 notebooks/data/
 notebooks/out/
 santa/out/
+node_modules/
+data/out/
+data/evaluation/
+notebooks/data/
+notebooks/out/
+santa/out/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

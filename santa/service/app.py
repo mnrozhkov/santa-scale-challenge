@@ -8,21 +8,35 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from santa.batch import DEFAULT_KIDS_CSV, BatchError, load_kids
 from santa.card import ProfileError, validate_profile
 from santa.config import ConfigError
+from santa.nebius_jobs import NebiusJobError
 from santa.schemas import KidProfile
 from santa.service.session import ServiceSession
 from santa.storage import StorageError
 
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+UI_INDEX = STATIC_DIR / "index.html"
 
 
 class BatchRequest(BaseModel):
     kids: list[KidProfile]
+
+
+class AnimateRequest(BaseModel):
+    mood_bank: bool = True
+
+
+class RunRequest(BaseModel):
+    jobs: int = Field(default=4, ge=1, le=32)
 
 
 def _page(
@@ -44,8 +58,18 @@ def _page(
     )
 
 
+def _http_error(exc: Exception, *, status: int) -> HTTPException:
+    return HTTPException(status_code=status, detail=str(exc))
+
+
 def create_app(session: ServiceSession | None = None) -> FastAPI:
     application = FastAPI(title="Santa Service")
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     state: dict[str, ServiceSession | None] = {"session": session}
 
     def current() -> ServiceSession:
@@ -56,7 +80,16 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
         return bound
 
     @application.get("/", response_class=HTMLResponse)
-    def index(request: Request) -> HTMLResponse:
+    def index(request: Request) -> Any:
+        if UI_INDEX.is_file():
+            return FileResponse(UI_INDEX)
+        try:
+            return _page(request, current())
+        except (ConfigError, StorageError, RuntimeError) as exc:
+            return _page(request, None, error=str(exc))
+
+    @application.get("/form", response_class=HTMLResponse)
+    def form(request: Request) -> HTMLResponse:
         try:
             return _page(request, current())
         except (ConfigError, StorageError, RuntimeError) as exc:
@@ -118,7 +151,7 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
         if ".." in Path(key).parts:
             raise HTTPException(status_code=400, detail="Invalid key")
         try:
-            data = current().storage.download(key)
+            data = current().read_object(key)
         except StorageError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         if key.endswith(".png"):
@@ -131,10 +164,14 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
 
     @application.post("/api/cards")
     def api_cards(kid: KidProfile) -> dict[str, Any]:
-        run = current().generate_card(kid)
+        try:
+            run = current().generate_card(kid)
+        except (ProfileError, ConfigError, StorageError, RuntimeError) as exc:
+            raise _http_error(exc, status=400) from exc
         kid_id = run.card.kid_id
         return {
             "card": json.loads(run.card.model_dump_json()),
+            "kid": json.loads(kid.model_dump_json()),
             "steps": run.steps,
             "png_url": f"/cards/{kid_id}.png" if run.card.png_path else None,
             "html_url": f"/cards/{kid_id}.html" if run.card.html_path else None,
@@ -145,6 +182,18 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
         result = current().generate_batch(body.kids)
         return {"ids": result.ids, "failures": result.failures}
 
+    @application.post("/api/cards/{kid_id}/animate")
+    def api_animate(kid_id: str, body: AnimateRequest | None = None) -> dict[str, Any]:
+        mood_bank = True if body is None else body.mood_bank
+        try:
+            return current().animate_card(kid_id, mood_bank=mood_bank)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except StorageError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except (ConfigError, RuntimeError) as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
     @application.post("/api/publish")
     async def api_publish(file: UploadFile = File(...)) -> dict[str, Any]:
         data = await file.read()
@@ -153,7 +202,41 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
 
     @application.get("/api/wall")
     def api_wall() -> dict[str, Any]:
-        return current().wall()
+        try:
+            return current().wall()
+        except (ConfigError, StorageError, RuntimeError) as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    @application.get("/api/kids")
+    def api_kids(limit: int = 20) -> dict[str, Any]:
+        path = DEFAULT_KIDS_CSV
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail=f"kids CSV missing: {path}")
+        try:
+            n = limit if limit > 0 else None
+            kids = load_kids(path, n=n)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"kids": [json.loads(k.model_dump_json()) for k in kids]}
+
+    @application.post("/api/runs")
+    def api_runs(body: RunRequest | None = None) -> dict[str, Any]:
+        jobs = 4 if body is None else body.jobs
+        try:
+            return current().submit_run(jobs=jobs)
+        except BatchError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except (NebiusJobError, ConfigError, StorageError, RuntimeError) as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    @application.get("/api/runs/{run_id}")
+    def api_run(run_id: str) -> dict[str, Any]:
+        try:
+            return current().run_status(run_id)
+        except StorageError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except (NebiusJobError, ConfigError, RuntimeError) as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     @application.get("/wall", response_class=HTMLResponse)
     def wall(request: Request) -> HTMLResponse:
@@ -164,8 +247,19 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
             return TEMPLATES.TemplateResponse(
                 request,
                 "wall.html",
-                {"error": str(exc), "cards": [], "videos": [], "summary": None, "counter": None},
+                {
+                    "error": str(exc),
+                    "cards": [],
+                    "videos": [],
+                    "items": [],
+                    "summary": None,
+                    "counter": None,
+                },
             )
+
+    assets = STATIC_DIR / "assets"
+    if assets.is_dir():
+        application.mount("/assets", StaticFiles(directory=assets), name="ui-assets")
 
     return application
 

@@ -1,8 +1,23 @@
 # Feedback parking lot
 
-Append ideas, quality notes, and feature requests here. Do **not** turn them into specs or tickets until v1 (including `santa batch`) has been tested.
+Append ideas, quality notes, and feature requests here. Do **not** turn them into specs or tickets until v1 (including `santa animate_batch`) has been tested.
 
-Newest first. One dated block per dump. Use glossary terms (GiftCard, Wish, role, mood bank, run).
+Newest first. One dated block per dump. Use glossary terms (KidProfile, GiftCard, Wish, role, mood bank, run).
+
+---
+
+## 2026-09-10 — prototype UI real mode (next steps)
+
+Integrated `_DEV/app` into `santa-service` with a Sim/Real toggle. Real mode wires Gallery, Magic (GiftCard), Animate, and Let it snow (Jobs). Kept the prototype in `_DEV/app` unchanged.
+
+Not in Real mode yet (graph still shows request/result nodes, not a live stream):
+
+- **Log streaming.** The LOG panel is Sim-only. Real mode has no SSE/`santa doctor` tail. Add a `/api/runs/{id}/events` stream (adapter latency, job state transitions) and restore the LOG panel.
+- **Live DAG during a card.** Magic waits for `POST /api/cards` then paints llm/image/bucket as done. No per-step events while Token Factory / Sana run.
+- **Wan poll progress.** Animate is one blocking `POST /api/cards/{id}/animate`. No `/v1/videos` progress % on the Wan node.
+- **Let it snow card phase.** Real Let it snow is Jobs-only over published `cards/{id}/card.png` (same as `santa animate_batch`). It does not generate GiftCards from `kids.csv`. Generating N cards then submitting Jobs would match the Sim graph.
+- **Interests / city / mood on KidProfile.** Real Magic appends them onto `wishlist` text. They are not schema fields, so Gallery filters are inferred from wish/gift keywords.
+- **Cold Sana toggle** is Sim-only. Real fallback is `SANTA_FALLBACK` + adapter metrics after the call.
 
 ---
 
