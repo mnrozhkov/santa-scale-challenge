@@ -131,7 +131,7 @@ def test_probes_token_factory_and_image_endpoint(env):
 
 
 def test_audio_fallback_tracks_dir_is_repo_rooted_not_cwd(env, monkeypatch, tmp_path):
-    moods = tmp_path / "data" / "fallback" / "moods"
+    moods = tmp_path / "data" / "fallback" / "audio_samples"
     moods.mkdir(parents=True)
     (moods / "warm.mp3").write_bytes(b"id3")
     elsewhere = tmp_path / "elsewhere"

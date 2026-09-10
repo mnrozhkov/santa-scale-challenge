@@ -21,7 +21,9 @@ def test_fallback_tree_has_cards_mp4_moods_and_summary() -> None:
     mp4 = FALLBACK / "card.mp4"
     assert mp4.is_file() and mp4.stat().st_size > 1000
     moods = sorted((FALLBACK / "moods").glob("*.mp3"))
+    samples = sorted((FALLBACK / "audio_samples").glob("*.mp3"))
     assert len(moods) >= 8
+    assert len(samples) >= 8
     summary = FALLBACK / "run_summary.json"
     assert summary.is_file()
     import json

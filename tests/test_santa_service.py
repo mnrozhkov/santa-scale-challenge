@@ -419,8 +419,9 @@ def test_wall_falls_back_to_local_out_when_bucket_fails(
         out_root=tmp_path,
     )
     listing = session.wall()
-    assert listing["items"][0]["name"] == "Mia"
-    assert listing["items"][0]["png_url"] == "/media/cards/local1/card.png"
+    by_id = {item["id"]: item for item in listing["items"]}
+    assert by_id["local1"]["name"] == "Mia"
+    assert by_id["local1"]["png_url"] == "/media/cards/local1/card.png"
 
 
 def test_root_serves_spa_when_ui_is_built() -> None:

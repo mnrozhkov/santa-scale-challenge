@@ -61,7 +61,9 @@ def test_write_card_html_has_og_tags(tmp_path) -> None:
     assert png_path.name == "card.png" and png_path.exists()
     assert 'property="og:image"' in html and "card.png" in html
     assert 'property="og:title"' in html and "Mia" in html
-    assert "wooden train" in html
+    assert "wooden train" in html  # from the Wish, not a gift bullet
+    assert "storybook" not in html
+    assert "<ul" not in html
     assert Image.open(png_path).size == (1024, 1400)
 
 

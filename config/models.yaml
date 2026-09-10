@@ -64,7 +64,7 @@ roles:
     options: {audio_duration: 8, inference_steps: 8, audio_format: mp3, thinking: false}
     fallback:
       adapter: local_tracks           # no OpenAI music API — bundled royalty-free tracks per mood
-      options: {dir: data/fallback/moods}
+      options: {dir: data/fallback/audio_samples}
 
 # Step 6: K preemptible GPU Jobs running `python -m santa.job` (Wan I2V in-container) in YOUR project.
 job:

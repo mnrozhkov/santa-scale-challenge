@@ -1,0 +1,34 @@
+{
+  "id": "005aea7d-6f4a-415a-9cfc-b3168ea68000",
+  "kid_id": "g4",
+  "recommendation": {
+    "id": "51292822-6402-4484-948d-af5de7c280ea",
+    "kid_id": "g4",
+    "gifts": [
+      "Sphero SPRK+ programmable ball robot",
+      "Makeblock mBot Ranger STEM robot kit",
+      "Arduino Starter Kit with sensors",
+      "LEGO Boost Creative Toolbox"
+    ],
+    "rationale": "These gifts let Noah design, code, and bring his own robots to life, matching his love for programming. Each set is built for ages 8‑12, offers hands‑on building, and introduces real coding concepts in a fun, safe way. Santa’s present will spark imagination and give hours of creative play.",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "wish": {
+    "id": "692fe384-688f-4fc2-aff4-fd289094574c",
+    "kid_id": "g4",
+    "text": "Dear Noah, at ten years old you’ve become a brilliant inventor, and the North Pole elves have heard about your curious mind. I’ve tucked a magical little explorer, a lively building kit, and a sparkling code‑casting companion into your stocking, ready for wondrous adventures. Merry Christmas!",
+    "mood": "magical",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "image": {
+    "id": "7a94b136-f70f-415f-99ac-3f53181c95d2",
+    "kid_id": "g4",
+    "path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g4/card.png",
+    "model_version": "Efficient-Large-Model/Sana_1600M_1024px_diffusers",
+    "prompt": "A magical Christmas storybook illustration, centered composition:\n- The hero object: Sphero SPRK+ programmable ball robot, beautifully illustrated, glowing softly, placed on snow under a starry night sky\n- Around it: a small decorated Christmas tree, wrapped presents, twinkling lights, gentle falling snow\n- Warm, vibrant colors, soft lighting, sparkles, a sense of wonder\n- Whimsical children's-book art style, clean shapes, cinematic depth\n- No people, no faces, no animals with faces, no text, no letters, no signatures, no copyrighted characters\n",
+    "endpoint": "https://port8000-wd3jtek055vm3xs.tunnel.applications.eu-north1.nebius.cloud"
+  },
+  "png_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g4/card.png",
+  "html_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g4/card.html",
+  "status": "completed"
+}

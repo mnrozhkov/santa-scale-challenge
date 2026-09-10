@@ -1,0 +1,34 @@
+{
+  "id": "a51b2a49-c7c5-4d2a-8a4e-3959e9febc04",
+  "kid_id": "g6",
+  "recommendation": {
+    "id": "6898184b-66ce-4183-b794-807a3ac50917",
+    "kid_id": "g6",
+    "gifts": [
+      "Beginner's tabletop telescope with easy‑focus lenses",
+      "Glow‑in‑the‑dark 3D night‑sky ceiling stickers",
+      "Interactive astronomy activity book with experiments",
+      "Build‑your‑own solar‑system model kit"
+    ],
+    "rationale": "These gifts let Felix explore the stars he loves while keeping hands busy and imagination soaring. The telescope offers real sky‑watching, the stickers turn his room into a night sky, the activity book adds fun learning, and the model kit lets him construct the solar system he’s curious about.",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "wish": {
+    "id": "9cd66ccd-3129-4bb4-afbe-81cfd460bed1",
+    "kid_id": "g6",
+    "text": "Dear Felix, at nine years old your curiosity about the stars shines brighter than ever. I’ve left a little magic that lets you gaze through the heavens, watch constellations glow on your ceiling, and piece together your own sparkling solar system. May your nights be filled with wonder and discovery. Merry Christmas!",
+    "mood": "magical",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "image": {
+    "id": "336a8e3d-806c-4468-80c7-5e7e307fb5fa",
+    "kid_id": "g6",
+    "path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g6/card.png",
+    "model_version": "Efficient-Large-Model/Sana_1600M_1024px_diffusers",
+    "prompt": "A magical Christmas storybook illustration, centered composition:\n- The hero object: Beginner's tabletop telescope with easy‑focus lenses, beautifully illustrated, glowing softly, placed on snow under a starry night sky\n- Around it: a small decorated Christmas tree, wrapped presents, twinkling lights, gentle falling snow\n- Warm, vibrant colors, soft lighting, sparkles, a sense of wonder\n- Whimsical children's-book art style, clean shapes, cinematic depth\n- No people, no faces, no animals with faces, no text, no letters, no signatures, no copyrighted characters\n",
+    "endpoint": "https://port8000-wd3jtek055vm3xs.tunnel.applications.eu-north1.nebius.cloud"
+  },
+  "png_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g6/card.png",
+  "html_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g6/card.html",
+  "status": "completed"
+}

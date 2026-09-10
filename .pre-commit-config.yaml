@@ -35,7 +35,8 @@ repos:
         exclude: |
           (?x)^(
             uv\.lock$|
-            .*\.ipynb$
+            .*\.ipynb$|
+            data/fallback/gallery/.*/video\.mp4$
           )
       - id: check-json
       - id: check-merge-conflict

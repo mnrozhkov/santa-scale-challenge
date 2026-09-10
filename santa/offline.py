@@ -16,7 +16,7 @@ FALLBACK_DIR = REPO_ROOT / "data" / "fallback"
 CARDS_DIR = FALLBACK_DIR / "cards"
 VIDEO_PATH = FALLBACK_DIR / "card.mp4"
 SUMMARY_PATH = FALLBACK_DIR / "run_summary.json"
-MOODS_DIR = FALLBACK_DIR / "moods"
+MOODS_DIR = FALLBACK_DIR / "audio_samples"
 
 # Names baked into ``data/fallback/cards/card-0N.html`` by scripts/make_fallbacks.py
 CARD_STEMS = {

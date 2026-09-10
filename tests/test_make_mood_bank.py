@@ -91,7 +91,8 @@ def test_make_mood_bank_skips_existing_local_unless_force(tmp_path: Path) -> Non
 def test_committed_fallback_moods_cover_all_tags() -> None:
     from santa.config import REPO_ROOT
 
-    moods = REPO_ROOT / "data" / "fallback" / "moods"
-    for tag in MOODS:
-        assert (moods / f"{tag}.mp3").is_file(), tag
-    assert (moods / "default.mp3").is_file()
+    for folder in ("audio_samples", "moods"):
+        dest = REPO_ROOT / "data" / "fallback" / folder
+        for tag in MOODS:
+            assert (dest / f"{tag}.mp3").is_file(), f"{folder}/{tag}"
+        assert (dest / "default.mp3").is_file()

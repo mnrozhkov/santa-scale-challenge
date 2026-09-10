@@ -1,0 +1,34 @@
+{
+  "id": "52d9192a-94a6-46be-94a8-28abd3a5c525",
+  "kid_id": "g1",
+  "recommendation": {
+    "id": "9a62a4f6-be0d-41a9-8c42-a0aa6ab63241",
+    "kid_id": "g1",
+    "gifts": [
+      "Enchanting picture‑book adventure set (3 classic tales with vibrant art)",
+      "Glow‑in‑the‑dark bedtime lantern with gentle star projection",
+      "Personalized story pillow that reads a short bedtime tale when squeezed",
+      "DIY story‑craft kit: blank comic book & stickers for Emma to create her own pictures"
+    ],
+    "rationale": "These gifts blend Emma's love of picture books and bedtime stories with interactive, imaginative play. The books spark wonder, the lantern creates a cozy night‑time atmosphere, the story pillow encourages listening, and the craft kit lets her become the author of her own illustrated tales.",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "wish": {
+    "id": "77c47269-0339-43f3-8e2a-ddcfc4041ba1",
+    "kid_id": "g1",
+    "text": "Dear Emma, at eight you’re already a brave explorer of imagination! I hope a set of enchanted picture adventures, a twinkling night‑light that paints stars, a snuggly pillow that tells you stories when you hug it, and a magical kit for creating your own comics fill your holidays with wonder. Merry Christmas!",
+    "mood": "magical",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "image": {
+    "id": "f4c0f474-be82-41ce-bc82-7a1b52216a43",
+    "kid_id": "g1",
+    "path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g1/card.png",
+    "model_version": "Efficient-Large-Model/Sana_1600M_1024px_diffusers",
+    "prompt": "A magical Christmas storybook illustration, centered composition:\n- The hero object: Enchanting picture‑book adventure set (3 classic tales with vibrant art), beautifully illustrated, glowing softly, placed on snow under a starry night sky\n- Around it: a small decorated Christmas tree, wrapped presents, twinkling lights, gentle falling snow\n- Warm, vibrant colors, soft lighting, sparkles, a sense of wonder\n- Whimsical children's-book art style, clean shapes, cinematic depth\n- No people, no faces, no animals with faces, no text, no letters, no signatures, no copyrighted characters\n",
+    "endpoint": "https://port8000-wd3jtek055vm3xs.tunnel.applications.eu-north1.nebius.cloud"
+  },
+  "png_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g1/card.png",
+  "html_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g1/card.html",
+  "status": "completed"
+}

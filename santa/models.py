@@ -522,7 +522,7 @@ class LocalTracksAdapter(_Base):
 
     def generate(self, prompt: str = "", *, mood: str = "warm") -> bytes:
         start = time.time()
-        raw = self.cfg.options.get("dir", "data/fallback/moods")
+        raw = self.cfg.options.get("dir", "data/fallback/audio_samples")
         directory = Path(raw) if Path(raw).is_absolute() else REPO_ROOT / raw
         chosen = directory / f"{mood}.mp3"
         if not chosen.is_file():

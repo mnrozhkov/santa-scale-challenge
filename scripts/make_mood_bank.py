@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Generate one short instrumental track per mood tag via the audio role.
 
-Writes ``data/fallback/moods/<tag>.mp3`` and uploads ``audio/moods/<tag>.mp3``
+Writes ``data/fallback/audio_samples/<tag>.mp3`` and uploads ``audio/moods/<tag>.mp3``
 so jobs and ``santa animate --mood-bank`` can pick a track without queueing
-200 ACE-Step calls on a single-worker endpoint.
+200 ACE-Step calls on a single-worker endpoint. Prompts come from
+``config/prompts.yaml`` ``music:``.
 
     uv run scripts/make_mood_bank.py
     uv run scripts/make_mood_bank.py --force
@@ -19,7 +20,7 @@ from santa.animate import load_prompts
 from santa.config import REPO_ROOT
 from santa.prompts import MOODS
 
-DEFAULT_LOCAL_DIR = REPO_ROOT / "data" / "fallback" / "moods"
+DEFAULT_LOCAL_DIR = REPO_ROOT / "data" / "fallback" / "audio_samples"
 PREFIX = "audio/moods"
 
 
@@ -77,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
         "--local-dir",
         type=Path,
         default=DEFAULT_LOCAL_DIR,
-        help="Local mood-track directory (default: data/fallback/moods)",
+        help="Local mood-track directory (default: data/fallback/audio_samples)",
     )
     parser.add_argument(
         "--force",

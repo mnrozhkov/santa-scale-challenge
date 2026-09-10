@@ -1,0 +1,16 @@
+.git
+.venv
+.env
+.env.*
+out/
+data/
+node_modules/
+.scratch/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.cursor/
+.claude/
+__pycache__/
+*.pyc
+.DS_Store

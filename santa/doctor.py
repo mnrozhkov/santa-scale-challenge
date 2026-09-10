@@ -50,7 +50,7 @@ def _http_get(url: str, headers: dict[str, str]) -> tuple[int, str]:
 
 def _probe_models(cfg: RoleConfig, probe: Probe) -> tuple[bool, str, str]:
     if cfg.adapter == "local_tracks":
-        raw = cfg.options.get("dir", "data/fallback/moods")
+        raw = cfg.options.get("dir", "data/fallback/audio_samples")
         path = Path(raw) if Path(raw).is_absolute() else REPO_ROOT / raw
         exists = path.is_dir() and any(p.suffix == ".mp3" for p in path.iterdir())
         return (

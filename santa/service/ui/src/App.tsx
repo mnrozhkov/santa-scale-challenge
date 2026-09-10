@@ -50,18 +50,18 @@ const MOODS = ['Dreamy', 'Playful', 'Cozy', 'Epic']
 const BGS = ['rgb(255,230,180)', 'rgb(200,235,200)', 'rgb(210,225,255)', 'rgb(255,210,210)', 'rgb(220,245,235)', 'rgb(255,240,200)']
 
 const GALLERY_SEED: Kid[] = [
-  { id:'g1', name:"Emma", age:8, wish:"Dear Alex, my dear three‑year‑old explorer, I’ve heard about the wonderful wooden car that loves to pull you along sn…", tags:["books"], mood:"Dreamy", city:"Oslo", bg:BGS[0], hasVideo:true, gift:"Wooden pull‑along car", pngUrl:'/demo/g1/card.png', videoUrl:'/demo/g1/video.mp4' },
-  { id:'g2', name:"Lucas", age:8, wish:"Dear Kid, being 8 is such a marvelous age for discovering new wonders, and I’ve heard you’ll be building fantastic cr…", tags:["lego"], mood:"Dreamy", city:"Stockholm", bg:BGS[1], hasVideo:false, gift:"LEGO Creator 3‑in‑1 Building Set", pngUrl:'/demo/g2/card.png' },
-  { id:'g3', name:"Sofia", age:8, wish:"Dear Kid, at the wonderful age of 8 your imagination is already as bright as the twinkling lights on my sleigh. I hea…", tags:["lego", "robots"], mood:"Dreamy", city:"Helsinki", bg:BGS[2], hasVideo:false, gift:"LEGO Boost Creative Toolbox (STEM building kit)", pngUrl:'/demo/g3/card.png' },
-  { id:'g4', name:"Noah", age:8, wish:"Dear Kid, at 8 years old you’re already a brilliant explorer of imagination! I hear you’ve been crafting marvelous in…", tags:["robots", "lego"], mood:"Dreamy", city:"Copenhagen", bg:BGS[3], hasVideo:false, gift:"Interactive STEM building set (e.g., magnetic circuits or robot kit)", pngUrl:'/demo/g4/card.png' },
-  { id:'g5', name:"Ingrid", age:8, wish:"Dear Kid, at your wonderful age of 8 you’re already a master of building marvelous structures that snap together, a b…", tags:["lego"], mood:"Dreamy", city:"Bergen", bg:BGS[4], hasVideo:false, gift:"Magnetic building tiles set", pngUrl:'/demo/g5/card.png' },
-  { id:'g6', name:"Felix", age:8, wish:"Dear Kid, at eight years old you already shine with the curiosity of a thousand stars. I’ve placed a handful of wondr…", tags:["robots"], mood:"Dreamy", city:"Malmö", bg:BGS[5], hasVideo:false, gift:"Interactive STEM building set", pngUrl:'/demo/g6/card.png' },
-  { id:'g7', name:"Astrid", age:8, wish:"Dear Kid, I hear that being 8 years old fills your days with curiosity and wonder! This year the North Pole elves hav…", tags:["robots", "lego"], mood:"Dreamy", city:"Gothenburg", bg:BGS[0], hasVideo:false, gift:"STEM Building Kit (magnetic tiles or simple robotics set)", pngUrl:'/demo/g7/card.png' },
-  { id:'g8', name:"Oliver", age:8, wish:"Hello Kid! At eight years old, your curiosity shines brighter than the North Star, and I hear the soft clink of magne…", tags:["robots", "lego"], mood:"Dreamy", city:"Espoo", bg:BGS[1], hasVideo:false, gift:"Magnetic STEM Building Kit", pngUrl:'/demo/g8/card.png' },
-  { id:'g9', name:"Nick", age:5, wish:"Lego and animals", tags:["dinosaurs", "lego"], mood:"Dreamy", city:"Turku", bg:BGS[2], hasVideo:false, gift:"LEGO Dino Adventure Building Set", pngUrl:'/demo/g9/card.png' },
-  { id:'g10', name:"Elias", age:8, wish:"Dear Kid, being eight is such a wonderful time when every question feels like a new adventure, and I’ve seen how your…", tags:["lego", "robots"], mood:"Dreamy", city:"Aarhus", bg:BGS[3], hasVideo:false, gift:"STEM Building Kit (e.g., LEGO Boost or similar)", pngUrl:'/demo/g10/card.png' },
-  { id:'g11', name:"Freya", age:8, wish:"Dear Kid, at the wonderful age of 8 you’re already a true master of imagination. I’ve heard the North Pole elves have…", tags:["lego"], mood:"Dreamy", city:"Odense", bg:BGS[4], hasVideo:false, gift:"LEGO Creator 3‑in‑1 Building Set", pngUrl:'/demo/g11/card.png' },
-  { id:'g12', name:"Viktor", age:8, wish:"Hello Kid, being eight means your imagination shines brighter than the twinkling lights on my sleigh. I’ve tucked a c…", tags:["robots", "lego"], mood:"Dreamy", city:"Tampere", bg:BGS[5], hasVideo:false, gift:"Magnetic STEM Building Tiles", pngUrl:'/demo/g12/card.png' },
+  { id:'g1', name:"Emma", age:8, wish:"Dear Emma, at eight you’re already a brave explorer of imagination! I hope a set of enchanted picture adventures, a twinkling night‑light t…", tags:["books"], mood:"Magical", city:"Oslo", bg:BGS[0], hasVideo:true, gift:"Enchanting picture‑book adventure set (3 classic tales with vibrant art)", pngUrl:'/demo/g1/card.png', videoUrl:'/demo/g1/video.mp4' },
+  { id:'g2', name:"Lucas", age:8, wish:"Dear Lucas, Santa sees that your wonderful imagination at eight is already building amazing adventures. I hear the sparkle of tiny bricks f…", tags:["lego"], mood:"Magical", city:"Stockholm", bg:BGS[1], hasVideo:true, gift:"LEGO City Main Street Building Set", pngUrl:'/demo/g2/card.png', videoUrl:'/demo/g2/video.mp4' },
+  { id:'g3', name:"Sofia", age:7, wish:"Dear Sofia, at seven you’re a wonderful artist, and I hear the North Pole is already sparkling with the colors you’ll paint and the magical…", tags:["art"], mood:"Magical", city:"Helsinki", bg:BGS[2], hasVideo:true, gift:"Watercolor paint set with easy‑grip brush holder", pngUrl:'/demo/g3/card.png', videoUrl:'/demo/g3/video.mp4' },
+  { id:'g4', name:"Noah", age:10, wish:"Dear Noah, at ten years old you’ve become a brilliant inventor, and the North Pole elves have heard about your curious mind. I’ve tucked a…", tags:["robots"], mood:"Magical", city:"Copenhagen", bg:BGS[3], hasVideo:true, gift:"Sphero SPRK+ programmable ball robot", pngUrl:'/demo/g4/card.png', videoUrl:'/demo/g4/video.mp4' },
+  { id:'g5', name:"Ingrid", age:6, wish:"Dear Ingrid, at six sweet years you’re already a little farmer, and I’ve placed soft farm friends, a tiny wooden barn with a fence, a sound…", tags:["animals"], mood:"Cozy", city:"Bergen", bg:BGS[4], hasVideo:true, gift:"Soft farm animal plush trio (cow, pig, chick)", pngUrl:'/demo/g5/card.png', videoUrl:'/demo/g5/video.mp4' },
+  { id:'g6', name:"Felix", age:9, wish:"Dear Felix, at nine years old your curiosity about the stars shines brighter than ever. I’ve left a little magic that lets you gaze through…", tags:["space"], mood:"Magical", city:"Malmö", bg:BGS[5], hasVideo:true, gift:"Beginner's tabletop telescope with easy‑focus lenses", pngUrl:'/demo/g6/card.png', videoUrl:'/demo/g6/video.mp4' },
+  { id:'g7', name:"Astrid", age:8, wish:"Dear Astrid, at eight years old you already fill the workshop with bright curiosity and joy. I’ve left a touch of rainbow-colored music, sp…", tags:["music"], mood:"Magical", city:"Gothenburg", bg:BGS[0], hasVideo:true, gift:"Rainbow‑colored mini electronic keyboard", pngUrl:'/demo/g7/card.png', videoUrl:'/demo/g7/video.mp4' },
+  { id:'g8', name:"Oliver", age:11, wish:"Dear Oliver, at 11 you’re already a brilliant soccer star, and I’ve placed a shimmering new ball and a pop‑up goal in the North‑Pole worksh…", tags:["football"], mood:"Magical", city:"Espoo", bg:BGS[1], hasVideo:true, gift:"Premium size‑5 soccer ball", pngUrl:'/demo/g8/card.png', videoUrl:'/demo/g8/video.mp4' },
+  { id:'g9', name:"Nick", age:5, wish:"Dear Nick, at five years old you’re already a brave explorer who loves amazing adventures. I’ve tucked a special surprise that will let you…", tags:["dinosaurs", "lego"], mood:"Magical", city:"Turku", bg:BGS[2], hasVideo:true, gift:"LEGO Dino Discovery Set", pngUrl:'/demo/g9/card.png', videoUrl:'/demo/g9/video.mp4' },
+  { id:'g10', name:"Elias", age:8, wish:"Dear Elias, at 8 years old your imagination already sails across sparkling seas and builds wondrous coral castles. May magnetic friends dan…", tags:["ocean"], mood:"Magical", city:"Aarhus", bg:BGS[3], hasVideo:true, gift:"Interactive marine life playset with magnetic sea creatures", pngUrl:'/demo/g10/card.png', videoUrl:'/demo/g10/video.mp4' },
+  { id:'g11', name:"Freya", age:7, wish:"Dear Freya, at seven you sparkle brighter than the North Star. May your days be filled with blooming gardens, colorful paintings, and wondr…", tags:["lego", "art"], mood:"Magical", city:"Odense", bg:BGS[4], hasVideo:true, gift:"LEGO Botanical Garden Building Set", pngUrl:'/demo/g11/card.png', videoUrl:'/demo/g11/video.mp4' },
+  { id:'g12', name:"Viktor", age:9, wish:"Dear Viktor, at nine years old your imagination shines, and I’ve seen you snap magnetic shapes together, guide a tiny robot, spin story dic…", tags:["robots", "lego"], mood:"Magical", city:"Tampere", bg:BGS[5], hasVideo:true, gift:"Magnetic Construction Set (e.g., Magformers)", pngUrl:'/demo/g12/card.png', videoUrl:'/demo/g12/video.mp4' },
 ]
 
 const BATCH_SEED: Kid[] = [
@@ -164,6 +164,15 @@ function wallToKid(item: WallItem): Kid {
     model: item.model,
     batchStatus: item.has_video ? 'video' : 'card',
   }
+}
+
+/** Published Magic / Animate GiftCards only — drop bundled ``/demo/`` seed items. */
+function publishedWallItems(items: WallItem[]): WallItem[] {
+  return items.filter((item) => {
+    if ((item.model || '').toLowerCase() === 'demo') return false
+    const png = item.png_url || ''
+    return !png.startsWith('/demo/')
+  })
 }
 
 function jobNodeStatus(state: string): NodeStatus {
@@ -1111,6 +1120,18 @@ function GalleryTab({ gallery, selectedId, onSelect }: {
         </div>
       </div>
       {/* Grid */}
+      {gallery.length === 0 ? (
+        <div style={{
+          border: '1.5px dashed rgba(0,0,0,.2)', borderRadius: 8, padding: '48px 24px',
+          textAlign: 'center', color: 'rgba(0,0,0,.45)',
+        }}>
+          <div style={{ fontSize: 28, marginBottom: 8 }}>🎁</div>
+          <div style={{ fontWeight: 500, marginBottom: 6 }}>No published GiftCards yet</div>
+          <div style={{ fontSize: 13, fontFamily: 'JetBrains Mono,Menlo,monospace' }}>
+            Create one with Magic, then Animate to add a video
+          </div>
+        </div>
+      ) : (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
         {filtered.map(kid => (
           <GalleryTile
@@ -1121,6 +1142,7 @@ function GalleryTab({ gallery, selectedId, onSelect }: {
           />
         ))}
       </div>
+      )}
     </div>
   )
 }
@@ -1131,9 +1153,9 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('create')
   const [coldSana, setColdSana] = useState(false)
   const [speed, setSpeed] = useState(1)
-  const [gallery, setGallery] = useState<Kid[]>(GALLERY_SEED)
+  const [gallery, setGallery] = useState<Kid[]>([])
   const [gallerySelectedId, setGallerySelectedId] = useState<string | null>(null)
-  const [realMode, setRealMode] = useState(false)
+  const [realMode, setRealMode] = useState(true)
 
   // Create tab state
   const [form, setForm] = useState({ name: '', age: 8, wish: '', tags: [] as string[], mood: 'Playful', city: '' })
@@ -1193,8 +1215,15 @@ export default function App() {
 
   const refreshWall = async () => {
     const wall = await fetchWall()
-    setGallery(wall.items.map(wallToKid))
-    return wall
+    const items = publishedWallItems(wall.items || [])
+    const kids = items.map(wallToKid)
+    setGallery(kids)
+    setGallerySelectedId((current) => {
+      if (current && kids.some((k) => k.id === current)) return current
+      const first = [...kids].sort((a, b) => Number(b.hasVideo) - Number(a.hasVideo))[0]
+      return first?.id ?? null
+    })
+    return { ...wall, items }
   }
 
   const applyWallToAnimate = (items: WallItem[]) => {
@@ -1214,20 +1243,58 @@ export default function App() {
   const setMode = async (real: boolean) => {
     setRealMode(real)
     if (real) {
-      simGallery.current = gallery
+      if (!realMode) simGallery.current = gallery.length ? gallery : GALLERY_SEED
       try {
         const wall = await refreshWall()
         applyWallToAnimate(wall.items || [])
       } catch {
-        setGallery(GALLERY_SEED)
+        setGallery([])
+        setGallerySelectedId(null)
         setBatchKids([])
         setBatchLoaded(false)
         setBatchRun(initialAnimateBatchRun('idle'))
       }
     } else {
-      setGallery(simGallery.current.length ? simGallery.current : GALLERY_SEED)
+      try {
+        const wall = await fetchWall()
+        const kids = (wall.items || []).map(wallToKid)
+        const seed = kids.length ? kids : (simGallery.current.length ? simGallery.current : GALLERY_SEED)
+        simGallery.current = seed
+        setGallery(seed)
+        setGallerySelectedId(seed[0]?.id ?? null)
+      } catch {
+        const seed = simGallery.current.length ? simGallery.current : GALLERY_SEED
+        setGallery(seed)
+        setGallerySelectedId(seed[0]?.id ?? null)
+      }
     }
   }
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const wall = await fetchWall()
+        if (cancelled) return
+        const items = publishedWallItems(wall.items || [])
+        const kids = items.map(wallToKid)
+        setGallery(kids)
+        setGallerySelectedId((current) => {
+          if (current && kids.some((k) => k.id === current)) return current
+          const first = [...kids].sort((a, b) => Number(b.hasVideo) - Number(a.hasVideo))[0]
+          return first?.id ?? null
+        })
+        applyWallToAnimate(items)
+      } catch {
+        if (cancelled) return
+        setGallery([])
+        setGallerySelectedId(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const runMagicReal = async () => {
     if (createRun.status === 'running') return
@@ -1277,6 +1344,7 @@ export default function App() {
         tags: form.tags, mood: form.mood, city: form.city, bg: tagBg, hasVideo: false, gift, pngUrl,
       }
       setGallery(prev => [kid, ...prev.filter(k => k.id !== kid.id)])
+      setGallerySelectedId(kid.id)
     } catch (err) {
       setCreateRun(r => ({
         ...r, status: 'done',
@@ -1332,7 +1400,7 @@ export default function App() {
   const loadKidsReal = async () => {
     try {
       const wall = await fetchWall()
-      applyWallToAnimate(wall.items || [])
+      applyWallToAnimate(publishedWallItems(wall.items || []))
     } catch (err) {
       const hint = shortError(err)
       const nodes = animateBatchNodes()

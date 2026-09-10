@@ -1,6 +1,7 @@
 """Pillow PNG + Jinja HTML. No Chrome, no html2image.
 
-The raster is 1024×1400: illustration on top, then the child's name, wish, and gifts.
+The raster is 1024×1400: illustration on top, then the child's name and Wish.
+Gift names stay in ``card.json`` for the image prompt and UI chip — not on the face.
 HTML is a shareable page with Open Graph tags pointing at ``card.png``.
 """
 
@@ -51,8 +52,6 @@ _HTML = Template(
   .body { padding: 1.5rem 2rem 2rem; }
   h1 { font-family: Georgia, serif; color: #b30000; margin: 0 0 1rem; }
   .wish { font-size: 1.15rem; line-height: 1.5; }
-  .gifts { margin: 1.25rem 0 0; padding: 0; list-style: none; }
-  .gifts li { padding: 0.2rem 0; }
   .sig { margin-top: 1.5rem; color: #b30000; font-style: italic; }
 </style>
 </head>
@@ -62,9 +61,6 @@ _HTML = Template(
   <div class="body">
     <h1>To: {{ name }}</h1>
     <p class="wish">{{ wish }}</p>
-    <ul class="gifts">
-    {% for gift in gifts %}<li>{{ gift }}</li>
-    {% endfor %}</ul>
     <p class="sig">— Santa</p>
   </div>
 </article>
@@ -98,7 +94,8 @@ def _fit(im: Image.Image, box: tuple[int, int]) -> Image.Image:
 
 
 def render_png(illustration: bytes, kid: KidProfile, rec: GiftRecommendation, wish: Wish) -> bytes:
-    """Compose a 1024×1400 PNG: illustration + name + wish + gifts."""
+    """Compose a 1024×1400 PNG: illustration + name + Wish. ``rec`` is unused on the face."""
+    del rec
     w, h = CARD_SIZE
     card = Image.new("RGB", CARD_SIZE, _BG)
     draw = ImageDraw.Draw(card)
@@ -111,18 +108,16 @@ def render_png(illustration: bytes, kid: KidProfile, rec: GiftRecommendation, wi
 
     title_font = _font(48)
     body_font = _font(28)
-    gift_font = _font(24)
     y = 40 + _ILLUSTRATION_BOX[1] + 28
     draw.text((48, y), f"To: {kid.name}", fill=_RED, font=title_font)
     y += 64
 
-    for line in textwrap.wrap(wish.text, width=42)[:8]:
+    bottom = h - 48
+    for line in textwrap.wrap(wish.text, width=42):
+        if y + 36 > bottom:
+            break
         draw.text((48, y), line, fill=_INK, font=body_font)
         y += 36
-    y += 16
-    for gift in rec.gifts[:5]:
-        draw.text((48, y), f"• {gift}", fill=_INK, font=gift_font)
-        y += 34
 
     buf = io.BytesIO()
     card.save(buf, format="PNG")
@@ -144,7 +139,7 @@ def write_card(
     html_path = out_dir / f"{stem}.html"
     png_path.write_bytes(render_png(illustration, kid, rec, wish))
     html_path.write_text(
-        _HTML.render(name=kid.name, wish=wish.text, gifts=rec.gifts, png_name=png_path.name),
+        _HTML.render(name=kid.name, wish=wish.text, png_name=png_path.name),
         encoding="utf-8",
     )
     return png_path, html_path

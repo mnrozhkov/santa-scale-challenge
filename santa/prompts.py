@@ -44,11 +44,11 @@ Recommended Gifts:
 {gifts}
 
 Write a personalized holiday wish that:
-1. Addresses the child by name.
+1. Addresses the child by name (never "Kid").
 2. Mentions their age in a natural, encouraging way.
-3. References the recommended gifts subtly and magically (no listing).
+3. References the recommended gifts subtly and magically (no listing, no product names).
 4. Uses a warm, gentle Santa tone.
-5. Contains 2–4 sentences.
+5. Contains 2–3 short sentences (under 55 words) so it fits on a printed card.
 6. Does NOT include Santa's last name.
 7. Ends with "Merry Christmas!" as the final sentence.
 

@@ -1,0 +1,75 @@
+{
+  "model": "ACE-Step/Ace-Step1.5",
+  "options": {
+    "audio_duration": 8,
+    "inference_steps": 8,
+    "audio_format": "mp3",
+    "thinking": false
+  },
+  "samples": [
+    {
+      "id": "01-storybook-warm",
+      "mood": "warm",
+      "file": "01-storybook-warm.mp3",
+      "mood_file": "warm.mp3",
+      "prompt": "children storybook, christmas, warm orchestra, soft strings, music box, twinkling chimes, gentle, kids, instrumental, no vocals",
+      "bytes": 129069
+    },
+    {
+      "id": "02-lullaby-piano",
+      "mood": "calm",
+      "file": "02-lullaby-piano.mp3",
+      "mood_file": "calm.mp3",
+      "prompt": "christmas lullaby, kids, soft piano, celesta, warm bells, sleepy, gentle, instrumental, no vocals",
+      "bytes": 129069
+    },
+    {
+      "id": "03-playful-sleigh",
+      "mood": "playful",
+      "file": "03-playful-sleigh.mp3",
+      "mood_file": "playful.mp3",
+      "prompt": "playful kids christmas, pizzicato strings, woodwinds, light sleigh bells, cheerful, bright, instrumental, no vocals",
+      "bytes": 129069
+    },
+    {
+      "id": "04-musicbox-magic",
+      "mood": "magical",
+      "file": "04-musicbox-magic.mp3",
+      "mood_file": "magical.mp3",
+      "prompt": "magical music box, harp sparkles, christmas wonder, children, twinkle, instrumental, no vocals",
+      "bytes": 129069
+    },
+    {
+      "id": "05-cozy-guitar",
+      "mood": "cozy",
+      "file": "05-cozy-guitar.mp3",
+      "mood_file": "cozy.mp3",
+      "prompt": "cozy fireplace christmas, acoustic guitar, low strings, warm, kids, instrumental, no vocals",
+      "bytes": 129069
+    },
+    {
+      "id": "06-joyful-carol",
+      "mood": "joyful",
+      "file": "06-joyful-carol.mp3",
+      "mood_file": "joyful.mp3",
+      "prompt": "joyful sleigh-bell carol, bright strings, kids christmas, cheerful, instrumental, no vocals",
+      "bytes": 129069
+    },
+    {
+      "id": "07-dreamy-snow",
+      "mood": "dreamy",
+      "file": "07-dreamy-snow.mp3",
+      "mood_file": "dreamy.mp3",
+      "prompt": "dreamy falling snow, celesta, soft pad, silent night, children, gentle, instrumental, no vocals",
+      "bytes": 129069
+    },
+    {
+      "id": "08-adventure-trek",
+      "mood": "adventurous",
+      "file": "08-adventure-trek.mp3",
+      "mood_file": "adventurous.mp3",
+      "prompt": "gentle adventure theme, soft brass, strings, snowy christmas trek, kids, hopeful, instrumental, no vocals",
+      "bytes": 129069
+    }
+  ]
+}

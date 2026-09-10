@@ -70,7 +70,7 @@ def audio_adapter(
         opts = (
             dict(fb.options)
             if fb is not None and fb.adapter == "local_tracks"
-            else {"dir": "data/fallback/moods"}
+            else {"dir": "data/fallback/audio_samples"}
         )
         return LocalTracksAdapter(
             RoleConfig(name="audio", adapter="local_tracks", options=opts, is_fallback=True)
