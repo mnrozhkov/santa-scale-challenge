@@ -26,7 +26,7 @@ santa-scale-challenge/
 │   ├── service.Dockerfile # CPU UI / API
 │   └── job.Dockerfile     # BYOC GPU Job image
 ├── skills/                # Echo prompts + Serverless AI skill
-├── scripts/               # Mood bank, model sync, teardown, benches
+├── scripts/               # Deploy kiosk, mood bank, model sync, teardown, benches
 ├── tests/
 └── docs/                  # Service + job contracts; domain glossary
 ```
@@ -104,6 +104,8 @@ uv sync --group service
 npm install --prefix santa/service/ui && npm run build --prefix santa/service/ui
 santa-service          # HOST=0.0.0.0 PORT=8000  →  GET /  (Sim/Real UI) and  GET /wall
 ```
+
+Public kiosk (QR, `--auth none`): [docs/service.md](docs/service.md) — `./scripts/deploy-service.sh ship`, then `./scripts/deploy-service.sh url`. Operator unlock is `/?op=<SANTA_OPERATOR_TOKEN>`. `santa teardown` still stops this endpoint.
 
 Set `SANTA_LOCAL_STORAGE=1` to use local `out/` even if AWS keys are in `.env`.
 

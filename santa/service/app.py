@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
+import secrets
+import threading
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
@@ -16,18 +20,26 @@ from pydantic import BaseModel, Field
 
 from santa.batch import DEFAULT_KIDS_CSV, BatchError, load_kids
 from santa.card import ProfileError, validate_profile
-from santa.config import ConfigError
+from santa.config import REPO_ROOT, ConfigError
 from santa.nebius_jobs import NebiusJobError
 from santa.schemas import KidProfile
 from santa.service.demo_gallery import GALLERY_DIR
+from santa.service.redact import looks_like_secret, redact_public
 from santa.service.session import ServiceSession
 from santa.storage import StorageError, use_system_certs
 
 use_system_certs()
+load_dotenv(REPO_ROOT / ".env", override=False)
+
+log = logging.getLogger("santa.service")
 
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 UI_INDEX = STATIC_DIR / "index.html"
+OPERATOR_HEADER = "x-santa-operator"
+_CARD_SLOTS = threading.Semaphore(2)
+
+_MEDIA_OK = (".png", ".mp4", ".html")
 
 
 class BatchRequest(BaseModel):
@@ -61,15 +73,73 @@ def _page(
     )
 
 
-def _http_error(exc: Exception, *, status: int) -> HTTPException:
-    return HTTPException(status_code=status, detail=str(exc))
+def _operator_token() -> str:
+    return (os.environ.get("SANTA_OPERATOR_TOKEN") or "").strip()
+
+
+def _is_operator(request: Request) -> bool:
+    expected = _operator_token()
+    if not expected:
+        return True
+    got = (request.headers.get(OPERATOR_HEADER) or "").strip()
+    if len(got) != len(expected):
+        return False
+    return secrets.compare_digest(got, expected)
+
+
+def _require_operator(request: Request) -> None:
+    if not _is_operator(request):
+        raise HTTPException(status_code=403, detail="Operator required")
+
+
+def _public_detail(exc: Exception, *, fallback: str) -> str:
+    if isinstance(exc, ProfileError):
+        msg = str(exc)
+        if looks_like_secret(msg):
+            return fallback
+        return msg
+    if isinstance(exc, BatchError):
+        msg = str(exc)
+        if looks_like_secret(msg):
+            return fallback
+        return msg
+    return fallback
+
+
+def _http_error(exc: Exception, *, status: int, fallback: str) -> HTTPException:
+    log.exception("service error")
+    return HTTPException(status_code=status, detail=_public_detail(exc, fallback=fallback))
+
+
+def _spa() -> FileResponse:
+    return FileResponse(
+        UI_INDEX,
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+    )
+
+
+def _origin(request: Request) -> str:
+    return str(request.base_url).rstrip("/")
+
+
+def _absolute(request: Request, path: str | None) -> str | None:
+    if not path:
+        return None
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
+    return f"{_origin(request)}{path if path.startswith('/') else '/' + path}"
 
 
 def create_app(session: ServiceSession | None = None) -> FastAPI:
-    application = FastAPI(title="Santa Service")
+    application = FastAPI(
+        title="Santa Service",
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
+        allow_origins=["*"],
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -82,24 +152,40 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
             state["session"] = bound
         return bound
 
+    def _card_response(run: Any, kid: KidProfile) -> dict[str, Any]:
+        kid_id = run.card.kid_id
+        payload = {
+            "card": json.loads(run.card.model_dump_json()),
+            "kid": json.loads(kid.model_dump_json()),
+            "steps": run.steps,
+            "png_url": f"/cards/{kid_id}.png" if run.card.png_path else None,
+            "html_url": f"/cards/{kid_id}.html" if run.card.html_path else None,
+        }
+        return redact_public(payload)
+
     @application.get("/", response_class=HTMLResponse)
     def index(request: Request) -> Any:
         if UI_INDEX.is_file():
-            return FileResponse(
-                UI_INDEX,
-                headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
-            )
+            return _spa()
         try:
             return _page(request, current())
         except (ConfigError, StorageError, RuntimeError) as exc:
-            return _page(request, None, error=str(exc))
+            log.exception("index failed")
+            return _page(request, None, error=_public_detail(exc, fallback="Service unavailable"))
+
+    @application.get("/qr", response_class=HTMLResponse)
+    def qr() -> Any:
+        if UI_INDEX.is_file():
+            return _spa()
+        raise HTTPException(status_code=404, detail="UI not built")
 
     @application.get("/form", response_class=HTMLResponse)
     def form(request: Request) -> HTMLResponse:
         try:
             return _page(request, current())
         except (ConfigError, StorageError, RuntimeError) as exc:
-            return _page(request, None, error=str(exc))
+            log.exception("form failed")
+            return _page(request, None, error=_public_detail(exc, fallback="Service unavailable"))
 
     @application.post("/generate", response_class=HTMLResponse)
     def generate(
@@ -114,7 +200,12 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
             bound.generate_card(profile)
             return _page(request, bound)
         except (ProfileError, ConfigError, StorageError, RuntimeError) as exc:
-            return _page(request, state["session"], error=str(exc))
+            log.exception("generate failed")
+            return _page(
+                request,
+                state["session"],
+                error=_public_detail(exc, fallback="Card generation failed"),
+            )
 
     @application.get("/card.png")
     def card_png() -> FileResponse:
@@ -156,24 +247,67 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
 
         if ".." in Path(key).parts:
             raise HTTPException(status_code=400, detail="Invalid key")
+        lowered = key.lower()
+        if not lowered.endswith(_MEDIA_OK):
+            raise HTTPException(status_code=404, detail="Not found")
         try:
             data = current().read_object(key)
-        except StorageError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        if key.endswith(".png"):
+        except StorageError:
+            raise HTTPException(status_code=404, detail="Not found") from None
+        if lowered.endswith(".png"):
             media_type = "image/png"
-        elif key.endswith(".mp4"):
+        elif lowered.endswith(".mp4"):
             media_type = "video/mp4"
         else:
-            media_type = "application/octet-stream"
+            media_type = "text/html"
         return Response(content=data, media_type=media_type)
+
+    @application.get("/s/{kid_id}", response_class=HTMLResponse)
+    def share(kid_id: str, request: Request) -> HTMLResponse:
+        if "/" in kid_id or ".." in kid_id:
+            raise HTTPException(status_code=404, detail="Not found")
+        try:
+            listing = current().wall()
+        except (ConfigError, StorageError, RuntimeError):
+            log.exception("share wall failed")
+            raise HTTPException(status_code=404, detail="Not found") from None
+        item = next(
+            (row for row in listing.get("items") or [] if str(row.get("id")) == kid_id),
+            None,
+        )
+        if not isinstance(item, dict) or not item.get("png_url"):
+            raise HTTPException(status_code=404, detail="Not found")
+        name = str(item.get("name") or "friend")
+        wish = str(item.get("wish") or "Merry Christmas!")
+        png_url = str(item["png_url"])
+        og_image = _absolute(request, png_url) or png_url
+        share_url = _absolute(request, f"/s/{kid_id}") or f"/s/{kid_id}"
+        title = f"A Christmas card for {name}"
+        return TEMPLATES.TemplateResponse(
+            request,
+            "share.html",
+            {
+                "title": title,
+                "description": wish,
+                "name": name,
+                "wish": wish,
+                "png_url": png_url,
+                "og_image": og_image,
+                "share_url": share_url,
+            },
+        )
+
+    @application.get("/api/access")
+    def api_access(request: Request) -> dict[str, str]:
+        return {"role": "operator" if _is_operator(request) else "guest"}
 
     @application.post("/api/cards")
     def api_cards(kid: KidProfile) -> dict[str, Any]:
-        try:
-            run = current().generate_card(kid)
-        except (ProfileError, ConfigError, StorageError, RuntimeError) as exc:
-            raise _http_error(exc, status=400) from exc
+        with _CARD_SLOTS:
+            try:
+                run = current().generate_card(kid)
+            except (ProfileError, ConfigError, StorageError, RuntimeError) as exc:
+                raise _http_error(exc, status=400, fallback="Card generation failed") from exc
         return _card_response(run, kid)
 
     @application.post("/api/cards/stream")
@@ -184,15 +318,23 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
         q: Queue[dict[str, Any] | None] = Queue()
 
         def worker() -> None:
-            try:
-                run = current().generate_card(kid, on_progress=q.put)
-                q.put({"type": "complete", **_card_response(run, kid)})
-            except (ProfileError, ConfigError, StorageError, RuntimeError) as exc:
-                q.put({"type": "error", "detail": str(exc)})
-            except Exception as exc:
-                q.put({"type": "error", "detail": str(exc)})
-            finally:
-                q.put(None)
+            with _CARD_SLOTS:
+                try:
+                    run = current().generate_card(kid, on_progress=q.put)
+                    q.put({"type": "complete", **_card_response(run, kid)})
+                except (ProfileError, ConfigError, StorageError, RuntimeError) as exc:
+                    log.exception("card stream failed")
+                    q.put(
+                        {
+                            "type": "error",
+                            "detail": _public_detail(exc, fallback="Card generation failed"),
+                        }
+                    )
+                except Exception:
+                    log.exception("card stream failed")
+                    q.put({"type": "error", "detail": "Card generation failed"})
+                finally:
+                    q.put(None)
 
         def generate() -> Any:
             with ThreadPoolExecutor(max_workers=1) as pool:
@@ -201,8 +343,9 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
                     item = q.get()
                     if item is None:
                         break
+                    payload = redact_public(item) if isinstance(item, dict) else item
                     # SSE comment padding — some proxies buffer small chunks until ~2 KB.
-                    yield f"data: {json.dumps(item)}\n\n: pad {' ' * 2048}\n\n"
+                    yield f"data: {json.dumps(payload)}\n\n: pad {' ' * 2048}\n\n"
 
         return StreamingResponse(
             generate(),
@@ -214,32 +357,25 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
             },
         )
 
-    def _card_response(run: Any, kid: KidProfile) -> dict[str, Any]:
-        kid_id = run.card.kid_id
-        return {
-            "card": json.loads(run.card.model_dump_json()),
-            "kid": json.loads(kid.model_dump_json()),
-            "steps": run.steps,
-            "png_url": f"/cards/{kid_id}.png" if run.card.png_path else None,
-            "html_url": f"/cards/{kid_id}.html" if run.card.html_path else None,
-        }
-
     @application.post("/api/cards/batch")
     def api_batch(body: BatchRequest) -> dict[str, Any]:
         result = current().generate_batch(body.kids)
-        return {"ids": result.ids, "failures": result.failures}
+        return redact_public({"ids": result.ids, "failures": result.failures})
 
     @application.post("/api/cards/{kid_id}/animate")
-    def api_animate(kid_id: str, body: AnimateRequest | None = None) -> dict[str, Any]:
+    def api_animate(
+        kid_id: str, request: Request, body: AnimateRequest | None = None
+    ) -> dict[str, Any]:
+        _require_operator(request)
         mood_bank = True if body is None else body.mood_bank
         try:
-            return current().animate_card(kid_id, mood_bank=mood_bank)
+            return redact_public(current().animate_card(kid_id, mood_bank=mood_bank))
         except FileNotFoundError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+            raise HTTPException(status_code=404, detail="Card not found") from exc
         except StorageError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+            raise HTTPException(status_code=404, detail="Card not found") from exc
         except (ConfigError, RuntimeError) as exc:
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
+            raise _http_error(exc, status=503, fallback="Animate failed") from exc
 
     @application.post("/api/publish")
     async def api_publish(file: UploadFile = File(...)) -> dict[str, Any]:
@@ -250,15 +386,15 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
     @application.get("/api/wall")
     def api_wall() -> dict[str, Any]:
         try:
-            return current().wall()
+            return redact_public(current().wall())
         except (ConfigError, StorageError, RuntimeError) as exc:
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
+            raise _http_error(exc, status=503, fallback="Gallery unavailable") from exc
 
     @application.get("/api/kids")
     def api_kids(limit: int = 20) -> dict[str, Any]:
         path = DEFAULT_KIDS_CSV
         if not path.is_file():
-            raise HTTPException(status_code=404, detail=f"kids CSV missing: {path}")
+            raise HTTPException(status_code=404, detail="kids CSV missing")
         try:
             n = limit if limit > 0 else None
             kids = load_kids(path, n=n)
@@ -267,35 +403,38 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
         return {"kids": [json.loads(k.model_dump_json()) for k in kids]}
 
     @application.post("/api/runs")
-    def api_runs(body: RunRequest | None = None) -> dict[str, Any]:
+    def api_runs(request: Request, body: RunRequest | None = None) -> dict[str, Any]:
+        _require_operator(request)
         jobs = 4 if body is None else body.jobs
         try:
-            return current().submit_run(jobs=jobs)
+            return redact_public(current().submit_run(jobs=jobs))
         except BatchError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+            raise _http_error(exc, status=400, fallback="Run failed") from exc
         except (NebiusJobError, ConfigError, StorageError, RuntimeError) as exc:
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
+            raise _http_error(exc, status=503, fallback="Run failed") from exc
 
     @application.get("/api/runs/{run_id}")
-    def api_run(run_id: str) -> dict[str, Any]:
+    def api_run(run_id: str, request: Request) -> dict[str, Any]:
+        _require_operator(request)
         try:
-            return current().run_status(run_id)
+            return redact_public(current().run_status(run_id))
         except StorageError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+            raise HTTPException(status_code=404, detail="Run not found") from exc
         except (NebiusJobError, ConfigError, RuntimeError) as exc:
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
+            raise _http_error(exc, status=503, fallback="Run failed") from exc
 
     @application.get("/wall", response_class=HTMLResponse)
     def wall(request: Request) -> HTMLResponse:
         try:
             listing = current().wall()
             return TEMPLATES.TemplateResponse(request, "wall.html", {"error": None, **listing})
-        except (ConfigError, StorageError, RuntimeError) as exc:
+        except (ConfigError, StorageError, RuntimeError):
+            log.exception("wall failed")
             return TEMPLATES.TemplateResponse(
                 request,
                 "wall.html",
                 {
-                    "error": str(exc),
+                    "error": "Gallery unavailable",
                     "cards": [],
                     "videos": [],
                     "items": [],

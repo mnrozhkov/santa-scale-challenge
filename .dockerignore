@@ -3,7 +3,9 @@
 .env
 .env.*
 out/
-data/
+data/**
+!data/
+!data/kids.csv
 node_modules/
 .scratch/
 .pytest_cache/

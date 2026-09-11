@@ -9,6 +9,9 @@ import {
   type CardProgressEvent,
   type WallItem,
 } from './api'
+import { captureOperatorFromUrl, fetchAccess, kioskOrigin, type AccessRole } from './access'
+import { QrModal, QrProjector } from './QrShare'
+import { ShareBar } from './ShareBar'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -195,10 +198,24 @@ function jobNodeStatus(state: string): NodeStatus {
 function shortError(err: unknown): string {
   const text = String(err instanceof Error ? err.message : err).replace(/^Error:\s*/, '')
   if (/CERTIFICATE_VERIFY_FAILED|TLS failed|SSL validation/i.test(text)) {
-    return 'TLS failed (laptop CA). Retry with AWS_CA_BUNDLE=/etc/ssl/cert.pem'
+    return 'TLS failed'
   }
   return text.length > 90 ? `${text.slice(0, 87)}…` : text
 }
+
+function useMobile(): boolean {
+  const [mobile, setMobile] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 900px)')
+    const update = () => setMobile(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+  return mobile
+}
+
+type ModeControl = 'toggle' | 'hidden' | 'locked-sim'
 
 const ANIMATE_JOBS = 4
 
@@ -455,8 +472,47 @@ function LogPanel({ run }: { run: RunState }) {
 
 // ── Live Panel ────────────────────────────────────────────────────────────────
 
-function LivePanel({ run, scope, realMode, onRealMode }: {
+function ModeToggle({
+  realMode, onRealMode, control,
+}: {
+  realMode: boolean
+  onRealMode: (v: boolean) => void
+  control: ModeControl
+}) {
+  if (control === 'hidden') return null
+  const locked = control === 'locked-sim'
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ display: 'flex', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, overflow: 'hidden', opacity: locked ? 0.6 : 1 }}>
+        {([['Sim', false], ['Real', true]] as const).map(([label, value]) => {
+          const active = realMode === value
+          return (
+            <button
+              key={label}
+              type="button"
+              disabled={locked}
+              onClick={() => { if (!locked) onRealMode(value) }}
+              style={{
+                border: 'none', padding: '3px 10px', minHeight: 32, fontSize: 11, fontWeight: 600, letterSpacing: '0.04em',
+                cursor: locked ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                background: active ? (value ? 'rgb(45,139,93)' : 'rgb(233,174,86)') : 'white',
+                color: active ? (value ? 'white' : 'rgba(0,0,0,.8)') : 'rgba(0,0,0,.45)',
+              }}
+            >{label}</button>
+          )
+        })}
+      </div>
+      {locked && (
+        <span style={{ fontSize: 11, color: 'rgba(0,0,0,.45)', maxWidth: 220 }}>Jobs disabled for QR guests</span>
+      )}
+    </div>
+  )
+}
+
+function LivePanel({ run, scope, realMode, onRealMode, modeControl, fill }: {
   run: RunState; scope: string; realMode: boolean; onRealMode: (v: boolean) => void
+  modeControl: ModeControl
+  fill?: boolean
 }) {
   const statusDot = run.status === 'running' ? 'rgb(54,151,241)' : run.status === 'done' ? 'rgb(48,170,110)' : 'rgba(0,0,0,.2)'
   const statusLabel = run.status === 'running' ? 'running' : run.status === 'done' ? 'done' : 'idle'
@@ -491,24 +547,12 @@ function LivePanel({ run, scope, realMode, onRealMode }: {
   }
 
   return (
-    <aside style={{ width: 720, display: 'flex', flexDirection: 'column', borderLeft: '2px solid rgba(0,0,0,.15)', background: 'rgb(242,237,228)', flexShrink: 0 }}>
+    <aside className={fill ? undefined : 'live-panel-sidebar'} style={{ width: fill ? '100%' : 720, height: fill ? '100%' : undefined, display: 'flex', flexDirection: 'column', borderLeft: fill ? undefined : '2px solid rgba(0,0,0,.15)', background: 'rgb(242,237,228)', flexShrink: 0 }}>
       {/* Panel header */}
-      <div style={{ background: 'white', borderBottom: '1px solid rgba(0,0,0,.1)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+      <div style={{ background: 'white', borderBottom: '1px solid rgba(0,0,0,.1)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
         <div style={{ width: 8, height: 8, borderRadius: '50%', background: statusDot, boxShadow: run.status === 'running' ? `0 0 0 3px rgba(54,151,241,.2)` : undefined, flexShrink: 0 }} />
         <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(0,0,0,.7)' }}>Serverless AI · live</span>
-        <div style={{ display: 'flex', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, overflow: 'hidden' }}>
-          {([['Sim', false], ['Real', true]] as const).map(([label, value]) => {
-            const active = realMode === value
-            return (
-              <button key={label} onClick={() => onRealMode(value)} style={{
-                border: 'none', padding: '3px 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em',
-                cursor: 'pointer', fontFamily: 'inherit',
-                background: active ? (value ? 'rgb(45,139,93)' : 'rgb(233,174,86)') : 'white',
-                color: active ? (value ? 'white' : 'rgba(0,0,0,.8)') : 'rgba(0,0,0,.45)',
-              }}>{label}</button>
-            )
-          })}
-        </div>
+        <ModeToggle realMode={realMode} onRealMode={onRealMode} control={modeControl} />
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 11, background: 'rgba(0,0,0,.07)', borderRadius: 4, padding: '2px 7px', color: 'rgba(0,0,0,.5)', fontWeight: 500 }}>{scope}</span>
           {run.title && <span style={{ fontSize: 12, color: 'rgba(0,0,0,.55)', fontWeight: 500 }}>{run.title}</span>}
@@ -572,7 +616,7 @@ function LivePanel({ run, scope, realMode, onRealMode }: {
 
 function TagChip({ tag, selected, onClick }: { tag: typeof ITAGS[0]; selected: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} style={{
+    <button type="button" className="tap-target" onClick={onClick} style={{
       border: 'none', cursor: 'pointer', borderRadius: 20, padding: '5px 12px', fontSize: 13, fontWeight: 500,
       background: selected ? tag.color : tag.light,
       color: selected ? 'white' : tag.color,
@@ -586,7 +630,7 @@ function TagChip({ tag, selected, onClick }: { tag: typeof ITAGS[0]; selected: b
 function GiftCard({ stage, form, cardData, stage2, onAnimate, onPlay, hasVideo, videoPlaying }: {
   stage: 'hidden' | 'generating' | 'ready'
   form: { name: string; age: number; wish: string; tags: string[]; mood: string }
-  cardData: { gift: string; model: string; bg: string; pngUrl?: string; videoUrl?: string } | null
+  cardData: { gift: string; model: string; bg: string; pngUrl?: string; videoUrl?: string; kidId?: string } | null
   stage2: string
   onAnimate: () => void
   onPlay: () => void
@@ -649,7 +693,7 @@ function GiftCard({ stage, form, cardData, stage2, onAnimate, onPlay, hasVideo, 
             {/* Actions */}
             <div style={{ marginTop: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {!hasVideo && (
-                <button onClick={onAnimate} style={{
+                <button type="button" className="tap-target" onClick={onAnimate} style={{
                   border: '1.5px solid rgba(0,0,0,.2)', background: 'white', borderRadius: 6, padding: '8px 16px',
                   fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', color: 'rgba(0,0,0,.75)',
                   display: 'flex', alignItems: 'center', gap: 6,
@@ -657,7 +701,7 @@ function GiftCard({ stage, form, cardData, stage2, onAnimate, onPlay, hasVideo, 
               )}
               {hasVideo && (
                 <>
-                  <button onClick={onPlay} style={{
+                  <button type="button" className="tap-target" onClick={onPlay} style={{
                     border: 'none', background: 'rgb(45,139,93)', color: 'white', borderRadius: 6, padding: '8px 16px',
                     fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
                     display: 'flex', alignItems: 'center', gap: 6,
@@ -666,6 +710,9 @@ function GiftCard({ stage, form, cardData, stage2, onAnimate, onPlay, hasVideo, 
                     videos/v_8f2a.mp4 · 832×480 · 16 fps · 5 s · {form.mood.toLowerCase()} track
                   </span>
                 </>
+              )}
+              {cardData.kidId && (
+                <ShareBar id={cardData.kidId} pngUrl={cardData.pngUrl} name={form.name || 'Kid'} />
               )}
             </div>
             {videoPlaying && (
@@ -693,7 +740,7 @@ function CreateTab({ form, setForm, onMagic, createRunning, cardStage, cardStage
   createRunning: boolean
   cardStage: 'hidden' | 'generating' | 'ready'
   cardStageLabel: string
-  cardData: { gift: string; model: string; bg: string; pngUrl?: string; videoUrl?: string } | null
+  cardData: { gift: string; model: string; bg: string; pngUrl?: string; videoUrl?: string; kidId?: string } | null
   onAnimate: () => void
   onPlay: () => void
   hasVideo: boolean
@@ -716,7 +763,7 @@ function CreateTab({ form, setForm, onMagic, createRunning, cardStage, cardStage
           <div style={{ width: 4, height: 16, background: 'rgb(45,139,93)', borderRadius: 2 }} />
           <span style={{ fontSize: 17, fontWeight: 600 }}>Kid Details</span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 20px' }}>
+        <div className="create-form-grid">
           <div>
             <label style={labelStyle}>Name</label>
             <input style={inputStyle} placeholder="e.g. Emma" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
@@ -757,7 +804,7 @@ function CreateTab({ form, setForm, onMagic, createRunning, cardStage, cardStage
         </div>
         {/* Magic button */}
         <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button onClick={onMagic} disabled={createRunning || animating} style={{
+          <button type="button" className="tap-target" onClick={onMagic} disabled={createRunning || animating} style={{
             height: 44, border: 'none', background: createRunning || animating ? 'rgba(255,190,92,.5)' : 'rgb(255,190,92)',
             color: 'rgba(0,0,0,.75)', borderRadius: 6, padding: '0 24px', fontSize: 15, fontWeight: 600,
             cursor: createRunning || animating ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
@@ -971,10 +1018,12 @@ function GalleryTile({ kid, selected, onClick }: { kid: Kid; selected: boolean; 
   )
 }
 
-function GalleryPreview({ kid, realMode, onRealMode }: {
+function GalleryPreview({ kid, realMode, onRealMode, modeControl, onClose }: {
   kid: Kid | null
   realMode: boolean
   onRealMode: (v: boolean) => void
+  modeControl: ModeControl
+  onClose?: () => void
 }) {
   const [playing, setPlaying] = useState(false)
 
@@ -983,27 +1032,21 @@ function GalleryPreview({ kid, realMode, onRealMode }: {
   }, [kid?.id])
 
   return (
-    <aside style={{ width: 720, display: 'flex', flexDirection: 'column', borderLeft: '2px solid rgba(0,0,0,.15)', background: 'rgb(242,237,228)', flexShrink: 0 }}>
-      <div style={{ background: 'white', borderBottom: '1px solid rgba(0,0,0,.1)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+    <aside className={onClose ? undefined : 'live-panel-sidebar'} style={{ width: onClose ? '100%' : 720, height: onClose ? '100%' : undefined, display: 'flex', flexDirection: 'column', borderLeft: onClose ? undefined : '2px solid rgba(0,0,0,.15)', background: 'rgb(242,237,228)', flexShrink: 0 }}>
+      <div style={{ background: 'white', borderBottom: '1px solid rgba(0,0,0,.1)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
         <div style={{ width: 8, height: 8, borderRadius: '50%', background: kid ? 'rgb(45,139,93)' : 'rgba(0,0,0,.2)', flexShrink: 0 }} />
         <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(0,0,0,.7)' }}>GiftCard · preview</span>
-        <div style={{ display: 'flex', border: '1px solid rgba(0,0,0,.15)', borderRadius: 6, overflow: 'hidden' }}>
-          {([['Sim', false], ['Real', true]] as const).map(([label, value]) => {
-            const active = realMode === value
-            return (
-              <button key={label} onClick={() => onRealMode(value)} style={{
-                border: 'none', padding: '3px 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em',
-                cursor: 'pointer', fontFamily: 'inherit',
-                background: active ? (value ? 'rgb(45,139,93)' : 'rgb(233,174,86)') : 'white',
-                color: active ? (value ? 'white' : 'rgba(0,0,0,.8)') : 'rgba(0,0,0,.45)',
-              }}>{label}</button>
-            )
-          })}
-        </div>
+        <ModeToggle realMode={realMode} onRealMode={onRealMode} control={modeControl} />
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 11, background: 'rgba(0,0,0,.07)', borderRadius: 4, padding: '2px 7px', color: 'rgba(0,0,0,.5)', fontWeight: 500 }}>Gallery</span>
           {kid && (
             <span style={{ fontFamily: 'JetBrains Mono,Menlo,monospace', fontSize: 12, color: 'rgba(0,0,0,.4)' }}>{kid.id}</span>
+          )}
+          {onClose && (
+            <button type="button" className="tap-target" onClick={onClose} style={{
+              border: '1px solid rgba(0,0,0,.15)', background: 'white', borderRadius: 6, padding: '0 12px',
+              fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+            }}>Close</button>
           )}
         </div>
       </div>
@@ -1052,15 +1095,17 @@ function GalleryPreview({ kid, realMode, onRealMode }: {
               })}
             </div>
 
-            <div style={{ paddingTop: 12, borderTop: '1px solid rgba(0,0,0,.08)' }}>
+            <div style={{ paddingTop: 12, borderTop: '1px solid rgba(0,0,0,.08)', display: 'flex', flexDirection: 'column', gap: 12 }}>
               {kid.hasVideo ? (
-                <button onClick={() => setPlaying(v => !v)} style={{
+                <button type="button" className="tap-target" onClick={() => setPlaying(v => !v)} style={{
                   border: 'none', background: 'rgb(45,139,93)', color: 'white', borderRadius: 6, padding: '10px 20px',
                   fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                  alignSelf: 'flex-start',
                 }}>{playing ? '⏹ Stop' : '▶ Play video gift card'}</button>
               ) : (
                 <div style={{ fontFamily: 'JetBrains Mono,Menlo,monospace', fontSize: 12.5, color: 'rgba(0,0,0,.4)' }}>Image card only. Run Animate to add a video.</div>
               )}
+              <ShareBar id={kid.id} pngUrl={kid.pngUrl} name={kid.name} />
             </div>
           </div>
         )}
@@ -1094,6 +1139,7 @@ function GalleryTab({ gallery, selectedId, onSelect }: {
       color: current === value ? 'rgba(0,0,0,.8)' : 'rgba(0,0,0,.55)',
       borderRadius: 20, padding: '5px 14px', fontSize: 13, fontWeight: 500,
       cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+      minHeight: 44,
     }}>{label}</button>
   )
 
@@ -1155,20 +1201,29 @@ function GalleryTab({ gallery, selectedId, onSelect }: {
 
 // ── App ───────────────────────────────────────────────────────────────────────
 
-export default function App() {
+function Kiosk() {
   const [tab, setTab] = useState<Tab>('create')
   const [coldSana, setColdSana] = useState(false)
   const [speed, setSpeed] = useState(1)
   const [gallery, setGallery] = useState<Kid[]>([])
   const [gallerySelectedId, setGallerySelectedId] = useState<string | null>(null)
   const [realMode, setRealMode] = useState(true)
+  const [role, setRole] = useState<AccessRole>('guest')
+  const [qrOpen, setQrOpen] = useState(false)
+  const [liveOpen, setLiveOpen] = useState(false)
+  const isMobile = useMobile()
+  const isOperator = role === 'operator'
+  const createReal = isOperator ? realMode : true
+  const batchReal = isOperator ? realMode : false
+  const modeControl: ModeControl = isOperator ? 'toggle' : (tab === 'batch' ? 'locked-sim' : 'hidden')
+  const panelReal = tab === 'batch' ? batchReal : createReal
 
   // Create tab state
   const [form, setForm] = useState({ name: '', age: 8, wish: '', tags: [] as string[], mood: 'Playful', city: '' })
   const [createRun, setCreateRun] = useState<RunState>(emptyRun())
   const [cardStage, setCardStage] = useState<'hidden' | 'generating' | 'ready'>('hidden')
   const [cardStageLabel, setCardStageLabel] = useState('')
-  const [cardData, setCardData] = useState<{ gift: string; model: string; bg: string; pngUrl?: string; videoUrl?: string } | null>(null)
+  const [cardData, setCardData] = useState<{ gift: string; model: string; bg: string; pngUrl?: string; videoUrl?: string; kidId?: string } | null>(null)
   const [hasVideo, setHasVideo] = useState(false)
   const [animating, setAnimating] = useState(false)
   const [videoPlaying, setVideoPlaying] = useState(false)
@@ -1191,6 +1246,11 @@ export default function App() {
   const animTimers = useRef<number[]>([])
   const createT0 = useRef(0)
   const batchT0 = useRef(0)
+
+  useEffect(() => {
+    captureOperatorFromUrl()
+    void fetchAccess().then(setRole)
+  }, [])
 
   // Elapsed timers
   useEffect(() => {
@@ -1346,6 +1406,7 @@ export default function App() {
         model: imageStep ? `${imageStep.model}${imageStep.fallback ? ' (fallback)' : ''}` : (data.card.image.model_version || ''),
         bg: tagBg,
         pngUrl,
+        kidId: data.card.kid_id,
       })
       setCardStage('ready')
       const kid: Kid = {
@@ -1570,7 +1631,7 @@ export default function App() {
       at(8200, () => setCreateRun(r => ({ ...r, nodes: { ...r.nodes, openai: { ...r.nodes.openai!, status: 'done', meta: '4.0 s · gpt-image-1' }, bucket: { ...r.nodes.bucket, status: 'active' } }, log: [...r.log, { t: 8200, mark: '←', text: 'gpt-image-1 → b64_json 1.2 MB · 4.0 s', tone: 'green' }, { t: 8200, mark: '·', text: 'render.py: Pillow → card.png + card.html · 0.3 s', tone: 'muted' }, { t: 8200, mark: '→', text: 'PUT cards/c_8f2a.png', tone: 'blue' }] })))
       at(9600, () => {
         setCreateRun(r => ({ ...r, status: 'done', nodes: { ...r.nodes, bucket: { ...r.nodes.bucket, status: 'done', meta: '1.3 s · cards/c_8f2a.png' }, santa: { ...r.nodes.santa, status: 'done', meta: '200 {id, card_url} · 9.6 s total' } }, log: [...r.log, { t: 9600, mark: '✓', text: 'PUT cards/c_8f2a.png → 200 OK', tone: 'green' }, { t: 9600, mark: '✓', text: 'santa-service → 200 · attribution: gpt-image-1 (fallback) · 9.6 s', tone: 'green' }] }))
-        const cd = { gift: 'Cosmic Explorer Kit', model: 'gpt-image-1 (fallback)', bg: tagBg }
+        const cd = { gift: 'Cosmic Explorer Kit', model: 'gpt-image-1 (fallback)', bg: tagBg, kidId: 'c_8f2a' }
         setCardData(cd); setCardStage('ready')
         setGallery(prev => [{ id: 'c_8f2a', name: kidName, age: form.age, wish: form.wish, tags: form.tags, mood: form.mood, city: form.city, bg: tagBg, hasVideo: false, gift: 'Cosmic Explorer Kit' }, ...prev.filter(k => k.id !== 'c_8f2a')])
       })
@@ -1578,7 +1639,7 @@ export default function App() {
       at(5100, () => setCreateRun(r => ({ ...r, nodes: { ...r.nodes, sana: { ...r.nodes.sana, status: 'done', meta: '2.7 s · Sana_1600M_1024px_diffusers' }, bucket: { ...r.nodes.bucket, status: 'active' } }, log: [...r.log, { t: 5100, mark: '←', text: 'Sana → b64_json 1.2 MB · 2.7 s', tone: 'green' }, { t: 5100, mark: '·', text: 'render.py: Pillow → card.png + card.html · 0.3 s', tone: 'muted' }, { t: 5100, mark: '→', text: 'PUT cards/c_8f2a.png', tone: 'blue' }] })))
       at(6400, () => {
         setCreateRun(r => ({ ...r, status: 'done', nodes: { ...r.nodes, bucket: { ...r.nodes.bucket, status: 'done', meta: '1.3 s · cards/c_8f2a.png' }, santa: { ...r.nodes.santa, status: 'done', meta: '200 {id, card_url} · 6.4 s' } }, log: [...r.log, { t: 6400, mark: '✓', text: 'PUT cards/c_8f2a.png → 200 OK', tone: 'green' }, { t: 6400, mark: '✓', text: 'santa-service → 200 {id:"c_8f2a", card_url} · 6.4 s', tone: 'green' }] }))
-        setCardData({ gift: 'Cosmic Explorer Kit', model: 'Sana_1600M_1024px_diffusers', bg: tagBg }); setCardStage('ready')
+        setCardData({ gift: 'Cosmic Explorer Kit', model: 'Sana_1600M_1024px_diffusers', bg: tagBg, kidId: 'c_8f2a' }); setCardStage('ready')
         setGallery(prev => [{ id: 'c_8f2a', name: kidName, age: form.age, wish: form.wish, tags: form.tags, mood: form.mood, city: form.city, bg: tagBg, hasVideo: false, gift: 'Cosmic Explorer Kit' }, ...prev.filter(k => k.id !== 'c_8f2a')])
       })
     }
@@ -1729,8 +1790,8 @@ export default function App() {
   return (
     <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', background: 'rgb(249,245,238)', fontFamily: 'Inter,system-ui,sans-serif', color: 'rgba(0,0,0,.85)' }}>
       {/* ── Header ── */}
-      <header style={{
-        height: 52, flexShrink: 0, position: 'relative', overflow: 'hidden',
+      <header className="kiosk-header" style={{
+        height: 52, flexShrink: 0, position: 'relative', overflow: 'visible',
         background: 'linear-gradient(90deg, rgba(255,190,92,.42) 0%, rgba(255,190,92,.12) 520px, rgba(255,190,92,.06) 100%)',
         borderBottom: '2px solid rgba(255,190,92,.6)',
         display: 'flex', alignItems: 'center', gap: 0,
@@ -1750,22 +1811,22 @@ export default function App() {
           <div style={{ fontSize: 22 }}>🎅</div>
           <div>
             <span style={{ fontSize: 15, fontWeight: 700, color: 'rgba(0,0,0,.85)' }}>Santa Scale Challenge</span>
-            <span style={{ fontSize: 12, marginLeft: 8, background: realMode ? 'rgba(45,139,93,.15)' : 'rgba(45,139,93,.15)', color: 'rgb(45,139,93)', borderRadius: 4, padding: '1px 6px', fontWeight: 600 }}>{realMode ? 'REAL' : 'DEMO'}</span>
-            <span style={{ fontSize: 11.5, marginLeft: 6, color: 'rgba(0,0,0,.4)', fontFamily: 'JetBrains Mono,Menlo,monospace' }}>Nordic Tech Week 2025</span>
+            <span style={{ fontSize: 12, marginLeft: 8, background: 'rgba(45,139,93,.15)', color: 'rgb(45,139,93)', borderRadius: 4, padding: '1px 6px', fontWeight: 600 }}>{panelReal ? 'REAL' : 'DEMO'}</span>
+            <span className="kiosk-week" style={{ fontSize: 11.5, marginLeft: 6, color: 'rgba(0,0,0,.4)', fontFamily: 'JetBrains Mono,Menlo,monospace' }}>Nordic Tech Week 2025</span>
           </div>
         </div>
         {/* Tabs */}
-        <div style={{ display: 'flex', alignItems: 'center', height: '100%', marginLeft: 8 }}>
+        <div className="kiosk-tabs" style={{ display: 'flex', alignItems: 'center', height: '100%', marginLeft: 8, overflowX: 'auto' }}>
           {(['create', 'batch', 'gallery'] as Tab[]).map(t => {
             const labels: Record<Tab, string> = { create: 'Create gift card', batch: 'Animate', gallery: 'Gallery' }
             const active = tab === t
             return (
-              <button key={t} onClick={() => setTab(t)} style={{
+              <button key={t} type="button" className="tap-target" onClick={() => setTab(t)} style={{
                 height: '100%', border: 'none', background: 'transparent', cursor: 'pointer',
                 padding: '0 18px', fontSize: 15, fontWeight: active ? 500 : 400,
                 color: active ? 'rgba(0,0,0,.85)' : 'rgba(0,0,0,.5)',
                 borderBottom: active ? '2.5px solid rgb(233,174,86)' : '2.5px solid transparent',
-                fontFamily: 'inherit', transition: 'all 0.15s', position: 'relative',
+                fontFamily: 'inherit', transition: 'all 0.15s', position: 'relative', whiteSpace: 'nowrap',
               }}>
                 {labels[t]}
                 {t === 'gallery' && <span style={{ marginLeft: 5, background: 'rgba(0,0,0,.1)', borderRadius: 10, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>{gallery.length}</span>}
@@ -1774,38 +1835,46 @@ export default function App() {
           })}
         </div>
         {/* Right controls */}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 16, padding: '0 20px' }}>
-          {!realMode && (
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12, padding: '0 16px', flexWrap: 'wrap' }}>
+          {isMobile && tab !== 'gallery' && (
+            <button type="button" className="tap-target" onClick={() => setLiveOpen(v => !v)} style={{
+              border: '1px solid rgba(0,0,0,.18)', background: liveOpen ? 'rgb(233,174,86)' : 'white',
+              borderRadius: 6, padding: '0 12px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+            }}>Live</button>
+          )}
+          <button type="button" className="tap-target" onClick={() => setQrOpen(true)} style={{
+            border: '1px solid rgba(0,0,0,.18)', background: 'white', borderRadius: 6, padding: '0 12px',
+            fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+          }}>QR</button>
+          {!panelReal && (
             <>
           {/* Cold Sana toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'rgba(0,0,0,.6)' }}>
+          <div className="kiosk-desktop-hint" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'rgba(0,0,0,.6)' }}>
             <span>Simulate cold Sana endpoint</span>
-            <button onClick={() => setColdSana(v => !v)} style={{
+            <button type="button" onClick={() => setColdSana(v => !v)} style={{
               width: 34, height: 20, borderRadius: 10, border: 'none', cursor: 'pointer', position: 'relative',
               background: coldSana ? 'rgb(233,174,86)' : 'rgba(0,0,0,.15)', transition: 'background 0.2s',
             }}>
               <div style={{ position: 'absolute', top: 2, left: coldSana ? 16 : 2, width: 16, height: 16, borderRadius: '50%', background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.2)', transition: 'left 0.2s' }} />
             </button>
           </div>
-          {/* Speed selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'rgba(0,0,0,.6)' }}>
+          <div className="kiosk-desktop-hint" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'rgba(0,0,0,.6)' }}>
             <span>Speed:</span>
             {[0.5, 1, 2, 4].map(s => (
-              <button key={s} onClick={() => setSpeed(s)} style={{
-                border: 'none', borderRadius: 4, padding: '2px 7px', fontSize: 12.5, fontWeight: 500, cursor: 'pointer', fontFamily: 'JetBrains Mono,Menlo,monospace',
+              <button key={s} type="button" onClick={() => setSpeed(s)} style={{
+                border: 'none', borderRadius: 4, padding: '2px 7px', minHeight: 28, fontSize: 12.5, fontWeight: 500, cursor: 'pointer', fontFamily: 'JetBrains Mono,Menlo,monospace',
                 background: speed === s ? 'rgb(233,174,86)' : 'rgba(0,0,0,.08)', color: speed === s ? 'rgba(0,0,0,.8)' : 'rgba(0,0,0,.55)',
               }}>{s}×</button>
             ))}
           </div>
-          {/* Fallback label */}
-          <div style={{ fontSize: 13, color: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <div className="kiosk-desktop-hint" style={{ fontSize: 13, color: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', gap: 4 }}>
             <span>Fallback:</span>
             <span style={{ fontWeight: 500, color: 'rgba(0,0,0,.65)' }}>{coldSana ? 'auto (primary down)' : 'auto'}</span>
           </div>
             </>
           )}
-          {realMode && (
-            <div style={{ fontSize: 13, color: 'rgba(0,0,0,.5)', fontFamily: 'JetBrains Mono,Menlo,monospace' }}>
+          {panelReal && (
+            <div className="kiosk-desktop-hint" style={{ fontSize: 13, color: 'rgba(0,0,0,.5)', fontFamily: 'JetBrains Mono,Menlo,monospace' }}>
               {tab === 'batch' ? 'GET /api/wall · POST /api/runs' : 'GET /api/wall · POST /api/cards/stream'}
             </div>
           )}
@@ -1814,15 +1883,14 @@ export default function App() {
 
       {/* ── Main area ── */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* Content column */}
-        <main style={{ flex: 1, overflowY: 'auto', padding: '24px 32px' }}>
+        <main style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '16px 16px 32px' : '24px 32px' }}>
           <div style={{ maxWidth: 880 }}>
             {tab === 'create' && (
               <CreateTab
-                form={form} setForm={setForm} onMagic={realMode ? () => { void runMagicReal() } : runMagic}
+                form={form} setForm={setForm} onMagic={createReal ? () => { void runMagicReal() } : runMagic}
                 createRunning={createRun.status === 'running'} animating={animating}
                 cardStage={cardStage} cardStageLabel={cardStageLabel} cardData={cardData}
-                onAnimate={realMode ? () => { void runAnimateReal() } : runAnimate} onPlay={() => {
+                onAnimate={isOperator && realMode ? () => { void runAnimateReal() } : runAnimate} onPlay={() => {
                   setVideoPlaying(v => !v)
                   if (!cardData?.videoUrl) setTimeout(() => setVideoPlaying(false), 5200 / speed)
                 }}
@@ -1832,10 +1900,10 @@ export default function App() {
             {tab === 'batch' && (
               <BatchTab
                 batchKids={batchKids} batchLoaded={batchLoaded}
-                onLoad={realMode ? () => { void loadKidsReal() } : () => { setBatchLoaded(true); setBatchKids(BATCH_SEED.map(k => ({ ...k, batchStatus: 'queued' as const }))) }}
-                onRun={realMode ? () => { void runBatchReal() } : runBatch} batchRunning={batchRunning} batchDone={batchDone} batchSummary={batchSummary}
-                metrics={realMode ? batchMetrics : undefined}
-                realMode={realMode}
+                onLoad={batchReal ? () => { void loadKidsReal() } : () => { setBatchLoaded(true); setBatchKids(BATCH_SEED.map(k => ({ ...k, batchStatus: 'queued' as const }))) }}
+                onRun={batchReal ? () => { void runBatchReal() } : runBatch} batchRunning={batchRunning} batchDone={batchDone} batchSummary={batchSummary}
+                metrics={batchReal ? batchMetrics : undefined}
+                realMode={batchReal}
               />
             )}
             {tab === 'gallery' && (
@@ -1848,17 +1916,48 @@ export default function App() {
           </div>
         </main>
 
-        {/* ── Right panel: GiftCard preview on Gallery; LivePanel elsewhere ── */}
         {tab === 'gallery' ? (
-          <GalleryPreview
-            kid={gallerySelectedId ? (gallery.find(k => k.id === gallerySelectedId) ?? null) : null}
-            realMode={realMode}
-            onRealMode={v => { void setMode(v) }}
-          />
+          isMobile ? (
+            gallerySelectedId ? (
+              <div className="gallery-popup">
+                <GalleryPreview
+                  kid={gallery.find(k => k.id === gallerySelectedId) ?? null}
+                  realMode={createReal}
+                  onRealMode={v => { void setMode(v) }}
+                  modeControl={modeControl}
+                  onClose={() => setGallerySelectedId(null)}
+                />
+              </div>
+            ) : null
+          ) : (
+            <GalleryPreview
+              kid={gallerySelectedId ? (gallery.find(k => k.id === gallerySelectedId) ?? null) : null}
+              realMode={createReal}
+              onRealMode={v => { void setMode(v) }}
+              modeControl={modeControl}
+            />
+          )
         ) : (
-          <LivePanel run={panelRun} scope={panelScope} realMode={realMode} onRealMode={v => { void setMode(v) }} />
+          <>
+            {!isMobile && (
+              <LivePanel run={panelRun} scope={panelScope} realMode={panelReal} onRealMode={v => { void setMode(v) }} modeControl={modeControl} />
+            )}
+            {isMobile && liveOpen && (
+              <div className="live-sheet">
+                <LivePanel fill run={panelRun} scope={panelScope} realMode={panelReal} onRealMode={v => { void setMode(v) }} modeControl={modeControl} />
+              </div>
+            )}
+          </>
         )}
       </div>
+      {qrOpen && <QrModal origin={kioskOrigin()} onClose={() => setQrOpen(false)} />}
     </div>
   )
+}
+
+export default function App() {
+  if (typeof window !== 'undefined' && window.location.pathname.replace(/\/$/, '') === '/qr') {
+    return <QrProjector />
+  }
+  return <Kiosk />
 }

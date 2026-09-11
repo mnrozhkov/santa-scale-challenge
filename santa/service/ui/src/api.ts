@@ -1,3 +1,5 @@
+import { operatorHeaders } from "./access";
+
 export type Step = {
   role: string;
   model: string;
@@ -166,7 +168,7 @@ export async function createCardStream(
 export async function animateCard(kidId: string): Promise<{ id: string; video_url: string }> {
   const resp = await fetch(`/api/cards/${encodeURIComponent(kidId)}/animate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...operatorHeaders() },
     body: JSON.stringify({ mood_bank: true }),
   });
   if (!resp.ok) throw new Error(await readError(resp));
@@ -183,7 +185,7 @@ export async function fetchKids(limit = 20): Promise<KidRow[]> {
 export async function submitRun(jobs = 4): Promise<RunResponse> {
   const resp = await fetch("/api/runs", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...operatorHeaders() },
     body: JSON.stringify({ jobs }),
   });
   if (!resp.ok) throw new Error(await readError(resp));
@@ -191,7 +193,9 @@ export async function submitRun(jobs = 4): Promise<RunResponse> {
 }
 
 export async function fetchRun(runId: string): Promise<RunResponse> {
-  const resp = await fetch(`/api/runs/${encodeURIComponent(runId)}`);
+  const resp = await fetch(`/api/runs/${encodeURIComponent(runId)}`, {
+    headers: operatorHeaders(),
+  });
   if (!resp.ok) throw new Error(await readError(resp));
   return resp.json() as Promise<RunResponse>;
 }

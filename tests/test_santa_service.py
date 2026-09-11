@@ -24,6 +24,7 @@ def _env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("IMAGE_ENDPOINT_TOKEN", "image-token")  # pragma: allowlist secret
     monkeypatch.setenv("RECRAFT_API_KEY", "recraft-should-not-be-used")  # pragma: allowlist secret
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("SANTA_OPERATOR_TOKEN", raising=False)
 
 
 def _gift_card(kid: KidProfile, tmp_path: Path) -> GiftCard:
@@ -376,8 +377,8 @@ def test_api_wall_lists_keys_from_fake_storage(
     assert demo.headers["content-type"].startswith("image/")
     video = client.get("/demo/g1/video.mp4")
     assert video.status_code == 200
-    no_video = client.get("/demo/g2/video.mp4")
-    assert no_video.status_code == 404
+    g2_video = client.get("/demo/g2/video.mp4")
+    assert g2_video.status_code == 200
 
 
 def test_wall_counter_prefers_totals_done(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -586,3 +587,149 @@ def test_api_runs_empty_inventory_is_400(tmp_path: Path, monkeypatch: pytest.Mon
     resp = client.post("/api/runs", json={"jobs": 2})
     assert resp.status_code == 400
     assert "cards/" in resp.json()["detail"]
+
+
+def _blob(data: object) -> str:
+    return json.dumps(data).lower()
+
+
+def test_api_access_returns_role_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from fastapi.testclient import TestClient
+
+    session = _session(tmp_path, monkeypatch)
+    monkeypatch.setenv("SANTA_OPERATOR_TOKEN", "op-secret")  # pragma: allowlist secret
+    client = TestClient(create_app(session))
+    guest = client.get("/api/access")
+    assert guest.status_code == 200
+    assert guest.json() == {"role": "guest"}
+    assert "op-secret" not in guest.text
+    op = client.get("/api/access", headers={"X-Santa-Operator": "op-secret"})
+    assert op.json() == {"role": "operator"}
+    assert set(op.json()) == {"role"}
+
+
+def test_guest_forbidden_on_animate_and_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fastapi.testclient import TestClient
+
+    session = _session(tmp_path, monkeypatch, runner=_writing_runner(tmp_path))
+    monkeypatch.setenv("SANTA_OPERATOR_TOKEN", "op-secret")  # pragma: allowlist secret
+    client = TestClient(create_app(session))
+    kid = KidProfile(id="k-anim", name="Emma", age=7, wishlist=["stars"])
+    assert client.post("/api/cards", json=kid.model_dump()).status_code == 200
+    anim = client.post("/api/cards/k-anim/animate", json={"mood_bank": True})
+    runs = client.post("/api/runs", json={"jobs": 2})
+    assert anim.status_code == 403
+    assert runs.status_code == 403
+    assert "op-secret" not in anim.text
+    assert "Operator required" in anim.json()["detail"]
+
+
+def test_operator_header_allows_animate_and_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("NEBIUS_BUCKET_ID", "bucket-id")
+    monkeypatch.setenv("NEBIUS_PROJECT_ID", "proj")
+
+    def fake_animate(png, **_kw):
+        dest = Path(png).with_name("card.mp4")
+        dest.write_bytes(b"mp4-bytes")
+        return dest
+
+    monkeypatch.setattr("santa.animate.run", fake_animate)
+
+    class Jobs:
+        def create(self, payload) -> str:
+            return "job-0"
+
+        def get(self, job_id: str) -> str:
+            return "RUNNING"
+
+        def cancel(self, job_id: str) -> None:
+            return None
+
+    session = _session(tmp_path, monkeypatch, runner=_writing_runner(tmp_path))
+    monkeypatch.setenv("SANTA_OPERATOR_TOKEN", "op-secret")  # pragma: allowlist secret
+    session.settings.models.job.image = "santa-job:test"
+    session.job_service = Jobs()
+    session.storage.upload("cards/k1/card.png", b"png")
+    client = TestClient(create_app(session))
+    headers = {"X-Santa-Operator": "op-secret"}
+    kid = KidProfile(id="k-op", name="Emma", age=7, wishlist=["stars"])
+    client.post("/api/cards", json=kid.model_dump(), headers=headers)
+    anim = client.post("/api/cards/k-op/animate", json={"mood_bank": True}, headers=headers)
+    assert anim.status_code == 200
+    runs = client.post("/api/runs", json={"jobs": 1}, headers=headers)
+    assert runs.status_code == 200
+
+
+def test_card_and_wall_json_have_no_endpoint_urls(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fastapi.testclient import TestClient
+
+    session = _session(tmp_path, monkeypatch, runner=_writing_runner(tmp_path))
+    client = TestClient(create_app(session))
+    kid = KidProfile(id="emma", name="Emma", age=7, wishlist=["stars"])
+    resp = client.post("/api/cards", json=kid.model_dump())
+    assert resp.status_code == 200
+    blob = _blob(resp.json())
+    assert "endpoint" not in resp.json()["card"].get("image", {})
+    assert "https://sana.example" not in blob
+    assert "image-token" not in blob
+    assert "/users/" not in blob
+    wall = client.get("/api/wall")
+    assert wall.status_code == 200
+    wall_blob = _blob(wall.json())
+    assert "https://sana.example" not in wall_blob
+    assert "image-token" not in wall_blob
+    dumped = json.loads(session.storage.download("cards/emma/card.json"))
+    assert "endpoint" not in dumped.get("image", {})
+    assert "https://sana.example" not in json.dumps(dumped)
+
+
+def test_config_error_is_generic_and_media_hides_card_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fastapi.testclient import TestClient
+
+    def boom(*_args: object, **_kwargs: object) -> CardRun:
+        raise ConfigError("Set OPENAI_API_KEY and IMAGE_ENDPOINT_URL https://cfg.v1")
+
+    session = _session(tmp_path, monkeypatch, runner=boom)
+    client = TestClient(create_app(session))
+    kid = KidProfile(name="Emma", age=7, wishlist=["stars"])
+    resp = client.post("/api/cards", json=kid.model_dump())
+    assert resp.status_code == 400
+    detail = resp.json()["detail"]
+    assert detail == "Card generation failed"
+    assert "OPENAI_API_KEY" not in detail
+    assert "IMAGE_ENDPOINT" not in detail
+    assert "cfg.v1" not in detail
+
+    session2 = _session(tmp_path, monkeypatch, runner=_writing_runner(tmp_path))
+    client2 = TestClient(create_app(session2))
+    kid2 = KidProfile(id="emma", name="Emma", age=7, wishlist=["stars"])
+    assert client2.post("/api/cards", json=kid2.model_dump()).status_code == 200
+    hidden = client2.get("/media/cards/emma/card.json")
+    assert hidden.status_code == 404
+    png = client2.get("/media/cards/emma/card.png")
+    assert png.status_code == 200
+
+
+def test_share_page_has_absolute_og_and_docs_are_disabled() -> None:
+    from fastapi.testclient import TestClient
+
+    client = TestClient(create_app())
+    resp = client.get("/s/g1")
+    assert resp.status_code == 200
+    assert 'property="og:image"' in resp.text
+    assert "http://testserver/demo/g1/card.png" in resp.text
+    assert 'name="twitter:card"' in resp.text
+    assert "summary_large_image" in resp.text
+    assert client.get("/docs").status_code == 404
+    assert client.get("/openapi.json").status_code == 404
+    assert client.get("/s/does-not-exist").status_code == 404

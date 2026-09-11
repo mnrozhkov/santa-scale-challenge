@@ -236,6 +236,9 @@ class ServiceSession:
             payload = json_path.read_bytes()
         else:
             payload = run.card.model_dump_json().encode()
+        from santa.service.redact import redact_card_json_bytes
+
+        payload = redact_card_json_bytes(payload)
         self.storage.upload(card_json_key(kid_id), payload, content_type="application/json")
         profile_path = png.parent / "profile.json" if png is not None else None
         if profile_path is not None and profile_path.is_file():

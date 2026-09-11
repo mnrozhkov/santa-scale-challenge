@@ -25,6 +25,7 @@ export default defineConfig({
       "/media": api,
       "/demo": api,
       "/wall": api,
+      "/s": api,
     },
   },
 });
