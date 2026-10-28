@@ -452,6 +452,67 @@ def test_ui_moods_match_mood_bank() -> None:
     assert [label.lower() for label in labels] == list(MOODS)
 
 
+def test_wall_item_includes_agent_tag_from_card_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _env(monkeypatch)
+    kid_dir = tmp_path / "agent1"
+    kid_dir.mkdir()
+    (kid_dir / "card.png").write_bytes(b"png")
+    (kid_dir / "profile.json").write_text(
+        json.dumps({"name": "Emma", "age": 7, "wishlist": ["telescope"]}),
+        encoding="utf-8",
+    )
+    (kid_dir / "card.json").write_text(
+        json.dumps(
+            {
+                "source": "agent",
+                "tags": ["agent"],
+                "wish": {"text": "Dear Emma", "mood": "warm"},
+                "recommendation": {"gifts": ["telescope"]},
+                "image": {"model_version": "sana"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    # Mirror into storage keys via DiskStorage layout used by session
+    storage_root = tmp_path / "store"
+    from santa.storage import DiskStorage
+
+    store = DiskStorage(storage_root)
+    store.upload("cards/agent1/card.png", b"png", content_type="image/png")
+    store.upload(
+        "cards/agent1/profile.json",
+        (kid_dir / "profile.json").read_bytes(),
+        content_type="application/json",
+    )
+    store.upload(
+        "cards/agent1/card.json",
+        (kid_dir / "card.json").read_bytes(),
+        content_type="application/json",
+    )
+    session = ServiceSession(
+        settings=Settings.load(env_file=NOENV),
+        storage=store,
+        out_root=tmp_path,
+    )
+    listing = session.wall()
+    by_id = {item["id"]: item for item in listing["items"]}
+    assert "agent" in by_id["agent1"]["tags"]
+    assert by_id["agent1"]["source"] == "agent"
+
+
+def test_stamp_agent_card_writes_source_and_tag(tmp_path: Path) -> None:
+    from santa.agent.kid_tools import stamp_agent_card
+
+    path = tmp_path / "card.json"
+    path.write_text(json.dumps({"kid_id": "k1", "status": "completed"}), encoding="utf-8")
+    stamp_agent_card(tmp_path)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert data["source"] == "agent"
+    assert data["tags"][0] == "agent"
+
+
 def test_generate_card_uploads_png_json_and_profile(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -620,10 +681,14 @@ def test_guest_forbidden_on_animate_and_runs(
     assert client.post("/api/cards", json=kid.model_dump()).status_code == 200
     anim = client.post("/api/cards/k-anim/animate", json={"mood_bank": True})
     runs = client.post("/api/runs", json={"jobs": 2})
+    agent = client.post("/api/agent/stream", json={"limit": 1})
     assert anim.status_code == 403
     assert runs.status_code == 403
+    assert agent.status_code == 403
     assert "op-secret" not in anim.text
+    assert "op-secret" not in agent.text
     assert "Operator required" in anim.json()["detail"]
+    assert "Operator required" in agent.json()["detail"]
 
 
 def test_operator_header_allows_animate_and_runs(

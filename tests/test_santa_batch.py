@@ -146,6 +146,17 @@ def test_h100_and_cpu_e2_cost_matches_nebius_prices() -> None:
     assert on_demand_cost_usd("gpu-h100-sxm", "1gpu-16vcpu-200gb", 3600) == 3.85
 
 
+def test_l40s_cost_matches_nebius_component_prices() -> None:
+    # GPU + vCPU + RAM for Sana preset 1gpu-8vcpu-32gb
+    on_demand = hourly_rate("gpu-l40s-a", "1gpu-8vcpu-32gb", preemptible=False)
+    assert on_demand.usd_per_hour == pytest.approx(1.35 + 8 * 0.012 + 32 * 0.0032)
+    preempt = hourly_rate("gpu-l40s-a", "1gpu-8vcpu-32gb", preemptible=True)
+    assert preempt.usd_per_hour == pytest.approx(0.65 + 8 * 0.006 + 32 * 0.0016)
+    assert cost_usd("gpu-l40s-a", "1gpu-8vcpu-32gb", 12) == round(
+        on_demand.usd_per_hour * 12 / 3600, 6
+    )
+
+
 def test_staged_write_renames_into_place(tmp_path) -> None:
     dest = tmp_path / "videos" / "k1.mp4"
     staged_write(dest, b"mp4-bytes")

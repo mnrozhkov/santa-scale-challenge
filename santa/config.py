@@ -24,6 +24,27 @@ class ConfigError(ValueError):
     """A role cannot be resolved (missing env, unknown role, bad yaml)."""
 
 
+class ComputeSpec(BaseModel):
+    """Optional GPU platform/preset for attributed cost (agent experiments)."""
+
+    platform: str
+    preset: str
+
+
+class PolicyFile(BaseModel):
+    """Agent policy defaults from models.yaml ``policy:`` (optional)."""
+
+    max_image_attempts: int = 5
+    max_video_attempts: int = 2
+    budget_usd: float = 1.50
+    max_parallel_kids: int = 4
+    max_steps_per_kid: int = 30
+    gate_video_on_image_pass: bool = True
+    estimate_image_seconds: float = 12
+    estimate_video_seconds: float = 120
+    image_retry_threshold: int = 70
+
+
 class RoleSpec(BaseModel):
     """One role block as written in models.yaml (unresolved)."""
 
@@ -34,6 +55,7 @@ class RoleSpec(BaseModel):
     api_key_env: str | None = None
     token_env: str | None = None
     options: dict[str, Any] = Field(default_factory=dict)
+    compute: ComputeSpec | None = None
     fallback: RoleSpec | None = None
 
 
@@ -50,6 +72,7 @@ class RoleConfig(BaseModel):
     model: str | None = None
     options: dict[str, Any] = Field(default_factory=dict)
     is_fallback: bool = False
+    compute: ComputeSpec | None = None
 
     @property
     def v1(self) -> str:
@@ -79,6 +102,7 @@ class JobSpec(BaseModel):
 class ModelsFile(BaseModel):
     roles: dict[str, RoleSpec]
     job: JobSpec = Field(default_factory=JobSpec)
+    policy: PolicyFile = Field(default_factory=PolicyFile)
 
 
 def _env(name: str | None) -> str:
@@ -118,6 +142,10 @@ class Settings:
     @property
     def job(self) -> JobSpec:
         return self.models.job
+
+    @property
+    def policy(self) -> PolicyFile:
+        return self.models.policy
 
     @property
     def role_names(self) -> list[str]:
@@ -166,4 +194,5 @@ class Settings:
             model=model,
             options=dict(spec.options),
             is_fallback=is_fallback,
+            compute=spec.compute,
         )

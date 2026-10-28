@@ -17,7 +17,7 @@ The personalized holiday message on a GiftCard, including one mood tag for music
 _Avoid_: message, copy, prompt
 
 **role**:
-A named model slot the code asks for (`llm`, `image`, `video`, `audio`). The concrete model lives in yaml, not in code.
+A named model slot the code asks for (`llm`, `image`, `video`, `audio`, `vlm`). The concrete model lives in yaml, not in code.
 _Avoid_: model, endpoint (an endpoint *hosts* a role)
 
 **adapter**:
@@ -31,6 +31,14 @@ _Avoid_: backup, offline (offline copies files and calls no model)
 **offline**:
 A CLI mode that copies bundled fallback files and does not call endpoints or Jobs.
 _Avoid_: fallback, dry-run
+
+**Evaluation**:
+A VLM judge result for an image or video attempt (`PASS` / `RETRY` / `WEAK`, score, reasons, optional fix). Records `judge_model`. Unparseable JSON never silently PASSes.
+_Avoid_: score alone, review, critique
+
+**attributed cost**:
+Estimated spend as `gpu_rate × call_latency` from the role's `compute:` platform/preset. Endpoints still bill while RUNNING; the report says so.
+_Avoid_: invoice, billed cost, Nebius bill
 
 **run**:
 One `santa animate_batch` execution: K GPU Jobs over published GiftCard illustrations already in `cards/`, one summary.

@@ -13,6 +13,15 @@ from typing import NamedTuple
 H100_ON_DEMAND_USD = 3.85
 H100_PREEMPTIBLE_USD = 2.15
 
+# L40S is billed as GPU + vCPU + RAM (unlike H100's all-in GPU-hour).
+# docs.nebius.com/compute/resources/pricing — NVIDIA L40S Intel / AMD, from June 1 2026.
+L40S_GPU_ON_DEMAND_USD = 1.35
+L40S_GPU_PREEMPTIBLE_USD = 0.65
+L40S_CPU_ON_DEMAND_USD = 0.012
+L40S_CPU_PREEMPTIBLE_USD = 0.006
+L40S_RAM_ON_DEMAND_USD = 0.0032
+L40S_RAM_PREEMPTIBLE_USD = 0.0016
+
 # Non-GPU Intel Ice Lake (cpu-e2) and AMD Epyc Genoa (cpu-d3) — same USD rates.
 CPU_USD_PER_HOUR = 0.012
 RAM_USD_PER_GIB_HOUR = 0.0032
@@ -42,6 +51,22 @@ def hourly_rate(platform: str, preset: str, *, preemptible: bool = False) -> Rat
     if plat.startswith("gpu-h100"):
         on_demand = H100_ON_DEMAND_USD * max(gpus, 1)
         preempt = H100_PREEMPTIBLE_USD * max(gpus, 1)
+        return Rate(
+            usd_per_hour=preempt if preemptible else on_demand,
+            on_demand_usd_per_hour=on_demand,
+        )
+    if plat.startswith("gpu-l40s"):
+        n = max(gpus, 1)
+        on_demand = (
+            L40S_GPU_ON_DEMAND_USD * n
+            + vcpus * L40S_CPU_ON_DEMAND_USD
+            + ram * L40S_RAM_ON_DEMAND_USD
+        )
+        preempt = (
+            L40S_GPU_PREEMPTIBLE_USD * n
+            + vcpus * L40S_CPU_PREEMPTIBLE_USD
+            + ram * L40S_RAM_PREEMPTIBLE_USD
+        )
         return Rate(
             usd_per_hour=preempt if preemptible else on_demand,
             on_demand_usd_per_hour=on_demand,

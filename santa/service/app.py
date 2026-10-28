@@ -54,6 +54,13 @@ class RunRequest(BaseModel):
     jobs: int = Field(default=4, ge=1, le=32)
 
 
+class AgentRequest(BaseModel):
+    kids: list[KidProfile] | None = None
+    limit: int = Field(default=4, ge=1, le=32)
+    budget_usd: float | None = None
+    publish: bool = True
+
+
 def _page(
     request: Request, session: ServiceSession | None, error: str | None = None
 ) -> HTMLResponse:
@@ -422,6 +429,79 @@ def create_app(session: ServiceSession | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="Run not found") from exc
         except (NebiusJobError, ConfigError, RuntimeError) as exc:
             raise _http_error(exc, status=503, fallback="Run failed") from exc
+
+    @application.post("/api/agent/stream")
+    def api_agent_stream(request: Request, body: AgentRequest | None = None) -> StreamingResponse:
+        """Experiment B — evaluate-before-escalate. Operator-only (GPU spend)."""
+        _require_operator(request)
+        from concurrent.futures import ThreadPoolExecutor
+        from queue import Queue
+
+        req = body or AgentRequest()
+        if req.kids:
+            kids = req.kids
+        else:
+            path = DEFAULT_KIDS_CSV
+            if not path.is_file():
+                raise HTTPException(status_code=404, detail="kids CSV missing")
+            try:
+                kids = load_kids(path, n=req.limit)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        q: Queue[dict[str, Any] | None] = Queue()
+
+        def worker() -> None:
+            try:
+                report = current().run_agent_kids(
+                    kids,
+                    budget_usd=req.budget_usd,
+                    publish=req.publish,
+                    on_event=q.put,
+                )
+                from santa.storage import card_png_key, card_video_key
+
+                payload = json.loads(report.model_dump_json())
+                for kid in payload.get("kids") or []:
+                    kid_id = kid.get("kid_id")
+                    if not kid_id:
+                        continue
+                    kid["png_url"] = f"/media/{card_png_key(kid_id)}"
+                    kid["video_url"] = f"/media/{card_video_key(kid_id)}"
+                q.put({"type": "complete", "report": payload})
+            except (ProfileError, ConfigError, StorageError, RuntimeError) as exc:
+                log.exception("agent stream failed")
+                q.put(
+                    {
+                        "type": "error",
+                        "detail": _public_detail(exc, fallback="Agent run failed"),
+                    }
+                )
+            except Exception:
+                log.exception("agent stream failed")
+                q.put({"type": "error", "detail": "Agent run failed"})
+            finally:
+                q.put(None)
+
+        def generate() -> Any:
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                pool.submit(worker)
+                while True:
+                    item = q.get()
+                    if item is None:
+                        break
+                    payload = redact_public(item) if isinstance(item, dict) else item
+                    yield f"data: {json.dumps(payload)}\n\n: pad {' ' * 2048}\n\n"
+
+        return StreamingResponse(
+            generate(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     @application.get("/wall", response_class=HTMLResponse)
     def wall(request: Request) -> HTMLResponse:

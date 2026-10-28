@@ -129,13 +129,157 @@ def card(
 
 @app.command()
 def agent(
-    request: str = typer.Argument(..., help="Natural-language card request."),
-    out: Path = typer.Option(Path("out"), "--out", help="Directory for out/<id>/card.png"),
+    request: str | None = typer.Argument(
+        None,
+        help="Natural-language card request (4-tool demo; mutually exclusive with profile flags).",
+    ),
+    name: str | None = typer.Option(None, "--name"),
+    age: int | None = typer.Option(None, "--age"),
+    wish: str | None = typer.Option(None, "--wish"),
+    kids: Path | None = typer.Option(
+        None,
+        "--kids",
+        exists=True,
+        dir_okay=False,
+        help="CSV of KidProfiles (id,name,age,wishlist).",
+    ),
+    limit: int = typer.Option(4, "--limit", help="First N rows from --kids (default 4)."),
+    budget: float | None = typer.Option(None, "--budget", help="Shared USD budget across kids."),
+    out: Path = typer.Option(
+        Path("out/agent"), "--out", help="Output root (run_id subdir created)."
+    ),
+    publish: bool = typer.Option(
+        False, "--publish", help="Upload accepted card.png + card.mp4 to the wall."
+    ),
+    local: bool = typer.Option(
+        False, "--local", help="Upload with this laptop's bucket creds instead of the service."
+    ),
 ) -> None:
-    """Pydantic AI agent calls recommend_gift, write_wish, generate_image, save_card."""
-    from santa.agent import run_agent
+    """Evaluate-before-escalate agent, or the slide-sized free-text 4-tool path."""
+    from santa.agent import run_agent, run_kids
+    from santa.agent.policy import Policy
+    from santa.batch import load_kids
+    from santa.card import ProfileError, validate_profile
+    from santa.config import Settings
 
-    path = run_agent(request, out_root=out)
+    profile_mode = name is not None or age is not None or bool(wish)
+    csv_mode = kids is not None
+    text_mode = bool(request and request.strip())
+    modes = sum([text_mode, profile_mode, csv_mode])
+    if modes != 1:
+        console.print(
+            "[red]Use exactly one of: free-text request, --name/--age/--wish, or --kids PATH.[/red]"
+        )
+        raise typer.Exit(code=1)
+
+    if text_mode:
+        path = run_agent(request or "", out_root=out if out != Path("out/agent") else Path("out"))
+        console.print(f"[green]Wrote {path}[/green]")
+        return
+
+    try:
+        if profile_mode:
+            if name is None or age is None:
+                raise ProfileError("--name and --age are required together.")
+            kid_list = [validate_profile(name, age, wish or "")]
+        else:
+            kid_list = load_kids(kids or Path("data/kids.csv"), max(1, limit))
+    except (ProfileError, ValueError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+
+    settings = Settings.load()
+    policy = Policy.from_file(settings.policy, budget_usd=budget)
+    try:
+        report = run_kids(
+            kid_list,
+            policy=policy,
+            settings=settings,
+            out_root=out,
+            publish=publish,
+            live=True,
+            console=console,
+        )
+    except Exception as exc:
+        console.print(f"[red]setup failed: {exc}[/red]")
+        raise typer.Exit(code=1) from exc
+
+    run_dir = out / report.run_id
+    console.print(
+        f"[green]Wrote {run_dir}/report.json[/green] "
+        f"({report.totals.get('accepted', 0)} accepted, "
+        f"{report.totals.get('kept_best', 0)} kept_best, "
+        f"{report.totals.get('failed', 0)} failed)"
+    )
+    for kid_report in report.kids:
+        console.print(f"[bold]{kid_report.kid_id}[/bold] · {kid_report.status}")
+        for line in kid_report.decision_log:
+            if "pass=[" in line:
+                if " PASS " in f" {line} " or ": PASS (" in line:
+                    console.print(f"  [green]{line}[/green]")
+                else:
+                    console.print(f"  [yellow]{line}[/yellow]")
+            else:
+                console.print(f"  [dim]{line}[/dim]")
+    if publish:
+        for kid_report in report.kids:
+            kid_dir = run_dir / kid_report.kid_id
+            from santa.agent.kid_tools import stamp_agent_card
+
+            stamp_agent_card(kid_dir)
+            paths = [
+                p
+                for p in (
+                    kid_dir / "card.png",
+                    kid_dir / "card.mp4",
+                    kid_dir / "card.json",
+                    kid_dir / "profile.json",
+                )
+                if p.is_file()
+            ]
+            if paths:
+                _publish_outputs(paths, local=local, object_id=kid_report.kid_id)
+
+
+@app.command()
+def bench(
+    kids: Path = typer.Option(
+        Path("data/kids.csv"),
+        "--kids",
+        exists=True,
+        dir_okay=False,
+        help="CSV of KidProfiles.",
+    ),
+    limit: int = typer.Option(8, "--limit", help="First N kids."),
+    modes: str = typer.Option(
+        "pipeline,pipeline-retry-all,agent",
+        "--modes",
+        help="Comma-separated: pipeline,pipeline-retry-all,agent",
+    ),
+    out: Path = typer.Option(Path("out/bench"), "--out"),
+    budget: float | None = typer.Option(None, "--budget"),
+) -> None:
+    """Scorecard: pipeline vs pipeline-retry-all vs agent (same kids, same judges)."""
+    from santa.agent.bench import run_bench
+    from santa.agent.policy import Policy
+    from santa.batch import load_kids
+    from santa.config import Settings
+
+    settings = Settings.load()
+    policy = Policy.from_file(settings.policy, budget_usd=budget)
+    try:
+        kid_list = load_kids(kids, max(1, limit))
+        mode_list = [m.strip() for m in modes.split(",") if m.strip()]
+        path = run_bench(
+            kid_list,
+            modes=mode_list,
+            policy=policy,
+            settings=settings,
+            out_root=out,
+        )
+    except Exception as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
     console.print(f"[green]Wrote {path}[/green]")
 
 

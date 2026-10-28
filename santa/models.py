@@ -153,6 +153,63 @@ class ChatAdapter(_Base):
                     pass
         raise AdapterError(f"llm did not return JSON: {text[:200]!r}")
 
+    def generate_json_vision(
+        self,
+        prompt: str,
+        images: list[bytes],
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> dict[str, Any]:
+        """Vision JSON: text prompt + image bytes as data-URL content parts."""
+        opts = self.cfg.options
+        content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
+        for png in images:
+            b64 = base64.b64encode(png).decode("ascii")
+            content.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/png;base64,{b64}"},
+                }
+            )
+        kwargs: dict[str, Any] = {
+            "model": self.cfg.model,
+            "messages": [{"role": "user", "content": content}],
+            "temperature": opts.get("temperature", 0.0) if temperature is None else temperature,
+            "max_tokens": opts.get("max_tokens", 400) if max_tokens is None else max_tokens,
+            "response_format": {"type": "json_object"},
+        }
+        start = time.time()
+        try:
+            resp = self._client().chat.completions.create(**kwargs)
+        except Exception as exc:
+            raise AdapterError(
+                f"vlm call failed ({self.cfg.model} @ {self.cfg.v1}): {exc}"
+            ) from exc
+        msg = resp.choices[0].message
+        text = msg.content if isinstance(msg.content, str) else None
+        if not text:
+            text = getattr(msg, "reasoning_content", None) or ""
+        usage = getattr(resp, "usage", None)
+        self._timed(
+            start,
+            tokens_in=getattr(usage, "prompt_tokens", None),
+            tokens_out=getattr(usage, "completion_tokens", None),
+            images=len(images),
+        )
+        if not text.strip():
+            raise AdapterError(f"vlm returned empty content ({self.cfg.model})")
+        try:
+            return cast(dict[str, Any], json.loads(text.strip()))
+        except json.JSONDecodeError:
+            match = _JSON_BLOCK.search(text)
+            if match:
+                try:
+                    return cast(dict[str, Any], json.loads(match.group(0)))
+                except json.JSONDecodeError:
+                    pass
+        raise AdapterError(f"vlm did not return JSON: {text[:200]!r}")
+
 
 class ImagesAdapter(_Base):
     """``openai_images`` — text-to-image; returns PNG bytes."""
@@ -615,7 +672,10 @@ def adapter_for(role: str, settings: Settings) -> Resilient:
 
     if policy != "only":
         try:
-            primary = _build(settings.role(role))
+            cfg = settings.role(role)
+            if not (cfg.model or "").strip() and cfg.adapter == "openai_chat":
+                raise ConfigError(f"Role '{role}' has no model configured.")
+            primary = _build(cfg)
         except ConfigError as exc:
             if policy == "off" or not settings.has_fallback(role):
                 raise

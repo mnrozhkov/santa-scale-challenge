@@ -101,9 +101,17 @@ def write_wish(kid: KidProfile, rec: GiftRecommendation, llm: Any) -> Wish:
 
 
 def generate_image(
-    kid: KidProfile, rec: GiftRecommendation, image: Any, *, seed: int | None = None
+    kid: KidProfile,
+    rec: GiftRecommendation,
+    image: Any,
+    *,
+    seed: int | None = None,
+    prompt_suffix: str = "",
 ) -> tuple[bytes, CardImage]:
     prompt = image_prompt(kid, rec)
+    suffix = (prompt_suffix or "").strip()
+    if suffix:
+        prompt = f"{prompt.rstrip()}\n{suffix}"
     png = image.generate(prompt, seed=seed)
     cfg = getattr(image, "cfg", None)
     endpoint = getattr(cfg, "base_url", None)

@@ -51,6 +51,7 @@ The gateway is open (`--auth none`). App policy:
 | Create GiftCard | Real | Real or Sim |
 | Gallery | Real | Real |
 | Animate / Let it snow | 403 — UI stays on Sim | Real if Sim/Real = Real |
+| Agent (evaluate-before-escalate) | 403 — UI stays on Sim | Real if Sim/Real = Real |
 
 Unlock: open `https://<endpoint>/?op=<token>` once. The UI stores it in `sessionStorage`, strips `?op=` from the address bar, and sends `X-Santa-Operator`. The QR encodes **origin only**.
 
@@ -68,13 +69,14 @@ The kiosk is `--auth none`, so DevTools is public. Responses strip role endpoint
 
 ## Routes
 
-- `GET /` — kiosk UI (Create · Animate · Gallery). Header **QR** opens a modal; `/qr` is a projector page (origin only).
+- `GET /` — kiosk UI (Create · Animate · Agent · Gallery). Header **QR** opens a modal; `/qr` is a projector page (origin only).
 - `GET /s/{id}` — share page with absolute `og:image` / Twitter tags (no gateway token).
 - `GET /form` — original one-KidProfile HTML form
 - `POST /api/cards` — one `KidProfile` → card JSON + file URLs (also writes the GiftCard to storage, or local `out/` when bucket creds are missing)
 - `POST /api/cards/{id}/animate` — mood-bank `santa animate` → `cards/{id}/video.mp4` (operator)
 - `POST /api/cards/batch` — `kids[]` → cards written to storage
 - `GET /api/kids` — first N rows of `data/kids.csv`
+- `POST /api/agent/stream` — Experiment B `run_kids` SSE (operator); body `{ kids: [KidProfile] }` (kiosk Agent tab: one kid) or `{ limit }` + optional `budget_usd` / `publish`. Complete event includes `png_url` / `video_url` per kid.
 - `POST /api/runs` · `GET /api/runs/{run_id}` — `santa animate_batch --no-wait`, then poll job states (operator)
 - `POST /api/publish` — laptop `--publish` default (no S3 creds on the laptop)
 - `GET /wall` · `GET /api/wall` — `cards/{id}/card.png` and `cards/{id}/video.mp4`, plus `items[]` for Gallery

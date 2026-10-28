@@ -28,6 +28,7 @@ roles:
     token_env: IMAGE_ENDPOINT_TOKEN
     model: Efficient-Large-Model/Sana_1600M_1024px_diffusers  # pragma: allowlist secret — serve.py rejects any other id (incl. "sana")
     options: {size: 1024x1024}
+    compute: {platform: gpu-l40s-a, preset: 1gpu-8vcpu-32gb}
     fallback:
       adapter: openai_images
       base_url: https://api.openai.com/v1
@@ -49,6 +50,7 @@ roles:
       guidance_scale_2: 1.0
       flow_shift: 12.0
       boundary_ratio: 0.875
+    compute: {platform: gpu-h100-sxm, preset: 1gpu-16vcpu-200gb}
     fallback:
       adapter: openai_video           # OpenAI Videos API (image-to-video with input_reference)
       base_url: https://api.openai.com/v1
@@ -65,6 +67,33 @@ roles:
     fallback:
       adapter: local_tracks           # no OpenAI music API — bundled royalty-free tracks per mood
       options: {dir: data/fallback/audio_samples}
+
+  vlm:
+    adapter: openai_chat
+    base_url: https://api.tokenfactory.nebius.com/v1
+    api_key_env: TOKEN_FACTORY_API_KEY  # pragma: allowlist secret
+    # Image2text: https://tokenfactory.nebius.com/models/catalog/image2text/moonshotai%2FKimi-K3
+    model: moonshotai/Kimi-K3
+    options: {temperature: 0.0, max_tokens: 400}
+    fallback:
+      # OpenAI vision when Token Factory VLM fails (SANTA_FALLBACK=auto).
+      # Alt TF: zai-org/GLM-5.3-Flash @ https://tokenfactory.nebius.com/models/catalog/image2text/zai-org%2FGLM-5.3-Flash
+      adapter: openai_chat
+      base_url: https://api.openai.com/v1
+      api_key_env: OPENAI_API_KEY  # pragma: allowlist secret
+      model: gpt-4o-mini
+      options: {temperature: 0.0, max_tokens: 400}
+
+# Agent Experiment B defaults (evaluate-before-escalate). Override via CLI --budget.
+policy:
+  max_image_attempts: 5
+  max_video_attempts: 2
+  budget_usd: 1.50
+  max_parallel_kids: 4
+  max_steps_per_kid: 30
+  gate_video_on_image_pass: true
+  estimate_image_seconds: 12
+  estimate_video_seconds: 120
 
 # Step 6: K preemptible GPU Jobs running `python -m santa.job` (Wan I2V in-container) in YOUR project.
 job:

@@ -12,10 +12,12 @@ import {
 import { captureOperatorFromUrl, fetchAccess, kioskOrigin, type AccessRole } from './access'
 import { QrModal, QrProjector } from './QrShare'
 import { ShareBar } from './ShareBar'
+import { AgentTab } from './AgentTab'
+import { initialAgentRun, type RunState as AgentRunState } from './agentGraph'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'create' | 'batch' | 'gallery'
+type Tab = 'create' | 'batch' | 'gallery' | 'agent'
 type NodeStatus = 'idle' | 'active' | 'scheduling' | 'pending' | 'done' | 'failed' | 'preempted' | 'skipped'
 
 interface RNode {
@@ -27,6 +29,7 @@ interface RunState {
   title: string; status: 'idle' | 'running' | 'done'
   nodes: Record<string, RNode>; levels: string[][]
   log: LogLine[]; elapsed: number
+  footer?: string
 }
 interface Kid {
   id: string; name: string; age: number; wish: string
@@ -49,6 +52,9 @@ const ITAGS = [
   { id: 'lego', label: '🧱 Lego', color: '#DC2626', light: 'rgba(220,38,38,.15)' },
   { id: 'ocean', label: '🌊 Ocean', color: '#0EA5E9', light: 'rgba(14,165,233,.15)' },
 ]
+/** Gallery-only origin tag for Experiment B cards (not a Create interest). */
+const AGENT_TAG = { id: 'agent', label: 'Agent', color: '#0F766E', light: 'rgba(15,118,110,.15)' }
+const GALLERY_TAGS = [...ITAGS, AGENT_TAG]
 const MOODS = ['Warm', 'Playful', 'Dreamy', 'Adventurous', 'Cozy', 'Magical', 'Joyful', 'Calm']
 const BGS = ['rgb(255,230,180)', 'rgb(200,235,200)', 'rgb(210,225,255)', 'rgb(255,210,210)', 'rgb(220,245,235)', 'rgb(255,240,200)']
 
@@ -135,13 +141,13 @@ function nodeBadge(s: NodeStatus) {
 function logMarkColor(tone: string): string {
   const map: Record<string, string> = {
     blue: 'rgb(54,151,241)', green: 'rgb(48,170,110)',
-    amber: 'rgb(160,110,20)', red: 'rgb(233,3,58)', muted: 'rgba(0,0,0,.35)',
+    amber: 'rgb(160,110,20)', orange: 'rgb(160,110,20)', red: 'rgb(233,3,58)', muted: 'rgba(0,0,0,.35)',
   }
   return map[tone] ?? 'rgba(0,0,0,.35)'
 }
 
 function tagById(id: string) {
-  return ITAGS.find(t => t.id === id)
+  return GALLERY_TAGS.find(t => t.id === id)
 }
 
 function moodLabel(mood: string): string {
@@ -452,18 +458,18 @@ function LogPanel({ run }: { run: RunState }) {
 
   if (run.log.length === 0) {
     return (
-      <div ref={ref} style={{ padding: '12px 14px', fontFamily: 'JetBrains Mono,Menlo,monospace', fontSize: 12.5, color: 'rgba(0,0,0,.35)', lineHeight: '19px' }}>
+      <div ref={ref} style={{ height: '100%', overflowY: 'auto', padding: '12px 14px', fontFamily: 'JetBrains Mono,Menlo,monospace', fontSize: 12.5, color: 'rgba(0,0,0,.35)', lineHeight: '19px', boxSizing: 'border-box' }}>
         {'$ santa doctor · .env ok · TF ok · endpoints ok · bucket ok'}
       </div>
     )
   }
   return (
-    <div ref={ref} style={{ padding: '10px 14px', overflowY: 'auto', fontFamily: 'JetBrains Mono,Menlo,monospace', fontSize: 12.5, lineHeight: '19px' }}>
+    <div ref={ref} style={{ height: '100%', overflowY: 'auto', overflowX: 'hidden', padding: '10px 14px', fontFamily: 'JetBrains Mono,Menlo,monospace', fontSize: 12.5, lineHeight: '19px', boxSizing: 'border-box', WebkitOverflowScrolling: 'touch' }}>
       {run.log.map((line, i) => (
         <div key={i} className="fadein" style={{ display: 'flex', gap: 8, marginBottom: 1 }}>
           <span style={{ color: 'rgba(0,0,0,.28)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtElapsed(line.t)}</span>
           <span style={{ color: logMarkColor(line.tone), flexShrink: 0, width: 14 }}>{line.mark}</span>
-          <span style={{ color: line.tone === 'muted' ? 'rgba(0,0,0,.45)' : line.tone === 'amber' ? 'rgb(160,110,20)' : logMarkColor(line.tone), wordBreak: 'break-all' }}>{line.text}</span>
+          <span style={{ color: line.tone === 'muted' ? 'rgba(0,0,0,.45)' : line.tone === 'amber' || line.tone === 'orange' ? 'rgb(160,110,20)' : logMarkColor(line.tone), wordBreak: 'break-all' }}>{line.text}</span>
         </div>
       ))}
     </div>
@@ -509,13 +515,16 @@ function ModeToggle({
   )
 }
 
-function LivePanel({ run, scope, realMode, onRealMode, modeControl, fill }: {
+function LivePanel({ run, scope, realMode, onRealMode, modeControl, fill, showLog }: {
   run: RunState; scope: string; realMode: boolean; onRealMode: (v: boolean) => void
   modeControl: ModeControl
   fill?: boolean
+  /** When set, overrides the default (log hidden in Real). Agent tab keeps LOG in Real. */
+  showLog?: boolean
 }) {
   const statusDot = run.status === 'running' ? 'rgb(54,151,241)' : run.status === 'done' ? 'rgb(48,170,110)' : 'rgba(0,0,0,.2)'
   const statusLabel = run.status === 'running' ? 'running' : run.status === 'done' ? 'done' : 'idle'
+  const logVisible = showLog ?? !realMode
 
   // Draggable split: logPct is the percentage of the body height given to the LOG panel (0–90)
   const [logPct, setLogPct] = useState(40)
@@ -547,7 +556,7 @@ function LivePanel({ run, scope, realMode, onRealMode, modeControl, fill }: {
   }
 
   return (
-    <aside className={fill ? undefined : 'live-panel-sidebar'} style={{ width: fill ? '100%' : 720, height: fill ? '100%' : undefined, display: 'flex', flexDirection: 'column', borderLeft: fill ? undefined : '2px solid rgba(0,0,0,.15)', background: 'rgb(242,237,228)', flexShrink: 0 }}>
+    <aside className={fill ? undefined : 'live-panel-sidebar'} style={{ width: fill ? '100%' : 720, height: fill ? '100%' : undefined, minHeight: 0, display: 'flex', flexDirection: 'column', borderLeft: fill ? undefined : '2px solid rgba(0,0,0,.15)', background: 'rgb(242,237,228)', flexShrink: 0, overflow: 'hidden' }}>
       {/* Panel header */}
       <div style={{ background: 'white', borderBottom: '1px solid rgba(0,0,0,.1)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
         <div style={{ width: 8, height: 8, borderRadius: '50%', background: statusDot, boxShadow: run.status === 'running' ? `0 0 0 3px rgba(54,151,241,.2)` : undefined, flexShrink: 0 }} />
@@ -567,16 +576,29 @@ function LivePanel({ run, scope, realMode, onRealMode, modeControl, fill }: {
       </div>
 
       {/* Resizable body: DAG + divider + log */}
-      <div ref={panelBodyRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {/* DAG region — takes remaining space above log */}
-        <div style={{ flex: 1, overflowY: 'auto', background: 'white', minHeight: 40 }}>
-          <div style={{ padding: '10px 12px 4px', display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div ref={panelBodyRef} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* DAG region — takes remaining space above log; scrolls independently */}
+        <div style={{
+          flex: 1, minHeight: 80, overflowY: 'auto', overflowX: 'hidden',
+          background: 'white', WebkitOverflowScrolling: 'touch',
+        }}>
+          <div style={{ padding: '10px 12px 4px', display: 'flex', alignItems: 'center', gap: 6, position: 'sticky', top: 0, background: 'white', zIndex: 1 }}>
             <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(0,0,0,.35)', letterSpacing: '0.06em' }}>RESOURCES</span>
           </div>
           <DAGGraph run={run} />
         </div>
 
-        {!realMode && (
+        {run.footer && (
+          <div style={{
+            flexShrink: 0, padding: '8px 14px', background: 'rgba(0,0,0,.04)',
+            borderTop: '1px solid rgba(0,0,0,.1)', fontSize: 12, color: 'rgba(0,0,0,.65)',
+            fontFamily: 'JetBrains Mono,Menlo,monospace',
+          }}>
+            {run.footer}
+          </div>
+        )}
+
+        {logVisible && (
           <>
             {/* Drag divider */}
             <div
@@ -596,12 +618,20 @@ function LivePanel({ run, scope, realMode, onRealMode, modeControl, fill }: {
               </div>
             </div>
 
-            {/* Log region — height controlled by logPct */}
-            <div style={{ height: `${logPct}%`, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 24 }}>
-              <div style={{ padding: '7px 14px 3px', flexShrink: 0 }}>
+            {/* Log region — height controlled by logPct; scrolls independently */}
+            <div style={{
+              height: `${logPct}%`, flexShrink: 0, minHeight: 72, maxHeight: '70%',
+              display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            }}>
+              <div style={{ padding: '7px 14px 3px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(0,0,0,.35)', letterSpacing: '0.06em' }}>LOG</span>
+                {scope === 'Agent' && (
+                  <span style={{ fontSize: 10.5, color: 'rgba(0,0,0,.4)', fontFamily: 'JetBrains Mono,Menlo,monospace' }}>
+                    evaluate decisions
+                  </span>
+                )}
               </div>
-              <div style={{ flex: 1, overflow: 'hidden' }}>
+              <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
                 <LogPanel run={run} />
               </div>
             </div>
@@ -1161,7 +1191,7 @@ function GalleryTab({ gallery, selectedId, onSelect }: {
         <div style={{ width: 1, background: 'rgba(0,0,0,.12)', margin: '0 4px' }} />
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
           {filterBtn('All', 'all', tagFilter, () => setTagFilter('all'))}
-          {ITAGS.map(t => (
+          {GALLERY_TAGS.map(t => (
             <button key={t.id} onClick={() => setTagFilter(t.id === tagFilter ? 'all' : t.id)} style={{
               border: 'none', background: tagFilter === t.id ? t.color : t.light,
               color: tagFilter === t.id ? 'white' : t.color,
@@ -1215,8 +1245,11 @@ function Kiosk() {
   const isOperator = role === 'operator'
   const createReal = isOperator ? realMode : true
   const batchReal = isOperator ? realMode : false
-  const modeControl: ModeControl = isOperator ? 'toggle' : (tab === 'batch' ? 'locked-sim' : 'hidden')
-  const panelReal = tab === 'batch' ? batchReal : createReal
+  const agentReal = isOperator ? realMode : false
+  const modeControl: ModeControl = isOperator
+    ? 'toggle'
+    : (tab === 'batch' || tab === 'agent' ? 'locked-sim' : 'hidden')
+  const panelReal = tab === 'batch' ? batchReal : tab === 'agent' ? agentReal : createReal
 
   // Create tab state
   const [form, setForm] = useState({ name: '', age: 8, wish: '', tags: [] as string[], mood: 'Playful', city: '' })
@@ -1239,6 +1272,10 @@ function Kiosk() {
   const [batchDone, setBatchDone] = useState(false)
   const [batchSummary, setBatchSummary] = useState<{ done: number; failed: number; skipped: number; gpuTime: string; cost: string; onDemand: string; saved: string; savedPct: string } | null>(null)
   const [batchMetrics, setBatchMetrics] = useState<{ kids: string; jobs: string; perJob: string; kidsSub: string; jobsSub: string; perJobSub: string } | undefined>(undefined)
+
+  // Agent tab state
+  const [agentRun, setAgentRun] = useState<RunState>(emptyRun())
+  const [agentRunning, setAgentRunning] = useState(false)
 
   // Timer refs
   const createTimers = useRef<number[]>([])
@@ -1780,9 +1817,9 @@ function Kiosk() {
     })
   }
 
-  // Panel: show create run on create/gallery tab, batch on batch tab
-  const panelRun = tab === 'batch' ? batchRun : createRun
-  const panelScope = tab === 'batch' ? 'Animate' : 'Create gift card'
+  // Panel: create / batch / agent
+  const panelRun = tab === 'batch' ? batchRun : tab === 'agent' ? agentRun : createRun
+  const panelScope = tab === 'batch' ? 'Animate' : tab === 'agent' ? 'Agent' : 'Create gift card'
 
   // Snow effect active during batch
   const snowActive = batchRunning
@@ -1817,8 +1854,13 @@ function Kiosk() {
         </div>
         {/* Tabs */}
         <div className="kiosk-tabs" style={{ display: 'flex', alignItems: 'center', height: '100%', marginLeft: 8, overflowX: 'auto' }}>
-          {(['create', 'batch', 'gallery'] as Tab[]).map(t => {
-            const labels: Record<Tab, string> = { create: 'Create gift card', batch: 'Animate', gallery: 'Gallery' }
+          {(['create', 'batch', 'agent', 'gallery'] as Tab[]).map(t => {
+            const labels: Record<Tab, string> = {
+              create: 'Create gift card',
+              batch: 'Animate',
+              agent: 'Agent',
+              gallery: 'Gallery',
+            }
             const active = tab === t
             return (
               <button key={t} type="button" className="tap-target" onClick={() => setTab(t)} style={{
@@ -1875,7 +1917,7 @@ function Kiosk() {
           )}
           {panelReal && (
             <div className="kiosk-desktop-hint" style={{ fontSize: 13, color: 'rgba(0,0,0,.5)', fontFamily: 'JetBrains Mono,Menlo,monospace' }}>
-              {tab === 'batch' ? 'GET /api/wall · POST /api/runs' : 'GET /api/wall · POST /api/cards/stream'}
+              {tab === 'batch' ? 'GET /api/wall · POST /api/runs' : tab === 'agent' ? 'POST /api/agent/stream' : 'GET /api/wall · POST /api/cards/stream'}
             </div>
           )}
         </div>
@@ -1904,6 +1946,15 @@ function Kiosk() {
                 onRun={batchReal ? () => { void runBatchReal() } : runBatch} batchRunning={batchRunning} batchDone={batchDone} batchSummary={batchSummary}
                 metrics={batchReal ? batchMetrics : undefined}
                 realMode={batchReal}
+              />
+            )}
+            {tab === 'agent' && (
+              <AgentTab
+                realMode={agentReal}
+                speed={speed}
+                onRunChange={setAgentRun}
+                running={agentRunning}
+                onRunning={setAgentRunning}
               />
             )}
             {tab === 'gallery' && (
@@ -1940,11 +1991,26 @@ function Kiosk() {
         ) : (
           <>
             {!isMobile && (
-              <LivePanel run={panelRun} scope={panelScope} realMode={panelReal} onRealMode={v => { void setMode(v) }} modeControl={modeControl} />
+              <LivePanel
+                run={panelRun}
+                scope={panelScope}
+                realMode={panelReal}
+                onRealMode={v => { void setMode(v) }}
+                modeControl={modeControl}
+                showLog={tab === 'agent' || !panelReal}
+              />
             )}
             {isMobile && liveOpen && (
               <div className="live-sheet">
-                <LivePanel fill run={panelRun} scope={panelScope} realMode={panelReal} onRealMode={v => { void setMode(v) }} modeControl={modeControl} />
+                <LivePanel
+                  fill
+                  run={panelRun}
+                  scope={panelScope}
+                  realMode={panelReal}
+                  onRealMode={v => { void setMode(v) }}
+                  modeControl={modeControl}
+                  showLog={tab === 'agent' || !panelReal}
+                />
               </div>
             )}
           </>

@@ -317,7 +317,14 @@ class ServiceSession:
         except (TypeError, ValueError):
             age = 0
         mood = _mood_label(str(wish.get("mood") or "warm"))
-        tags = _infer_tags(wish_line, gift, wish_text)
+        explicit = [t for t in (card.get("tags") or []) if isinstance(t, str)]
+        if card.get("source") == "agent" and "agent" not in explicit:
+            explicit = ["agent", *explicit]
+        inferred = _infer_tags(wish_line, gift, wish_text)
+        tags: list[str] = []
+        for tag in explicit + inferred:
+            if tag not in tags:
+                tags.append(tag)
         return {
             "id": kid_id,
             "name": name,
@@ -326,11 +333,12 @@ class ServiceSession:
             "gift": gift,
             "mood": mood,
             "city": "",
-            "tags": tags,
+            "tags": tags[:4],
             "has_video": has_video,
             "png_url": f"/media/{png_key}",
             "video_url": f"/media/{video_key}" if has_video else None,
             "model": str(image.get("model_version") or ""),
+            "source": str(card.get("source") or ""),
         }
 
     def animate_card(self, kid_id: str, *, mood_bank: bool = True) -> dict[str, Any]:
@@ -353,6 +361,71 @@ class ServiceSession:
             except StorageError:
                 pass
         return {"id": kid_id, "video_url": f"/media/{card_video_key(kid_id)}"}
+
+    def run_agent_kids(
+        self,
+        kids: list[KidProfile],
+        *,
+        budget_usd: float | None = None,
+        publish: bool = True,
+        on_event: Callable[[dict[str, Any]], None] | None = None,
+    ) -> Any:
+        """Experiment B: evaluate-before-escalate. Emits tracer events to ``on_event``."""
+        from santa.agent.policy import Policy
+        from santa.agent.runner import run_kids
+
+        policy = Policy.from_file(self.settings.policy, budget_usd=budget_usd)
+        report = run_kids(
+            kids,
+            policy=policy,
+            settings=self.settings,
+            out_root=self.out_root / "agent",
+            publish=False,
+            llm=self.llm,
+            image=self.image,
+            video=self.video,
+            on_event=on_event,
+            live=False,
+        )
+        if publish:
+            run_dir = self.out_root / "agent" / report.run_id
+            for kid_report in report.kids:
+                kid_dir = run_dir / kid_report.kid_id
+                png = kid_dir / "card.png"
+                mp4 = kid_dir / "card.mp4"
+                try:
+                    if png.is_file():
+                        self.storage.upload(
+                            card_png_key(kid_report.kid_id),
+                            png.read_bytes(),
+                            content_type="image/png",
+                        )
+                    if mp4.is_file():
+                        self.storage.upload(
+                            card_video_key(kid_report.kid_id),
+                            mp4.read_bytes(),
+                            content_type="video/mp4",
+                        )
+                    card_json = kid_dir / "card.json"
+                    if card_json.is_file():
+                        from santa.agent.kid_tools import stamp_agent_card
+
+                        stamp_agent_card(kid_dir)
+                        self.storage.upload(
+                            card_json_key(kid_report.kid_id),
+                            card_json.read_bytes(),
+                            content_type="application/json",
+                        )
+                    profile = kid_dir / "profile.json"
+                    if profile.is_file():
+                        self.storage.upload(
+                            card_profile_key(kid_report.kid_id),
+                            profile.read_bytes(),
+                            content_type="application/json",
+                        )
+                except StorageError:
+                    pass
+        return report
 
     def _ensure_local_png(self, kid_id: str) -> Path:
         png = self.out_root / kid_id / "card.png"

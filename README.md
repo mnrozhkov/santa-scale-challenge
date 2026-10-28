@@ -28,7 +28,7 @@ santa-scale-challenge/
 ├── skills/                # Echo prompts + Serverless AI skill
 ├── scripts/               # Deploy kiosk, mood bank, model sync, teardown, benches
 ├── tests/
-└── docs/                  # Service + job contracts; domain glossary
+└── docs/                  # Service + job contracts
 ```
 
 Ops: [docs/service.md](docs/service.md) (CPU UI / `/wall`) · [docs/job.md](docs/job.md) (GPU Jobs). Domain language: [CONTEXT.md](CONTEXT.md).
@@ -117,7 +117,7 @@ uv sync --group dev && uv run jupyter lab
 
 ## ☁️ Running with Serverless AI
 
-Everything below runs in **your** Nebius project. Workshop walkthrough: [WORKSHOP.md](WORKSHOP.md) (steps 0–6). After the session: [_DEV/AFTER_THE_WORKSHOP.md](_DEV/AFTER_THE_WORKSHOP.md).
+Everything below runs in **your** Nebius project. Workshop walkthrough: [WORKSHOP.md](WORKSHOP.md) (steps 0–6).
 
 **1. Deploy endpoints** from the console templates (Create Endpoint). When each one is ready, paste its URL and token into `.env`:
 

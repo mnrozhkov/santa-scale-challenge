@@ -12,4 +12,4 @@ Reads `cards/{id}/card.png`. Writes `cards/{id}/video.mp4` via staged rename; sk
 
 ## Build / push
 
-See `docker/job.Dockerfile` (BYOC example) and [AFTER_THE_WORKSHOP.md](../AFTER_THE_WORKSHOP.md). Tag must be set in `job.image` before `santa animate_batch`.
+See `docker/job.Dockerfile` (BYOC example). Tag must be set in `job.image` before `santa animate_batch`.

@@ -1,4 +1,7 @@
-"""Pydantic AI card agent on Token Factory. Fits on a slide."""
+"""Pydantic AI card agent on Token Factory. Fits on a slide.
+
+Also Experiment B: ``run_kids`` — evaluate-before-escalate multi-kid loop.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +16,7 @@ from santa.agent.tools import card_tools
 from santa.config import ConfigError, Settings
 from santa.models import adapter_for
 
-__all__ = ["run_agent"]
+__all__ = ["run_agent", "run_kids"]
 
 
 def run_agent(
@@ -39,3 +42,9 @@ def run_agent(
         )
     Agent(model, tools=tools, instructions="Use the four card tools in order.").run_sync(request)
     return Path(state["png_path"])
+
+
+def run_kids(*args: Any, **kwargs: Any) -> Any:
+    from santa.agent.runner import run_kids as _run_kids
+
+    return _run_kids(*args, **kwargs)

@@ -199,3 +199,60 @@ export async function fetchRun(runId: string): Promise<RunResponse> {
   if (!resp.ok) throw new Error(await readError(resp));
   return resp.json() as Promise<RunResponse>;
 }
+
+export type AgentStreamEvent = Record<string, unknown> & {
+  type?: string;
+  event?: string;
+  detail?: string;
+  report?: Record<string, unknown>;
+};
+
+export async function runAgentStream(
+  body: {
+    kids?: Array<{ id?: string; name: string; age: number; wishlist?: string[] }>;
+    limit?: number;
+    budget_usd?: number;
+    publish?: boolean;
+  },
+  onEvent: (event: AgentStreamEvent) => void,
+): Promise<Record<string, unknown>> {
+  const resp = await fetch("/api/agent/stream", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+      ...operatorHeaders(),
+    },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) throw new Error(await readError(resp));
+  if (!resp.body) throw new Error("Empty stream body");
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let complete: Record<string, unknown> | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const chunks = buffer.split("\n\n");
+    buffer = chunks.pop() ?? "";
+    for (const chunk of chunks) {
+      const line = chunk.split("\n").find((l) => l.startsWith("data: "));
+      if (!line) continue;
+      const event = JSON.parse(line.slice(6)) as AgentStreamEvent;
+      if (event.type === "error") throw new Error(String(event.detail || "Agent run failed"));
+      if (event.type === "complete") {
+        complete = (event.report as Record<string, unknown>) || event;
+        continue;
+      }
+      onEvent(event);
+      await yieldFrame();
+    }
+  }
+
+  if (!complete) throw new Error("Stream ended without a complete event");
+  return complete;
+}
