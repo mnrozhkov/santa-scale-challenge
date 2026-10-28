@@ -1,0 +1,34 @@
+{
+  "id": "04681aac-8a5d-4ab6-b992-6a1c6102638e",
+  "kid_id": "g10",
+  "recommendation": {
+    "id": "da3c75e4-399a-49b5-b879-c367449a963e",
+    "kid_id": "g10",
+    "gifts": [
+      "Interactive marine life playset with magnetic sea creatures",
+      "Kid‑friendly remote‑control sailboat",
+      "Ocean‑themed LEGO building kit",
+      "Storybook “The Secret Voyage of the Sea Turtle” with glow‑in‑the‑dark cover"
+    ],
+    "rationale": "Each gift sparks Elias’s love of the sea while encouraging hands‑on play and imagination. The magnetic playset and LEGO kit let him create his own underwater world, the remote sailboat brings real‑world water fun, and the glowing storybook adds a cozy, bedtime adventure.",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "wish": {
+    "id": "a94d1385-7196-4951-ab7e-550813cf3c88",
+    "kid_id": "g10",
+    "text": "Dear Elias, at 8 years old your imagination already sails across sparkling seas and builds wondrous coral castles. May magnetic friends dance with you, a glowing turtle guide your nights, and a gentle wind push your new sailboat onward. Merry Christmas!",
+    "mood": "magical",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "image": {
+    "id": "eb113895-bef1-470f-af03-006ca8ae02a3",
+    "kid_id": "g10",
+    "path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g10/card.png",
+    "model_version": "Efficient-Large-Model/Sana_1600M_1024px_diffusers",
+    "prompt": "A magical Christmas storybook illustration, centered composition:\n- The hero object: Interactive marine life playset with magnetic sea creatures, beautifully illustrated, glowing softly, placed on snow under a starry night sky\n- Around it: a small decorated Christmas tree, wrapped presents, twinkling lights, gentle falling snow\n- Warm, vibrant colors, soft lighting, sparkles, a sense of wonder\n- Whimsical children's-book art style, clean shapes, cinematic depth\n- No people, no faces, no animals with faces, no text, no letters, no signatures, no copyrighted characters\n",
+    "endpoint": "https://port8000-wd3jtek055vm3xs.tunnel.applications.eu-north1.nebius.cloud"
+  },
+  "png_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g10/card.png",
+  "html_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g10/card.html",
+  "status": "completed"
+}

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Santa service</title>
+  <style>
+    :root { font-family: Georgia, serif; color: #1a1a1a; background: #f6efe6; }
+    body { max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.6rem; }
+    label { display: block; margin-top: 0.75rem; font-weight: 600; }
+    input, textarea { width: 100%; padding: 0.4rem; font-size: 1rem; box-sizing: border-box; }
+    button { margin-top: 1rem; padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; }
+    .error { background: #fde8e8; border: 1px solid #c0392b; padding: 0.75rem; margin: 1rem 0; }
+    .card { background: #fff; border: 1px solid #d9cbb8; padding: 1rem; margin-top: 1.5rem; }
+    .card img { max-width: 100%; height: auto; }
+    ul { margin: 0.25rem 0 0.75rem; }
+  </style>
+</head>
+<body>
+  <h1>Santa card</h1>
+  <p>One KidProfile → gift + wish (llm role) → illustration (image role) → GiftCard.
+     Video is <code>santa animate</code>; batch is Jobs. <a href="/wall">Wall</a></p>
+
+  {% if error %}
+  <div class="error">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/generate">
+    <label for="name">Name</label>
+    <input id="name" name="name" required>
+
+    <label for="age">Age (1–18)</label>
+    <input id="age" name="age" type="number" min="1" max="18" required>
+
+    <label for="wish">Wish (or what they wanted as a child)</label>
+    <textarea id="wish" name="wish" rows="3"></textarea>
+
+    <button type="submit">Generate GiftCard</button>
+  </form>
+
+  {% if card %}
+  <section class="card">
+    <h2>{% if kid %}{{ kid.name }}, {{ kid.age }}{% else %}Gift card{% endif %}</h2>
+    <p><strong>Wish</strong></p>
+    <p>{{ card.wish.text }}</p>
+    <p><strong>Gifts</strong></p>
+    <ul>
+      {% for gift in card.recommendation.gifts %}
+      <li>{{ gift }}</li>
+      {% endfor %}
+    </ul>
+    {% if has_png %}
+    <p><img src="/card.png" alt="GiftCard illustration"></p>
+    {% endif %}
+    <p><a href="/card.html" target="_blank">Open HTML card</a></p>
+    {% if steps %}
+    <p><strong>Models</strong></p>
+    <ul>
+      {% for step in steps %}
+      <li>{{ step.role }}: {{ step.model }} ({{ "fallback" if step.fallback else "primary" }}, {{ step.ms }}ms)</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+  {% endif %}
+</body>
+</html>

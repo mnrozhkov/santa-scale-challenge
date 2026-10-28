@@ -1,0 +1,34 @@
+{
+  "id": "da4de7ec-cdd6-40fd-8493-9e8d4cf8ec89",
+  "kid_id": "g7",
+  "recommendation": {
+    "id": "db0e45f3-27e8-4cc9-9386-d38ebaadd6c0",
+    "kid_id": "g7",
+    "gifts": [
+      "Rainbow‑colored mini electronic keyboard",
+      "Sparkling hand‑held jingle bell set",
+      "Create‑Your‑Own‑Song storybook with stickers",
+      "Kids’ rhythm adventure board game"
+    ],
+    "rationale": "These gifts let Astrid explore music in playful ways, from typing melodies on a bright keyboard to adding festive jingles to her tunes. The storybook and rhythm game encourage imagination and cooperative play while building her sense of beat.",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "wish": {
+    "id": "7f85f4a6-a841-475f-baeb-62d1eb0599ce",
+    "kid_id": "g7",
+    "text": "Dear Astrid, at eight years old you already fill the workshop with bright curiosity and joy. I’ve left a touch of rainbow-colored music, sparkling jingles, a storybook where you can write your own songs, and a playful rhythm adventure to discover. Merry Christmas!",
+    "mood": "magical",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "image": {
+    "id": "3f131c1a-3827-41df-8f3e-e8a9ede6a9c9",
+    "kid_id": "g7",
+    "path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g7/card.png",
+    "model_version": "Efficient-Large-Model/Sana_1600M_1024px_diffusers",
+    "prompt": "A magical Christmas storybook illustration, centered composition:\n- The hero object: Rainbow‑colored mini electronic keyboard, beautifully illustrated, glowing softly, placed on snow under a starry night sky\n- Around it: a small decorated Christmas tree, wrapped presents, twinkling lights, gentle falling snow\n- Warm, vibrant colors, soft lighting, sparkles, a sense of wonder\n- Whimsical children's-book art style, clean shapes, cinematic depth\n- No people, no faces, no animals with faces, no text, no letters, no signatures, no copyrighted characters\n",
+    "endpoint": "https://port8000-wd3jtek055vm3xs.tunnel.applications.eu-north1.nebius.cloud"
+  },
+  "png_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g7/card.png",
+  "html_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g7/card.html",
+  "status": "completed"
+}

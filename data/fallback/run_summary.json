@@ -1,0 +1,1536 @@
+{
+  "run_id": "fallback-offline",
+  "kids": [
+    "k01",
+    "k02",
+    "k03",
+    "k04",
+    "k05",
+    "k06",
+    "k07",
+    "k08",
+    "k09",
+    "k10",
+    "k11",
+    "k12",
+    "k13",
+    "k14",
+    "k15",
+    "k16",
+    "k17",
+    "k18",
+    "k19",
+    "k20",
+    "k21",
+    "k22",
+    "k23",
+    "k24",
+    "k25",
+    "k26",
+    "k27",
+    "k28",
+    "k29",
+    "k30",
+    "k31",
+    "k32",
+    "k33",
+    "k34",
+    "k35",
+    "k36",
+    "k37",
+    "k38",
+    "k39",
+    "k40",
+    "k41",
+    "k42",
+    "k43",
+    "k44",
+    "k45",
+    "k46",
+    "k47",
+    "k48",
+    "k49",
+    "k50",
+    "k51",
+    "k52",
+    "k53",
+    "k54",
+    "k55",
+    "k56",
+    "k57",
+    "k58",
+    "k59",
+    "k60",
+    "k61",
+    "k62",
+    "k63",
+    "k64",
+    "k65",
+    "k66",
+    "k67",
+    "k68",
+    "k69",
+    "k70",
+    "k71",
+    "k72",
+    "k73",
+    "k74",
+    "k75",
+    "k76",
+    "k77",
+    "k78",
+    "k79",
+    "k80",
+    "k81",
+    "k82",
+    "k83",
+    "k84",
+    "k85",
+    "k86",
+    "k87",
+    "k88",
+    "k89",
+    "k90",
+    "k91",
+    "k92",
+    "k93",
+    "k94",
+    "k95",
+    "k96",
+    "k97",
+    "k98",
+    "k99",
+    "k100",
+    "k101",
+    "k102",
+    "k103",
+    "k104",
+    "k105",
+    "k106",
+    "k107",
+    "k108",
+    "k109",
+    "k110",
+    "k111",
+    "k112",
+    "k113",
+    "k114",
+    "k115",
+    "k116",
+    "k117",
+    "k118",
+    "k119",
+    "k120",
+    "k121",
+    "k122",
+    "k123",
+    "k124",
+    "k125",
+    "k126",
+    "k127",
+    "k128",
+    "k129",
+    "k130",
+    "k131",
+    "k132",
+    "k133",
+    "k134",
+    "k135",
+    "k136",
+    "k137",
+    "k138",
+    "k139",
+    "k140",
+    "k141",
+    "k142",
+    "k143",
+    "k144",
+    "k145",
+    "k146",
+    "k147",
+    "k148",
+    "k149",
+    "k150",
+    "k151",
+    "k152",
+    "k153",
+    "k154",
+    "k155",
+    "k156",
+    "k157",
+    "k158",
+    "k159",
+    "k160",
+    "k161",
+    "k162",
+    "k163",
+    "k164",
+    "k165",
+    "k166",
+    "k167",
+    "k168",
+    "k169",
+    "k170",
+    "k171",
+    "k172",
+    "k173",
+    "k174",
+    "k175",
+    "k176",
+    "k177",
+    "k178",
+    "k179",
+    "k180",
+    "k181",
+    "k182",
+    "k183",
+    "k184",
+    "k185",
+    "k186",
+    "k187",
+    "k188",
+    "k189",
+    "k190",
+    "k191",
+    "k192",
+    "k193",
+    "k194",
+    "k195",
+    "k196",
+    "k197",
+    "k198",
+    "k199",
+    "k200"
+  ],
+  "jobs": [
+    {
+      "job_id": "offline-job-00",
+      "chunk": "runs/fallback-offline/chunks/0.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k01",
+        "k02",
+        "k03",
+        "k04",
+        "k05"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-01",
+      "chunk": "runs/fallback-offline/chunks/1.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k06",
+        "k07",
+        "k08",
+        "k09",
+        "k10"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-02",
+      "chunk": "runs/fallback-offline/chunks/2.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k11",
+        "k12",
+        "k13",
+        "k14",
+        "k15"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-03",
+      "chunk": "runs/fallback-offline/chunks/3.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k16",
+        "k17",
+        "k18",
+        "k19",
+        "k20"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-04",
+      "chunk": "runs/fallback-offline/chunks/4.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k21",
+        "k22",
+        "k23",
+        "k24",
+        "k25"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-05",
+      "chunk": "runs/fallback-offline/chunks/5.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k26",
+        "k27",
+        "k28",
+        "k29",
+        "k30"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-06",
+      "chunk": "runs/fallback-offline/chunks/6.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k31",
+        "k32",
+        "k33",
+        "k34",
+        "k35"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-07",
+      "chunk": "runs/fallback-offline/chunks/7.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k36",
+        "k37",
+        "k38",
+        "k39",
+        "k40"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-08",
+      "chunk": "runs/fallback-offline/chunks/8.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k41",
+        "k42",
+        "k43",
+        "k44",
+        "k45"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-09",
+      "chunk": "runs/fallback-offline/chunks/9.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k46",
+        "k47",
+        "k48",
+        "k49",
+        "k50"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-10",
+      "chunk": "runs/fallback-offline/chunks/10.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k51",
+        "k52",
+        "k53",
+        "k54",
+        "k55"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-11",
+      "chunk": "runs/fallback-offline/chunks/11.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k56",
+        "k57",
+        "k58",
+        "k59",
+        "k60"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-12",
+      "chunk": "runs/fallback-offline/chunks/12.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k61",
+        "k62",
+        "k63",
+        "k64",
+        "k65"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-13",
+      "chunk": "runs/fallback-offline/chunks/13.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k66",
+        "k67",
+        "k68",
+        "k69",
+        "k70"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-14",
+      "chunk": "runs/fallback-offline/chunks/14.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k71",
+        "k72",
+        "k73",
+        "k74",
+        "k75"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-15",
+      "chunk": "runs/fallback-offline/chunks/15.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k76",
+        "k77",
+        "k78",
+        "k79",
+        "k80"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-16",
+      "chunk": "runs/fallback-offline/chunks/16.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k81",
+        "k82",
+        "k83",
+        "k84",
+        "k85"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-17",
+      "chunk": "runs/fallback-offline/chunks/17.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k86",
+        "k87",
+        "k88",
+        "k89",
+        "k90"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-18",
+      "chunk": "runs/fallback-offline/chunks/18.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k91",
+        "k92",
+        "k93",
+        "k94",
+        "k95"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-19",
+      "chunk": "runs/fallback-offline/chunks/19.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k96",
+        "k97",
+        "k98",
+        "k99",
+        "k100"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-20",
+      "chunk": "runs/fallback-offline/chunks/20.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k101",
+        "k102",
+        "k103",
+        "k104",
+        "k105"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-21",
+      "chunk": "runs/fallback-offline/chunks/21.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k106",
+        "k107",
+        "k108",
+        "k109",
+        "k110"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-22",
+      "chunk": "runs/fallback-offline/chunks/22.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k111",
+        "k112",
+        "k113",
+        "k114",
+        "k115"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-23",
+      "chunk": "runs/fallback-offline/chunks/23.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k116",
+        "k117",
+        "k118",
+        "k119",
+        "k120"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-24",
+      "chunk": "runs/fallback-offline/chunks/24.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k121",
+        "k122",
+        "k123",
+        "k124",
+        "k125"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-25",
+      "chunk": "runs/fallback-offline/chunks/25.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k126",
+        "k127",
+        "k128",
+        "k129",
+        "k130"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-26",
+      "chunk": "runs/fallback-offline/chunks/26.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k131",
+        "k132",
+        "k133",
+        "k134",
+        "k135"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-27",
+      "chunk": "runs/fallback-offline/chunks/27.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k136",
+        "k137",
+        "k138",
+        "k139",
+        "k140"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-28",
+      "chunk": "runs/fallback-offline/chunks/28.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k141",
+        "k142",
+        "k143",
+        "k144",
+        "k145"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-29",
+      "chunk": "runs/fallback-offline/chunks/29.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k146",
+        "k147",
+        "k148",
+        "k149",
+        "k150"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-30",
+      "chunk": "runs/fallback-offline/chunks/30.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k151",
+        "k152",
+        "k153",
+        "k154",
+        "k155"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-31",
+      "chunk": "runs/fallback-offline/chunks/31.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k156",
+        "k157",
+        "k158",
+        "k159",
+        "k160"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-32",
+      "chunk": "runs/fallback-offline/chunks/32.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k161",
+        "k162",
+        "k163",
+        "k164",
+        "k165"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-33",
+      "chunk": "runs/fallback-offline/chunks/33.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k166",
+        "k167",
+        "k168",
+        "k169",
+        "k170"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-34",
+      "chunk": "runs/fallback-offline/chunks/34.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k171",
+        "k172",
+        "k173",
+        "k174",
+        "k175"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-35",
+      "chunk": "runs/fallback-offline/chunks/35.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k176",
+        "k177",
+        "k178",
+        "k179",
+        "k180"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-36",
+      "chunk": "runs/fallback-offline/chunks/36.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k181",
+        "k182",
+        "k183",
+        "k184",
+        "k185"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-37",
+      "chunk": "runs/fallback-offline/chunks/37.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k186",
+        "k187",
+        "k188",
+        "k189",
+        "k190"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-38",
+      "chunk": "runs/fallback-offline/chunks/38.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k191",
+        "k192",
+        "k193",
+        "k194",
+        "k195"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "job_id": "offline-job-39",
+      "chunk": "runs/fallback-offline/chunks/39.json",
+      "platform": "gpu-h100-sxm",
+      "preset": "1gpu-16vcpu-200gb",
+      "preemptible": true,
+      "state_transitions": [
+        {
+          "state": "PENDING",
+          "at": 0.0
+        },
+        {
+          "state": "RUNNING",
+          "at": 8.0
+        },
+        {
+          "state": "COMPLETED",
+          "at": 1800.0
+        }
+      ],
+      "run_s": 1800.0,
+      "cost_usd": 1.075,
+      "on_demand_cost_usd": 1.925,
+      "done": [
+        "k196",
+        "k197",
+        "k198",
+        "k199",
+        "k200"
+      ],
+      "skipped": [],
+      "failed": []
+    }
+  ],
+  "totals": {
+    "done": 200,
+    "skipped": 0,
+    "failed": 0,
+    "run_s": 72000.0,
+    "cost_usd": 43.0,
+    "on_demand_cost_usd": 77.0
+  },
+  "savings_usd": 34.0
+}

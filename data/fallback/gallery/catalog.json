@@ -1,0 +1,173 @@
+[
+  {
+    "id": "g1",
+    "name": "Emma",
+    "age": 8,
+    "wish": "Dear Emma, at eight you\u2019re already a brave explorer of imagination! I hope a set of enchanted picture adventures, a twinkling night\u2011light t\u2026",
+    "tags": [
+      "books"
+    ],
+    "mood": "Magical",
+    "city": "Oslo",
+    "gift": "Enchanting picture\u2011book adventure set (3 classic tales with vibrant art)",
+    "has_video": true,
+    "src": "g1"
+  },
+  {
+    "id": "g2",
+    "name": "Lucas",
+    "age": 8,
+    "wish": "Dear Lucas, Santa sees that your wonderful imagination at eight is already building amazing adventures. I hear the sparkle of tiny bricks f\u2026",
+    "tags": [
+      "lego"
+    ],
+    "mood": "Magical",
+    "city": "Stockholm",
+    "gift": "LEGO City Main Street Building Set",
+    "has_video": true,
+    "src": "g2"
+  },
+  {
+    "id": "g3",
+    "name": "Sofia",
+    "age": 7,
+    "wish": "Dear Sofia, at seven you\u2019re a wonderful artist, and I hear the North Pole is already sparkling with the colors you\u2019ll paint and the magical\u2026",
+    "tags": [
+      "art"
+    ],
+    "mood": "Magical",
+    "city": "Helsinki",
+    "gift": "Watercolor paint set with easy\u2011grip brush holder",
+    "has_video": true,
+    "src": "g3"
+  },
+  {
+    "id": "g4",
+    "name": "Noah",
+    "age": 10,
+    "wish": "Dear Noah, at ten years old you\u2019ve become a brilliant inventor, and the North Pole elves have heard about your curious mind. I\u2019ve tucked a\u2026",
+    "tags": [
+      "robots"
+    ],
+    "mood": "Magical",
+    "city": "Copenhagen",
+    "gift": "Sphero SPRK+ programmable ball robot",
+    "has_video": true,
+    "src": "g4"
+  },
+  {
+    "id": "g5",
+    "name": "Ingrid",
+    "age": 6,
+    "wish": "Dear Ingrid, at six sweet years you\u2019re already a little farmer, and I\u2019ve placed soft farm friends, a tiny wooden barn with a fence, a sound\u2026",
+    "tags": [
+      "animals"
+    ],
+    "mood": "Cozy",
+    "city": "Bergen",
+    "gift": "Soft farm animal plush trio (cow, pig, chick)",
+    "has_video": true,
+    "src": "g5"
+  },
+  {
+    "id": "g6",
+    "name": "Felix",
+    "age": 9,
+    "wish": "Dear Felix, at nine years old your curiosity about the stars shines brighter than ever. I\u2019ve left a little magic that lets you gaze through\u2026",
+    "tags": [
+      "space"
+    ],
+    "mood": "Magical",
+    "city": "Malm\u00f6",
+    "gift": "Beginner's tabletop telescope with easy\u2011focus lenses",
+    "has_video": true,
+    "src": "g6"
+  },
+  {
+    "id": "g7",
+    "name": "Astrid",
+    "age": 8,
+    "wish": "Dear Astrid, at eight years old you already fill the workshop with bright curiosity and joy. I\u2019ve left a touch of rainbow-colored music, sp\u2026",
+    "tags": [
+      "music"
+    ],
+    "mood": "Magical",
+    "city": "Gothenburg",
+    "gift": "Rainbow\u2011colored mini electronic keyboard",
+    "has_video": true,
+    "src": "g7"
+  },
+  {
+    "id": "g8",
+    "name": "Oliver",
+    "age": 11,
+    "wish": "Dear Oliver, at 11 you\u2019re already a brilliant soccer star, and I\u2019ve placed a shimmering new ball and a pop\u2011up goal in the North\u2011Pole worksh\u2026",
+    "tags": [
+      "football"
+    ],
+    "mood": "Magical",
+    "city": "Espoo",
+    "gift": "Premium size\u20115 soccer ball",
+    "has_video": true,
+    "src": "g8"
+  },
+  {
+    "id": "g9",
+    "name": "Nick",
+    "age": 5,
+    "wish": "Dear Nick, at five years old you\u2019re already a brave explorer who loves amazing adventures. I\u2019ve tucked a special surprise that will let you\u2026",
+    "tags": [
+      "dinosaurs",
+      "lego"
+    ],
+    "mood": "Magical",
+    "city": "Turku",
+    "gift": "LEGO Dino Discovery Set",
+    "has_video": true,
+    "src": "g9"
+  },
+  {
+    "id": "g10",
+    "name": "Elias",
+    "age": 8,
+    "wish": "Dear Elias, at 8 years old your imagination already sails across sparkling seas and builds wondrous coral castles. May magnetic friends dan\u2026",
+    "tags": [
+      "ocean"
+    ],
+    "mood": "Magical",
+    "city": "Aarhus",
+    "gift": "Interactive marine life playset with magnetic sea creatures",
+    "has_video": true,
+    "src": "g10"
+  },
+  {
+    "id": "g11",
+    "name": "Freya",
+    "age": 7,
+    "wish": "Dear Freya, at seven you sparkle brighter than the North Star. May your days be filled with blooming gardens, colorful paintings, and wondr\u2026",
+    "tags": [
+      "lego",
+      "art"
+    ],
+    "mood": "Magical",
+    "city": "Odense",
+    "gift": "LEGO Botanical Garden Building Set",
+    "has_video": true,
+    "src": "g11"
+  },
+  {
+    "id": "g12",
+    "name": "Viktor",
+    "age": 9,
+    "wish": "Dear Viktor, at nine years old your imagination shines, and I\u2019ve seen you snap magnetic shapes together, guide a tiny robot, spin story dic\u2026",
+    "tags": [
+      "robots",
+      "lego"
+    ],
+    "mood": "Magical",
+    "city": "Tampere",
+    "gift": "Magnetic Construction Set (e.g., Magformers)",
+    "has_video": true,
+    "src": "g12"
+  }
+]

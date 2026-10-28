@@ -1,0 +1,34 @@
+{
+  "id": "5951c994-389f-4a4e-a6ce-55789e6255ee",
+  "kid_id": "g2",
+  "recommendation": {
+    "id": "caada2cb-624b-47fd-8c2b-42f0540140ef",
+    "kid_id": "g2",
+    "gifts": [
+      "LEGO City Main Street Building Set",
+      "LEGO Space Rocket Explorer",
+      "LEGO Creator 3‑in‑1 Space Cruiser",
+      "Magna‑Tiles magnetic building kit"
+    ],
+    "rationale": "These sets let Lucas expand his city and space adventures while encouraging creative engineering. Each kit is designed for ages 6‑10, offers safe, easy‑to‑connect pieces, and sparks storytelling both on the ground and among the stars.",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "wish": {
+    "id": "a58c35f9-96db-4fe3-9de2-8a13ea7211a0",
+    "kid_id": "g2",
+    "text": "Dear Lucas, Santa sees that your wonderful imagination at eight is already building amazing adventures. I hear the sparkle of tiny bricks forming bustling streets, soaring rockets, and magnetic marvels that will bring your dreams to life. Merry Christmas!",
+    "mood": "magical",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "image": {
+    "id": "e22cd464-854f-41f4-9427-004626b9130c",
+    "kid_id": "g2",
+    "path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g2/card.png",
+    "model_version": "Efficient-Large-Model/Sana_1600M_1024px_diffusers",
+    "prompt": "A magical Christmas storybook illustration, centered composition:\n- The hero object: LEGO City Main Street Building Set, beautifully illustrated, glowing softly, placed on snow under a starry night sky\n- Around it: a small decorated Christmas tree, wrapped presents, twinkling lights, gentle falling snow\n- Warm, vibrant colors, soft lighting, sparkles, a sense of wonder\n- Whimsical children's-book art style, clean shapes, cinematic depth\n- No people, no faces, no animals with faces, no text, no letters, no signatures, no copyrighted characters\n",
+    "endpoint": "https://port8000-wd3jtek055vm3xs.tunnel.applications.eu-north1.nebius.cloud"
+  },
+  "png_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g2/card.png",
+  "html_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g2/card.html",
+  "status": "completed"
+}

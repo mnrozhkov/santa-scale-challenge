@@ -1,0 +1,34 @@
+{
+  "id": "f95c46b8-1629-402a-9ccd-2c3d82e3a072",
+  "kid_id": "g3",
+  "recommendation": {
+    "id": "3b9df39c-a68f-4434-b5b4-a4b7009ec656",
+    "kid_id": "g3",
+    "gifts": [
+      "Watercolor paint set with easy‑grip brush holder",
+      "Dual‑ended crayon‑and‑marker art set",
+      "Deluxe sketchbook with perforated pages for easy display",
+      "Sticker and stencil creative kit"
+    ],
+    "rationale": "These gifts expand Sofia's love of drawing and coloring while staying safe and manageable for a 7‑year‑old. The watercolor set adds a new medium, the dual‑ended tools give versatility, the sketchbook encourages finished artwork, and the stickers and stencils spark imagination for quick, fun projects.",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "wish": {
+    "id": "29c08751-e571-4a4d-bea6-c9eedd1078e6",
+    "kid_id": "g3",
+    "text": "Dear Sofia, at seven you’re a wonderful artist, and I hear the North Pole is already sparkling with the colors you’ll paint and the magical sketches you’ll create on pages that flutter like snowflakes. May your days be filled with joyful stickers and stencils. Merry Christmas!",
+    "mood": "magical",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "image": {
+    "id": "fcbca071-fdfe-4bf9-a7ae-abc45d57dad8",
+    "kid_id": "g3",
+    "path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g3/card.png",
+    "model_version": "Efficient-Large-Model/Sana_1600M_1024px_diffusers",
+    "prompt": "A magical Christmas storybook illustration, centered composition:\n- The hero object: Watercolor paint set with easy‑grip brush holder, beautifully illustrated, glowing softly, placed on snow under a starry night sky\n- Around it: a small decorated Christmas tree, wrapped presents, twinkling lights, gentle falling snow\n- Warm, vibrant colors, soft lighting, sparkles, a sense of wonder\n- Whimsical children's-book art style, clean shapes, cinematic depth\n- No people, no faces, no animals with faces, no text, no letters, no signatures, no copyrighted characters\n",
+    "endpoint": "https://port8000-wd3jtek055vm3xs.tunnel.applications.eu-north1.nebius.cloud"
+  },
+  "png_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g3/card.png",
+  "html_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g3/card.html",
+  "status": "completed"
+}

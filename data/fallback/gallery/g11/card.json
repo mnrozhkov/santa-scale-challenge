@@ -1,0 +1,34 @@
+{
+  "id": "5087c4b0-2b08-41e4-8b31-8623dc073e42",
+  "kid_id": "g11",
+  "recommendation": {
+    "id": "e22a2b6d-20b2-4348-9c78-dc93af9c492e",
+    "kid_id": "g11",
+    "gifts": [
+      "LEGO Botanical Garden Building Set",
+      "Premium Watercolor & Sketch Kit",
+      "Kids’ Seed‑to‑Sprout Garden Kit",
+      "Storybook: \"The Secret Garden of Colorful Creatures\""
+    ],
+    "rationale": "These gifts blend Freya's love for building and art with new, garden‑themed adventures. The LEGO set lets her create blooming structures, while the art kit encourages vibrant illustrations of her creations. The seed kit and garden storybook add a hands‑on, imaginative storyline that brings the world of flowers to life.",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "wish": {
+    "id": "8e0a1d1e-e145-4031-a756-d10918583418",
+    "kid_id": "g11",
+    "text": "Dear Freya, at seven you sparkle brighter than the North Star. May your days be filled with blooming gardens, colorful paintings, and wondrous brick creations that grow like magic. Merry Christmas!",
+    "mood": "magical",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "image": {
+    "id": "4c8def3f-29b0-421d-baca-4dc96b2dca47",
+    "kid_id": "g11",
+    "path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g11/card.png",
+    "model_version": "Efficient-Large-Model/Sana_1600M_1024px_diffusers",
+    "prompt": "A magical Christmas storybook illustration, centered composition:\n- The hero object: LEGO Botanical Garden Building Set, beautifully illustrated, glowing softly, placed on snow under a starry night sky\n- Around it: a small decorated Christmas tree, wrapped presents, twinkling lights, gentle falling snow\n- Warm, vibrant colors, soft lighting, sparkles, a sense of wonder\n- Whimsical children's-book art style, clean shapes, cinematic depth\n- No people, no faces, no animals with faces, no text, no letters, no signatures, no copyrighted characters\n",
+    "endpoint": "https://port8000-wd3jtek055vm3xs.tunnel.applications.eu-north1.nebius.cloud"
+  },
+  "png_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g11/card.png",
+  "html_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g11/card.html",
+  "status": "completed"
+}

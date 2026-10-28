@@ -1,36 +1,44 @@
 # 🎄 Santa Scale Challenge
 
-## AI Orchestration & Agentic Deployment on Nebius Infrastructure
+**AI Orchestration & Agentic Deployment on Nebius Infrastructure**
 
-A reference implementation for orchestrating LLMs and image generation models to create personalized gift cards at scale using **Nebius GPU infrastructure**, **SkyPilot**, and **MLflow**.
-
----
+A reference implementation for orchestrating LLMs and image, video, and audio models to create personalized gift cards at scale using Nebius Serverless AI, Token Factory, GPU Jobs, and MLflow.
 
 ## 🗂️ Repository Structure
 
-```text
+```
 santa-scale-challenge/
-├── prototype/           # Prototype workflows and experiments
-│   ├── santa_workflow.py          # Main workflow: CSV → gift cards
-│   ├── src/                       # Core modules
-│   │   ├── benchmark_llm.py       # LLM benchmarking tool
-│   │   ├── generate_kids.py      # Generate kid profiles CSV
-│   │   ├── data_upload.py         # S3 upload utility
-│   │   └── ...
-│   └── data/                      # Data and outputs
-└── infra/               # SkyPilot configuration
-    └── sky/
-        └── santa_workflow.yaml     # SkyPilot job config
+├── santa/                 # One package: CLI, CPU service, GPU job
+│   ├── cli.py             # santa doctor | card | animate | animate_batch | teardown
+│   ├── card.py            # Gift rec + wish + illustration → PNG/HTML
+│   ├── animate.py         # Wan I2V + music → card.mp4
+│   ├── batch.py           # Inventory cards/{id}/card.png → K GPU Jobs
+│   ├── service/           # FastAPI UI + /wall
+│   └── job.py             # GPU Job entrypoint
+├── config/
+│   ├── models.yaml        # Roles (llm, image, video, audio) + job spec
+│   └── prompts.yaml       # Motion / mood prompts
+├── notebooks/             # Playgrounds + research evals
+├── data/
+│   ├── kids.csv           # 200 KidProfiles (santa card / CPU UI)
+│   └── fallback/          # Offline cards, mp4, moods, run summary
+├── docker/
+│   ├── service.Dockerfile # CPU UI / API
+│   └── job.Dockerfile     # BYOC GPU Job image
+├── skills/                # Echo prompts + Serverless AI skill
+├── scripts/               # Deploy kiosk, mood bank, model sync, teardown, benches
+├── tests/
+└── docs/                  # Service + job contracts
 ```
 
----
+Ops: [docs/service.md](docs/service.md) (CPU UI / `/wall`) · [docs/job.md](docs/job.md) (GPU Jobs). Domain language: [CONTEXT.md](CONTEXT.md).
 
 ## 🚀 Installation
 
 ### Prerequisites
 
-- Python 3.10+
-- [uv](https://github.com/astral-sh/uv) package manager
+- Python 3.11+
+- [uv](https://docs.astral.sh/uv/) package manager
 
 ### Setup
 
@@ -39,7 +47,7 @@ santa-scale-challenge/
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Clone repository
-git clone https://github.com/<your-org>/santa-scale-challenge
+git clone https://github.com/mnrozhkov/santa-scale-challenge
 cd santa-scale-challenge
 
 # Create virtual environment
@@ -47,251 +55,149 @@ uv python install 3.12
 uv venv --python 3.12
 source .venv/bin/activate
 
-# Install dependencies
-uv pip install -e .
+# Install dependencies (laptop CLI only)
+uv sync
 
-# Install development dependencies (optional, for Jupyter)
-uv sync --group dev
+# Optional groups
+uv sync --group service    # FastAPI CPU UI (santa-service)
+uv sync --group dev        # Jupyter, pytest, linters
+uv sync --group research   # MLflow eval notebooks
+
+# Keys you already have — not GPU endpoints
+cp .env.example .env
+# TOKEN_FACTORY_API_KEY=…     # llm role (required for a live card)
+# OPENAI_API_KEY=…            # optional fallback for llm / image / video
+# SANTA_FALLBACK=auto         # auto | off | only
 ```
 
----
+`uv sync` with no groups is the laptop core: `santa doctor`, `santa card`.
 
-## ⚙️ Configuration
+GPU endpoint URLs go in `.env` after you deploy them (step 1 below). Nebius bucket / Jobs IDs go in when you create those resources (step 3). The CLI loads `.env` from the repository root automatically. Roles are named in `config/models.yaml`; secrets and URLs live in `.env`. Swap a model in the yaml only — then re-run `santa doctor`.
 
-### Environment Variables
+## 🧪 Running Locally (test/debug)
 
-Create a `.env` file in the repository root:
+Check that `.env` and Token Factory resolve (image / video / audio may SKIP until you deploy them):
 
 ```bash
-# LLM API Keys (at least one required)
-OPENAI_API_KEY=your_openai_key
-TOKEN_FACTORY_API_KEY=your_token_factory_key
+santa doctor
+```
 
-# Image Generation API Key
-RECRAFT_API_KEY=your_recraft_key
+One gift card (interactive form, or flags):
 
-# MLflow Tracking (for remote tracking)
-MLFLOW_TRACKING_URI=https://your-mlflow-server
-MLFLOW_TRACKING_USERNAME=your_username
-MLFLOW_TRACKING_PASSWORD=your_password
+```bash
+santa card --form
+# or: santa card --name Emma --age 7 --wish "a telescope"
+```
 
-# S3 Storage (for SkyPilot)
+Expected: `out/<id>/card.png` and `out/<id>/card.html`. Stuck? Set `OPENAI_API_KEY` — fallbacks kick in. No endpoints yet?
+
+```bash
+santa card --offline
+santa animate --offline
+santa animate_batch --offline
+```
+
+CPU UI on the laptop:
+
+```bash
+uv sync --group service
+npm install --prefix santa/service/ui && npm run build --prefix santa/service/ui
+santa-service          # HOST=0.0.0.0 PORT=8000  →  GET /  (Sim/Real UI) and  GET /wall
+```
+
+Public kiosk (QR, `--auth none`): [docs/service.md](docs/service.md) — `./scripts/deploy-service.sh ship`, then `./scripts/deploy-service.sh url`. Operator unlock is `/?op=<SANTA_OPERATOR_TOKEN>`. `santa teardown` still stops this endpoint.
+
+Set `SANTA_LOCAL_STORAGE=1` to use local `out/` even if AWS keys are in `.env`.
+
+Playground notebooks: [notebooks/README.md](notebooks/README.md).
+
+```bash
+uv sync --group dev && uv run jupyter lab
+```
+
+## ☁️ Running with Serverless AI
+
+Everything below runs in **your** Nebius project. Workshop walkthrough: [WORKSHOP.md](WORKSHOP.md) (steps 0–6).
+
+**1. Deploy endpoints** from the console templates (Create Endpoint). When each one is ready, paste its URL and token into `.env`:
+
+```bash
+# Image (Sana) — required for a live card
+IMAGE_ENDPOINT_URL=https://your-sana-endpoint
+IMAGE_ENDPOINT_TOKEN=your_endpoint_token
+
+# Video (Wan I2V) — santa animate
+VIDEO_ENDPOINT_URL=https://your-wan-endpoint
+VIDEO_ENDPOINT_TOKEN=your_endpoint_token
+
+# Audio (ACE-Step) — or skip and use --mood-bank
+AUDIO_ENDPOINT_URL=https://your-acestep-endpoint
+AUDIO_ENDPOINT_TOKEN=your_endpoint_token
+```
+
+- Image — [Sana (L40S)](https://console.nebius.com/serverless/endpoint/create?image=cr.eu-north1.nebius.cloud%2Fe00gw2b7v3pxetvpy7%2Fsana-serve%3Ad315ae1&targetPort=8000&platform=gpu-l40s-a&preset=1gpu-8vcpu-32gb&diskSize=500GiB&preemptible=true) → `IMAGE_ENDPOINT_*`
+- Video — [Wan 2.2 I2V A14B (H100)](https://console.nebius.com/serverless/endpoint/create?image=vllm%2Fvllm-omni%3Av0.24.0&command=vllm%20serve%20Wan-AI%2FWan2.2-I2V-A14B-Diffusers%20--omni%20--host%200.0.0.0%20--port%208000&targetPort=8000&platform=gpu-h100-sxm&preset=1gpu-16vcpu-200gb&diskSize=500GiB&preemptible=true) → `VIDEO_ENDPOINT_*`
+- Audio — [ACE-Step 1.5 (H100)](https://console.nebius.com/serverless/endpoint/create?image=cr.eu-north1.nebius.cloud%2Fe00gw2b7v3pxetvpy7%2Facestep-serve%3Ad315ae1&targetPort=8000&platform=gpu-h100-sxm&preset=1gpu-16vcpu-200gb&diskSize=500GiB&preemptible=true) → `AUDIO_ENDPOINT_*`
+
+Catalog: [serverless-ai-cookbook/templates](https://github.com/nebius/serverless-ai-cookbook/tree/main/templates). Re-run `santa doctor` until the **image** (and later **video**) rows are OK.
+
+**2. Animate a card** (Wan + mood-bank tracks, or a live ACE-Step endpoint):
+
+```bash
+santa animate out/<id>/card.png --mood-bank
+```
+
+**3. Animate batch** — publish GiftCards via the API, then K preemptible GPU Jobs over `cards/{id}/card.png`. Add bucket + IAM to `.env` (create these in the console if you have not yet) and set `job.image` in `config/models.yaml`:
+
+```bash
+# Object Storage (publish + santa animate_batch)
 AWS_ACCESS_KEY_ID=your_access_key
 AWS_SECRET_ACCESS_KEY=your_secret_key
-AWS_ENDPOINT_URL=https://storage.eu-north1.nebius.cloud:443
-NEBIUS_S3_BUCKET=nebius://santa-storage-s3
+AWS_ENDPOINT_URL=https://storage.eu-north1.nebius.cloud
+NEBIUS_BUCKET_NAME=your-bucket-name
+
+# GPU Jobs
+NEBIUS_IAM_TOKEN=your_iam_token          # nebius iam get-access-token
+NEBIUS_PROJECT_ID=your_project_id
+NEBIUS_BUCKET_ID=your_bucket_id
+NEBIUS_SUBNET_ID=your_subnet_id
 ```
 
-The script automatically loads `.env` from the repository root.
-
----
-
-## 🧪 Running Locally
-
-### 1. Generate Kid Profiles
+Then:
 
 ```bash
-python prototype/src/generate_kids.py 20 --output prototype/data/santa_workflow/kids.csv
+santa card --name Emma --age 7 --wish "a telescope" --publish
+santa animate_batch --jobs 4
 ```
 
-### 2. Run LLM Benchmarking
+`--no-wait` + `santa animate_batch --status <run_id>` to poll later. Existing `cards/{id}/video.mp4` are skipped.
 
-Benchmark different LLM models with remote MLflow tracking:
+**4. Publish** to the wall (`GET /wall` on the CPU service):
 
 ```bash
-python prototype/src/benchmark_llm.py \
-  --models gpt-4o-mini gpt-4-turbo \
-  --mlflow-tracking-uri $MLFLOW_TRACKING_URI \
-  --mlflow-username $MLFLOW_TRACKING_USERNAME \
-  --mlflow-password $MLFLOW_TRACKING_PASSWORD
+santa card --name Emma --age 7 --wish "a telescope" --publish
+santa animate out/<id>/card.png --mood-bank --publish
 ```
 
-Options:
-- `--models`: Space-separated list of model names
-- `--concurrency`: Number of concurrent requests (default: 1)
-- `--num-requests`: Number of requests per model (default: 10)
-- `--output-csv`: Path to save results CSV
-
-### 3. Run Santa Workflow
-
-Generate personalized gift cards from CSV:
+**5. Tear down** before you leave (billing is yours):
 
 ```bash
-python prototype/santa_workflow.py prototype/data/santa_workflow/kids.csv \
-  --llm-model gpt-4o-mini \
-  --image-model recraftv3 \
-  --output-dir prototype/data/santa_workflow/cards \
-  --intermediate-dir prototype/data/santa_workflow/intermediate \
-  --no-drive-upload
+santa teardown --dry-run
+santa teardown
 ```
 
-Options:
-- `--llm-model`: LLM model name (default: gpt-4o-mini)
-- `--image-model`: Image model name (default: recraftv3)
-- `--output-dir`: Directory for PNG cards
-- `--intermediate-dir`: Directory for intermediate JSON files
-- `--no-drive-upload`: Skip Google Drive upload
-- `--default-age`: Default age for kids (default: 10)
-
-The workflow:
-
-1. Reads kid profiles from CSV
-2. Generates gift recommendations (LLM)
-3. Generates personalized wishes (LLM)
-4. Generates card images (Image API)
-5. Creates final PNG cards
-6. Saves intermediate results as JSON
-
----
-
-## ☁️ Running with SkyPilot
-
-### Prerequisites
-
-1. Install SkyPilot:
-```bash
-uv pip install -e ".[skypilot]"
-```
-
-2. Configure SkyPilot for Nebius:
-```bash
-sky check
-```
-
-3. Set environment variables (see Configuration section)
-
-### Launch New Cluster and Run Workflow
-
-Launch a new SkyPilot cluster and automatically run the santa_workflow:
-
-```bash
-sky launch \
-  --secret RECRAFT_API_KEY \
-  --secret OPENAI_API_KEY \
-  --secret AWS_ACCESS_KEY_ID \
-  --secret AWS_SECRET_ACCESS_KEY \
-  infra/sky/santa_workflow.yaml
-```
-
-The workflow will:
-
-- Provision H100 GPU instance on Nebius
-- Clone repository and install dependencies
-- Generate kid profiles
-- Run santa_workflow.py
-- Upload results to S3
-
-### Run Job on Existing Cluster
-
-Execute the workflow on an existing SkyPilot cluster:
-
-```bash
-sky exec <SKYPILOT_CLUSTER_NAME> \
-  --secret RECRAFT_API_KEY \
-  --secret OPENAI_API_KEY \
-  --secret AWS_ACCESS_KEY_ID \
-  --secret AWS_SECRET_ACCESS_KEY \
-  infra/sky/santa_workflow.yaml
-```
-
-Replace `<SKYPILOT_CLUSTER_NAME>` with your cluster name (e.g., `santa_workflow`).
-
-### Monitor and Manage
-
-```bash
-# View logs
-sky logs santa_workflow -t
-
-# SSH into the instance
-sky ssh santa_workflow
-
-# Stop the cluster
-sky down santa_workflow
-```
-
-### SkyPilot Configuration
-
-Edit `infra/sky/santa_workflow.yaml` to customize:
-
-- Number of GPUs (`accelerators: H100:1`)
-- Instance type
-- Environment variables
-- Secrets (API keys)
-- Run commands
-
----
-
-## 📊 MLflow Integration
-
-The project integrates with MLflow for tracking:
-
-- Model performance metrics
-- Latency and throughput
-- Cost estimates
-- Generated artifacts (images, cards)
-
-When `MLFLOW_TRACKING_URI` is set, all runs are automatically logged to the remote MLflow server.
-
-View results:
-```bash
-# If running MLflow locally
-mlflow ui
-
-# Or access your remote MLflow UI
-open $MLFLOW_TRACKING_URI
-```
-
----
-
-## 🧱 Data Models
-
-### KidProfile
-
-```python
-id: str
-name: str
-age: int
-wishlist: List[str]
-```
-
-### GiftCard Pipeline
-
-1. **GiftRecommendation** - LLM-generated gift suggestions
-2. **Wish** - Personalized holiday wish text
-3. **CardImage** - Generated card illustration
-4. **GiftCard** - Final rendered PNG card
-
----
-
-## 🔧 Utilities
-
-### Upload to S3
-
-```bash
-# Upload a file
-python prototype/src/data_upload.py \
-  --source-file prototype/data/santa_workflow/kids.csv \
-  --destination-bucket nebius://santa-storage-s3 \
-  --s3-prefix santa_workflow
-
-# Upload a directory
-python prototype/src/data_upload.py \
-  --source-dir prototype/data/santa_workflow/cards \
-  --destination-bucket nebius://santa-storage-s3 \
-  --s3-prefix santa_workflow
-```
-
----
+Echo prompts for listing/stopping endpoints: [skills/README.md](skills/README.md). Load `skills/serverless-ai` in the coding agent.
 
 ## 🧯 Troubleshooting
 
-- **Import errors?** Ensure virtual environment is activated: `source .venv/bin/activate`
-- **API key errors?** Check `.env` file exists and contains required keys
-- **MLflow connection errors?** Verify `MLFLOW_TRACKING_URI` and credentials are correct
-- **SkyPilot errors?** Run `sky check` to verify Nebius configuration
+| Symptom | What to try |
+| --- | --- |
+| `santa doctor` red on **llm** or **image** | Paste `TOKEN_FACTORY_API_KEY` and `IMAGE_ENDPOINT_URL` / `IMAGE_ENDPOINT_TOKEN`. Or set `OPENAI_API_KEY` so the fallback covers the role (row becomes WARN). |
+| Endpoint is RUNNING in the console, doctor still fails | RUNNING ≠ ready. Wait and re-run `santa doctor` until it pings `/v1/models`. |
+| TLS / `SSLError` on a corporate laptop | The CLI injects the OS cert store (`truststore`). Persist with `export SSL_CERT_FILE=/path/to/corp-ca.pem`. S3: `AWS_CA_BUNDLE=/etc/ssl/cert.pem`. |
+| No GPU endpoints yet | `SANTA_FALLBACK=only` skips primaries. Or `santa card --offline` / `santa animate --offline` / `santa animate_batch --offline` (copies `data/fallback/`, calls no models). |
+| `santa animate_batch` / publish 403 | Use Object Storage access keys (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`), not `NEBIUS_IAM_TOKEN`. Bucket **name** is `NEBIUS_BUCKET_NAME`; bucket **id** (`NEBIUS_BUCKET_ID`) is only for Job FUSE mounts. |
+| `santa animate_batch` empty `cards/` | Publish GiftCards first (`santa card … --publish`), then `santa animate_batch --jobs 4`. Animate batch is Jobs only — it does not make GiftCards. |
+| Jobs never submit | Publish GiftCards, then set `NEBIUS_IAM_TOKEN` (`nebius iam get-access-token`), `NEBIUS_PROJECT_ID`, `NEBIUS_BUCKET_ID`, `NEBIUS_SUBNET_ID`, and a non-empty `job.image` in `config/models.yaml` (`docker build --platform linux/amd64 -f docker/job.Dockerfile`). |
 
----
-
-## 📄 License
-
-MIT — use freely for workshops, training, and holiday-themed AI adventures.
+`santa doctor` does not stop anything. `santa teardown` does.

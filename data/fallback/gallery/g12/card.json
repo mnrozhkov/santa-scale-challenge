@@ -1,0 +1,34 @@
+{
+  "id": "9a3d2920-930f-45e8-8bab-c17b832f1826",
+  "kid_id": "g12",
+  "recommendation": {
+    "id": "46051bb2-3cc2-40a8-9485-d59d2e4a456c",
+    "kid_id": "g12",
+    "gifts": [
+      "Magnetic Construction Set (e.g., Magformers)",
+      "Beginner Coding Robot Kit (e.g., LEGO Boost)",
+      "Storytelling Dice for imaginative adventures",
+      "Snap‑together Glider Building Kit"
+    ],
+    "rationale": "These gifts expand Viktor's love for magnetic tiles and robots while adding new ways to build, code, and invent. The construction set fuels spatial skills, the robot kit introduces simple programming, the dice spark narrative play, and the glider kit offers hands‑on engineering fun—all safe and perfect for a curious 9‑year‑old.",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "wish": {
+    "id": "11798b43-0cc1-4972-be6a-a2e6e2d4b47d",
+    "kid_id": "g12",
+    "text": "Dear Viktor, at nine years old your imagination shines, and I’ve seen you snap magnetic shapes together, guide a tiny robot, spin story dice, and launch gliders into the winter sky. May the season’s magic lift your creations even higher and fill your heart with wonder. Merry Christmas!",
+    "mood": "magical",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "image": {
+    "id": "f49cddff-7696-43b0-9652-cd64c414d500",
+    "kid_id": "g12",
+    "path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g12/card.png",
+    "model_version": "Efficient-Large-Model/Sana_1600M_1024px_diffusers",
+    "prompt": "A magical Christmas storybook illustration, centered composition:\n- The hero object: Magnetic Construction Set (e.g., Magformers), beautifully illustrated, glowing softly, placed on snow under a starry night sky\n- Around it: a small decorated Christmas tree, wrapped presents, twinkling lights, gentle falling snow\n- Warm, vibrant colors, soft lighting, sparkles, a sense of wonder\n- Whimsical children's-book art style, clean shapes, cinematic depth\n- No people, no faces, no animals with faces, no text, no letters, no signatures, no copyrighted characters\n",
+    "endpoint": "https://port8000-wd3jtek055vm3xs.tunnel.applications.eu-north1.nebius.cloud"
+  },
+  "png_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g12/card.png",
+  "html_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g12/card.html",
+  "status": "completed"
+}

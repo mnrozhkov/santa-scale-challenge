@@ -1,0 +1,34 @@
+{
+  "id": "1addafb9-7293-40de-b419-964ca157e88f",
+  "kid_id": "g5",
+  "recommendation": {
+    "id": "174f0945-32c3-4e50-962d-8ce2cfcb3216",
+    "kid_id": "g5",
+    "gifts": [
+      "Soft farm animal plush trio (cow, pig, chick)",
+      "Wooden barn and fence play set",
+      "Interactive farm sound book",
+      "Farm‑themed dress‑up cape and hat"
+    ],
+    "rationale": "These gifts echo Ingrid's love for plush animals and farm play while adding new layers of imagination. The soft plush trio is perfect for cuddles, the wooden barn encourages constructive play, the sound book brings farm noises to storytime, and the dress‑up set lets her become a little farmer herself. All items are safe, durable, and age‑appropriate for a six‑year‑old.",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "wish": {
+    "id": "8ee02ac6-0382-4841-bc8e-72d1870fd07b",
+    "kid_id": "g5",
+    "text": "Dear Ingrid, at six sweet years you’re already a little farmer, and I’ve placed soft farm friends, a tiny wooden barn with a fence, a sound‑filled story, and a breezy cape for your farmyard adventures. Merry Christmas!",
+    "mood": "cozy",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "image": {
+    "id": "4b40460e-752d-4cda-bc7a-4f1b51cae3c7",
+    "kid_id": "g5",
+    "path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g5/card.png",
+    "model_version": "Efficient-Large-Model/Sana_1600M_1024px_diffusers",
+    "prompt": "A magical Christmas storybook illustration, centered composition:\n- The hero object: Soft farm animal plush trio (cow, pig, chick), beautifully illustrated, glowing softly, placed on snow under a starry night sky\n- Around it: a small decorated Christmas tree, wrapped presents, twinkling lights, gentle falling snow\n- Warm, vibrant colors, soft lighting, sparkles, a sense of wonder\n- Whimsical children's-book art style, clean shapes, cinematic depth\n- No people, no faces, no animals with faces, no text, no letters, no signatures, no copyrighted characters\n",
+    "endpoint": "https://port8000-wd3jtek055vm3xs.tunnel.applications.eu-north1.nebius.cloud"
+  },
+  "png_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g5/card.png",
+  "html_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g5/card.html",
+  "status": "completed"
+}

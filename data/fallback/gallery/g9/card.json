@@ -1,0 +1,34 @@
+{
+  "id": "d450d0dd-705f-47e5-a9e4-1376634a3cf0",
+  "kid_id": "g9",
+  "recommendation": {
+    "id": "4d91887d-06ca-44e3-97a0-452643de17ef",
+    "kid_id": "g9",
+    "gifts": [
+      "LEGO Dino Discovery Set",
+      "LEGO Animal Friends Barn",
+      "Magnetic Building Zoo Blocks",
+      "Dinosaur Play Tent with Lights"
+    ],
+    "rationale": "These gifts let Nick build, imagine, and explore his love of dinosaurs and animals while developing fine‑motor skills and storytelling. The LEGO sets are easy‑to‑handle for small hands, the magnetic blocks snap together safely, and the play tent creates a cozy adventure space. All are designed for 5‑year‑olds and bring hours of creative fun.",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "wish": {
+    "id": "5c5faf26-7ccf-4f26-b155-153053c3c4f0",
+    "kid_id": "g9",
+    "text": "Dear Nick, at five years old you’re already a brave explorer who loves amazing adventures. I’ve tucked a special surprise that will let you build a roaring dinosaur kingdom and a cozy barn for gentle friends, all hidden inside a twinkling tent of lights. Merry Christmas!",
+    "mood": "magical",
+    "model_version": "openai/gpt-oss-120b@https://api.tokenfactory.nebius.com/v1"
+  },
+  "image": {
+    "id": "5bdf96aa-1035-4b73-ad5f-b8f963ec5afc",
+    "kid_id": "g9",
+    "path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g9/card.png",
+    "model_version": "Efficient-Large-Model/Sana_1600M_1024px_diffusers",
+    "prompt": "A magical Christmas storybook illustration, centered composition:\n- The hero object: LEGO Dino Discovery Set, beautifully illustrated, glowing softly, placed on snow under a starry night sky\n- Around it: a small decorated Christmas tree, wrapped presents, twinkling lights, gentle falling snow\n- Warm, vibrant colors, soft lighting, sparkles, a sense of wonder\n- Whimsical children's-book art style, clean shapes, cinematic depth\n- No people, no faces, no animals with faces, no text, no letters, no signatures, no copyrighted characters\n",
+    "endpoint": "https://port8000-wd3jtek055vm3xs.tunnel.applications.eu-north1.nebius.cloud"
+  },
+  "png_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g9/card.png",
+  "html_path": "/Users/mnrozhkov/dev/santa-scale-challenge/out/gallery/g9/card.html",
+  "status": "completed"
+}
